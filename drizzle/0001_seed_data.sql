@@ -71,7 +71,10 @@ ON CONFLICT (sku) DO NOTHING;
 -- =========================================================================
 -- Default T&C clauses (from Mohit Jain reference quote)
 -- =========================================================================
-INSERT INTO terms_clauses (title, body, category, applies_to, is_default, sort_order) VALUES
+-- Skipped entirely if any default clauses already exist, so re-running the
+-- migration never duplicates or conflicts with user-edited titles.
+INSERT INTO terms_clauses (title, body, category, applies_to, is_default, sort_order)
+SELECT * FROM (VALUES
 (
   'Scope of quotation',
   'This quotation covers machinery and primary accessories only. Piping charges are not included and will be quoted separately once the site drawings are finalised.',
@@ -116,7 +119,8 @@ INSERT INTO terms_clauses (title, body, category, applies_to, is_default, sort_o
   'Delivery timeline',
   'Delivery timeline to be confirmed upon order confirmation and receipt of advance payment.',
   'DELIVERY', 'BOTH', TRUE, 9
-);
+)) AS t(title, body, category, applies_to, is_default, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM terms_clauses WHERE is_default = TRUE);
 
 -- =========================================================================
 -- Sample client (Mohit Jain, from the reference quote)

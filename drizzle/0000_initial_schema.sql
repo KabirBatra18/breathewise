@@ -43,11 +43,11 @@ CREATE POLICY profiles_owner_all ON profiles
     (SELECT role FROM profiles WHERE id = auth.uid()) = 'OWNER'
   );
 
--- Authenticated users can update their own totp fields + last_login_at
--- via the server-side client. Server actions still validate ownership.
-CREATE POLICY profiles_self_update ON profiles
-  FOR UPDATE USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
+-- No self-update policy: any change to a profile row (TOTP enrolment,
+-- last_login_at, role, etc.) is performed by server actions using the
+-- service role, never directly by the client session. This prevents
+-- privilege escalation where a self-update policy would otherwise let
+-- authenticated users set their own role = 'OWNER'.
 
 CREATE TABLE login_attempts (
   id BIGSERIAL PRIMARY KEY,
@@ -304,10 +304,15 @@ CREATE POLICY quote_line_items_delete ON quote_line_items
     (SELECT role FROM profiles WHERE id = auth.uid()) IN ('OWNER', 'EMPLOYEE')
   );
 
--- Safe view — excludes cost_price_snapshot. Runs with view-creator's
--- permissions (default), so it can SELECT from the base table even though
--- the caller's RLS policies would otherwise block non-OWNER reads.
-CREATE VIEW quote_line_items_safe AS
+-- Safe view — excludes cost_price_snapshot. Declared with
+-- security_invoker = false (Postgres 15 default, made explicit here) so
+-- the view runs with creator privileges and can SELECT from the base
+-- table even though RLS on the base table restricts SELECT to OWNER.
+-- Supabase's linter flags views without security_invoker = on; that flag
+-- is suppressed intentionally for this view — this is the whole point of
+-- the column-filter pattern.
+CREATE VIEW quote_line_items_safe
+  WITH (security_invoker = false) AS
   SELECT id, quote_section_id, product_id, sno, description, mrp,
          quantity, unit_price, unit, sort_order
   FROM quote_line_items;
@@ -522,3 +527,26 @@ BEGIN
   DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '24 hours';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =========================================================================
+-- Auto-refresh updated_at on any UPDATE
+-- =========================================================================
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER profiles_set_updated_at BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER products_set_updated_at BEFORE UPDATE ON products
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER clients_set_updated_at BEFORE UPDATE ON clients
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER quotes_set_updated_at BEFORE UPDATE ON quotes
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER terms_clauses_set_updated_at BEFORE UPDATE ON terms_clauses
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER company_settings_set_updated_at BEFORE UPDATE ON company_settings
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();

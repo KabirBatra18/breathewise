@@ -1,17 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// Minimal login shell for Phase 1 — no real auth yet.
-// The full Supabase Auth + TOTP wiring lands in Step 5 once DB credentials
-// are available. This file exists now so the security middleware and the
-// /login route respond with the right HTML.
+// Minimal login shell. Full Supabase Auth + TOTP wiring lands in Step 5
+// once DB credentials are available. This file exists now so the security
+// middleware and the /login route respond with the right HTML.
 export function LoginForm() {
-  const [pending] = useState(false);
-
   return (
     <form
       className="space-y-4"
@@ -39,8 +35,8 @@ export function LoginForm() {
           required
         />
       </div>
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+      <Button type="submit" className="w-full">
+        Sign in
       </Button>
     </form>
   );
