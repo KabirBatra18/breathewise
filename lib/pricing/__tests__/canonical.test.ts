@@ -152,7 +152,7 @@ describe("PRECISE tier computation — same line items, three discount tiers", (
       },
     ],
     discountTiers: ["5.00", "10.00", "15.00"],
-  } as const;
+  };
 
   test("grand totals at Q1/Q2/Q3 (5/10/15%)", () => {
     const tiers = computePreciseTiers(PRECISE_INPUT, "EMPLOYEE");
