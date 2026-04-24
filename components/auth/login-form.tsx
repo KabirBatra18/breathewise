@@ -1,27 +1,35 @@
 "use client";
 
+import { useFormState, useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { loginAction, type LoginState } from "@/app/(public)/login/actions";
 
-// Minimal login shell. Full Supabase Auth + TOTP wiring lands in Step 5
-// once DB credentials are available. This file exists now so the security
-// middleware and the /login route respond with the right HTML.
-export function LoginForm() {
+const initial: LoginState = { ok: false };
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
   return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-      }}
-    >
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? "Signing in…" : "Sign in"}
+    </Button>
+  );
+}
+
+export function LoginForm() {
+  const [state, formAction] = useFormState(loginAction, initial);
+
+  return (
+    <form action={formAction} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="username">Username</Label>
         <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
+          id="username"
+          name="username"
+          type="text"
+          autoComplete="username"
+          autoFocus
           required
         />
       </div>
@@ -35,9 +43,12 @@ export function LoginForm() {
           required
         />
       </div>
-      <Button type="submit" className="w-full">
-        Sign in
-      </Button>
+      {state.error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      <SubmitButton />
     </form>
   );
 }

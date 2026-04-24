@@ -1,5 +1,7 @@
--- Phase 1 seed data: catalog, default T&C clauses, sample client.
--- Safe to re-run — uses ON CONFLICT DO NOTHING.
+-- Phase 1 seed data: catalog + default T&C clauses + sample client.
+-- Safe to re-run — guarded by ON CONFLICT / NOT EXISTS.
+-- The owner user is seeded separately by db/seed.ts so bcrypt hashing uses
+-- the same library the app uses at login time.
 
 -- =========================================================================
 -- Astberg catalog (starter — 6 products from the Mohit Jain reference quote)
@@ -69,10 +71,8 @@ VALUES
 ON CONFLICT (sku) DO NOTHING;
 
 -- =========================================================================
--- Default T&C clauses (from Mohit Jain reference quote)
+-- Default T&C clauses (from Mohit Jain reference quote) — idempotent
 -- =========================================================================
--- Skipped entirely if any default clauses already exist, so re-running the
--- migration never duplicates or conflicts with user-edited titles.
 INSERT INTO terms_clauses (title, body, category, applies_to, is_default, sort_order)
 SELECT * FROM (VALUES
 (

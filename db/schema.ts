@@ -8,7 +8,6 @@ import {
   jsonb,
   numeric,
   pgTable,
-  pgView,
   text,
   timestamp,
   unique,
@@ -21,16 +20,18 @@ const money = (name: string) =>
 const percent = (name: string) =>
   numeric(name, { precision: 5, scale: 2 });
 
-export const profiles = pgTable("profiles", {
-  id: uuid("id").primaryKey(),
-  email: text("email").notNull().unique(),
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
   fullName: text("full_name").notNull(),
+  email: text("email"),
   phone: text("phone"),
   role: text("role").notNull(),
   isActive: boolean("is_active").notNull().default(true),
-  totpSecretEncrypted: text("totp_secret_encrypted"),
-  totpEnabled: boolean("totp_enabled").notNull().default(false),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
+  createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -40,7 +41,7 @@ export const loginAttempts = pgTable(
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     ipAddress: inet("ip_address").notNull(),
-    email: text("email"),
+    username: text("username"),
     succeeded: boolean("succeeded").notNull(),
     attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -72,7 +73,7 @@ export const productCosts = pgTable("product_costs", {
   costPrice: money("cost_price").notNull(),
   supplier: text("supplier"),
   notes: text("notes"),
-  updatedBy: uuid("updated_by").references(() => profiles.id),
+  updatedBy: uuid("updated_by").references(() => users.id),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -83,7 +84,7 @@ export const productCostHistory = pgTable("product_cost_history", {
     .references(() => products.id, { onDelete: "cascade" }),
   previousCost: money("previous_cost"),
   newCost: money("new_cost").notNull(),
-  changedBy: uuid("changed_by").references(() => profiles.id),
+  changedBy: uuid("changed_by").references(() => users.id),
   changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -101,7 +102,7 @@ export const clients = pgTable("clients", {
   pincode: text("pincode"),
   gstin: text("gstin"),
   notes: text("notes"),
-  createdBy: uuid("created_by").references(() => profiles.id),
+  createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -124,7 +125,7 @@ export const quotes = pgTable("quotes", {
   issueDate: date("issue_date").notNull().defaultNow(),
   closedAt: timestamp("closed_at", { withTimezone: true }),
   closedReason: text("closed_reason"),
-  createdBy: uuid("created_by").references(() => profiles.id),
+  createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -167,21 +168,6 @@ export const quoteLineItems = pgTable("quote_line_items", {
   costPriceSnapshot: money("cost_price_snapshot"),
 });
 
-// OWNER reads quote_line_items (table) — includes cost_price_snapshot.
-// EMPLOYEE/VIEWER reads quote_line_items_safe (view) — no cost column.
-export const quoteLineItemsSafe = pgView("quote_line_items_safe", {
-  id: uuid("id").notNull(),
-  quoteSectionId: uuid("quote_section_id").notNull(),
-  productId: uuid("product_id"),
-  sno: integer("sno").notNull(),
-  description: text("description").notNull(),
-  mrp: money("mrp"),
-  quantity: money("quantity").notNull(),
-  unitPrice: money("unit_price").notNull(),
-  unit: text("unit").notNull(),
-  sortOrder: integer("sort_order").notNull(),
-}).existing();
-
 export const quoteSends = pgTable("quote_sends", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   quoteId: uuid("quote_id")
@@ -192,7 +178,7 @@ export const quoteSends = pgTable("quote_sends", {
   pdfUrl: text("pdf_url").notNull(),
   sentVia: text("sent_via"),
   sentTo: text("sent_to"),
-  sentBy: uuid("sent_by").references(() => profiles.id),
+  sentBy: uuid("sent_by").references(() => users.id),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   notes: text("notes"),
 });
@@ -238,7 +224,7 @@ export const payments = pgTable("payments", {
   referenceNumber: text("reference_number"),
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
   notes: text("notes"),
-  recordedBy: uuid("recorded_by").references(() => profiles.id),
+  recordedBy: uuid("recorded_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -268,7 +254,7 @@ export const quoteTerms = pgTable("quote_terms", {
 
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  actorId: uuid("actor_id").references(() => profiles.id),
+  actorId: uuid("actor_id").references(() => users.id),
   action: text("action").notNull(),
   entityType: text("entity_type").notNull(),
   entityId: uuid("entity_id"),
@@ -294,3 +280,6 @@ export const companySettings = pgTable("company_settings", {
   quoteNumberPrefix: text("quote_number_prefix").notNull().default("BW"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
