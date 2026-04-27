@@ -41,6 +41,7 @@ import { amountInWords } from "@/lib/pricing/words";
 import { Decimal } from "@/lib/pricing/decimal";
 import { QuoteBuilder } from "@/components/quotes/quote-builder";
 import { markQuoteStatusAction } from "../actions";
+import { QuoteSendActions } from "@/components/quotes/send-actions";
 
 export const metadata = { title: "Quote" };
 
@@ -355,12 +356,18 @@ export default async function QuoteDetailPage({
         <CardHeader>
           <CardTitle>Actions</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+        <CardContent className="space-y-4">
+          {me.role === "OWNER" || me.role === "EMPLOYEE" ? (
+            <QuoteSendActions
+              quoteId={quote.id}
+              status={quote.status}
+              pdfUrl={`/api/quotes/${quote.id}/pdf`}
+            />
+          ) : null}
           {(quote.status === "SENT" ||
-            quote.status === "NEGOTIATING" ||
-            quote.status === "DRAFT") &&
+            quote.status === "NEGOTIATING") &&
           (me.role === "OWNER" || me.role === "EMPLOYEE") ? (
-            <>
+            <div className="flex flex-wrap gap-2">
               <form action={markQuoteStatusAction}>
                 <input type="hidden" name="id" value={quote.id} />
                 <input type="hidden" name="status" value="ACCEPTED" />
@@ -375,7 +382,7 @@ export default async function QuoteDetailPage({
                   Mark rejected
                 </Button>
               </form>
-            </>
+            </div>
           ) : null}
         </CardContent>
       </Card>
