@@ -5,20 +5,20 @@ import postgres from "postgres";
 
 config({ path: ".env.local" });
 
-const MIGRATIONS = [
-  "0000_initial_schema.sql",
-  "0001_seed_data.sql",
-];
+const MIGRATIONS = ["0000_initial_schema.sql", "0001_seed_data.sql"];
 
 async function main() {
-  const url = process.env.DATABASE_URL;
+  const url =
+    process.env.DATABASE_URL ??
+    process.env.POSTGRES_URL_NON_POOLING ??
+    process.env.POSTGRES_URL;
   if (!url) {
     throw new Error(
-      "DATABASE_URL is missing. Copy .env.local.example to .env.local and fill it in.",
+      "No Postgres URL set. Provide DATABASE_URL (local) or POSTGRES_URL_NON_POOLING (Vercel).",
     );
   }
 
-  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  const sql = postgres(url, { max: 1, onnotice: () => {}, prepare: false });
 
   try {
     await sql`CREATE TABLE IF NOT EXISTS _bw_migrations (

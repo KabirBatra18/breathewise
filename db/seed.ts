@@ -4,22 +4,25 @@ config({ path: ".env.local" });
 import bcrypt from "bcryptjs";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { sql, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { users } from "./schema";
 
 async function main() {
-  const url = process.env.DATABASE_URL;
+  const url =
+    process.env.DATABASE_URL ??
+    process.env.POSTGRES_URL_NON_POOLING ??
+    process.env.POSTGRES_URL;
   const username = process.env.SEED_OWNER_USERNAME;
   const password = process.env.SEED_OWNER_PASSWORD;
   const fullName = process.env.SEED_OWNER_FULLNAME;
 
   if (!url || !username || !password || !fullName) {
     throw new Error(
-      "DATABASE_URL, SEED_OWNER_USERNAME, SEED_OWNER_PASSWORD, and SEED_OWNER_FULLNAME must all be set in .env.local",
+      "DATABASE_URL/POSTGRES_URL_NON_POOLING, SEED_OWNER_USERNAME, SEED_OWNER_PASSWORD, and SEED_OWNER_FULLNAME must all be set.",
     );
   }
 
-  const client = postgres(url, { max: 1 });
+  const client = postgres(url, { max: 1, prepare: false });
   const db = drizzle(client);
 
   try {
