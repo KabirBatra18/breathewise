@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BreatheWise — Indoor Air Quality Solutions for Delhi NCR</title>
+  <meta name="description" content="We measure and fix the air inside your home. Professional AQI audits, ventilation engineering, and clean air solutions for Delhi NCR families.">
+  <link rel="canonical" href="https://breathewise.in">
+  <meta property="og:title" content="BreatheWise — Indoor Air Quality Solutions for Delhi NCR">
+  <meta property="og:description" content="We measure and fix the air inside your home.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://breathewise.in">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=14">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="navbar" id="navbar">
+    <div class="container-wide">
+      <a href="#" class="nav-logo">BreatheWise</a>
+      <div class="nav-links">
+        <div class="nav-dropdown">
+          <button class="nav-drop-trigger">Spaces <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="nav-drop-menu">
+            <a href="verticals/homes.html">Homes</a>
+            <a href="verticals/offices.html">Offices</a>
+            <a href="verticals/schools.html">Schools</a>
+            <a href="verticals/clinics.html">Clinics</a>
+            <a href="verticals/hotels.html">Hotels</a>
+            <a href="verticals/gyms.html">Gyms &amp; studios</a>
+            <a href="verticals/restaurants.html">Restaurants</a>
+            <a href="verticals/bakeries.html">Bakeries</a>
+          </div>
+        </div>
+        <a href="#how-it-works">How it works</a>
+        <a href="#team">Team</a>
+        <a href="#faq">FAQ</a>
+        <a href="#contact" class="nav-cta">Get air check</a>
+      </div>
+      <div class="nav-hamburger" aria-label="Menu" role="button" tabindex="0">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </nav>
+  <div class="nav-mobile-overlay">
+    <div class="mobile-section">
+      <h4>Spaces</h4>
+      <a href="verticals/homes.html">Homes</a>
+      <a href="verticals/offices.html">Offices</a>
+      <a href="verticals/schools.html">Schools</a>
+      <a href="verticals/clinics.html">Clinics</a>
+      <a href="verticals/hotels.html">Hotels</a>
+      <a href="verticals/gyms.html">Gyms &amp; studios</a>
+      <a href="verticals/restaurants.html">Restaurants</a>
+      <a href="verticals/bakeries.html">Bakeries</a>
+    </div>
+    <a href="#how-it-works">How it works</a>
+    <a href="#faq">FAQ</a>
+    <a href="#contact" class="nav-cta">Get air check</a>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="hero-bg">
+      <img src="images/hero-bg.png" alt="" loading="eager">
+    </div>
+    <canvas id="hero-particles"></canvas>
+
+    <!-- Live AQI chip -->
+    <div class="hero-live">
+      <span class="hero-live-dot"></span>
+      <span class="hero-live-label">Delhi AQI right now</span>
+      <span class="hero-live-value mono" id="live-aqi">287</span>
+      <span class="hero-live-tag">Unhealthy</span>
+    </div>
+
+    <div class="hero-content">
+      <p class="hero-overline">Indoor air quality · Delhi NCR</p>
+      <h1 class="hero-headline">
+        Fixing the <span class="hero-accent">air<svg class="hero-accent-line" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 10 Q 50 2, 100 6 T 198 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span><br>
+        your family breathes
+      </h1>
+      <p class="hero-subtitle">Your purifier filters particles. Nobody is measuring the CO₂, the VOCs, the invisible chemicals. We measure. We diagnose. We fix.</p>
+      <div class="hero-actions">
+        <a href="#problem" class="btn btn-primary">See your air data</a>
+        <a href="#contact" class="hero-ghost">Talk to us <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+      </div>
+
+    </div>
+
+    <!-- Floating data callout -->
+    <div class="hero-callout">
+      <div class="hero-callout-label">A sealed Delhi bedroom · 3 AM</div>
+      <div class="hero-callout-num mono">2,847</div>
+      <div class="hero-callout-unit">CO₂ ppm · <span class="danger-text">2.8x over safe</span></div>
+    </div>
+
+    <!-- Scroll indicator -->
+    <a href="#problem" class="hero-scroll" aria-label="Scroll to next section">
+      <span class="hero-scroll-line"></span>
+    </a>
+  </section>
+
+  <!-- PROBLEM — verified data -->
+  <section class="problem" id="problem">
+    <div class="container">
+      <div class="section-header">
+        <p class="overline">The problem</p>
+        <h2 class="section-headline">Your home looks clean.<br>Your air tells a different story.</h2>
+      </div>
+      <div class="data-table">
+        <div class="data-row data-row-numbers">
+          <div class="data-number danger" data-count="2400" data-suffix="+">0</div>
+          <div class="data-number warning" data-count="85">0</div>
+          <div class="data-number danger" data-count="0" data-suffix="%">0</div>
+        </div>
+        <div class="data-row data-row-labels">
+          <div>CO₂ in your bedroom</div>
+          <div>Particle pollution (PM2.5)</div>
+          <div>Fresh air coming in</div>
+        </div>
+        <div class="data-row data-row-over">
+          <div class="over-badge danger">140% over safe limit</div>
+          <div class="over-badge warning">467% over safe limit</div>
+          <div class="over-badge danger">Zero fresh air</div>
+        </div>
+        <div class="data-row data-row-context">
+          <div>Measured at 3 AM. Windows sealed. AC on. Purifier running.</div>
+          <div>With a ₹25,000 purifier running on max speed.</div>
+          <div>Your AC recirculates the same stale air. No oxygen comes in.</div>
+        </div>
+        <div class="data-verified">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          Measured with professional-grade Temtop sensors · Calibrated to WHO standards
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROGRESSION — Nothing → Purifier → BreatheWise -->
+  <section class="progression" id="progression">
+    <div class="container">
+      <div class="section-header">
+        <p class="overline">The reality</p>
+        <h2 class="section-headline">What's actually protecting your family?</h2>
+      </div>
+      <div class="prog-stages">
+        <div class="prog-stage">
+          <div class="prog-stage-header bad">
+            <div class="prog-stage-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <h3 class="prog-stage-title">No treatment</h3>
+            <p class="prog-stage-sub">Sealed Delhi home, AC on</p>
+          </div>
+          <div class="prog-metrics">
+            <div class="prog-metric"><span class="prog-metric-label">CO₂</span><span class="prog-metric-value bad">3,200+</span><span class="prog-metric-status bad">3x over limit</span></div>
+            <div class="prog-metric"><span class="prog-metric-label">Particles</span><span class="prog-metric-value bad">450+</span><span class="prog-metric-status bad">30x over limit</span></div>
+            <div class="prog-metric"><span class="prog-metric-label">Fresh air</span><span class="prog-metric-value bad">0%</span><span class="prog-metric-status bad">None</span></div>
+          </div>
+          <div class="prog-verdict bad"><span class="prog-verdict-icon">✕</span>Recycled toxic air, zero ventilation</div>
+        </div>
+        <div class="prog-arrow">→</div>
+        <div class="prog-stage">
+          <div class="prog-stage-header mid">
+            <div class="prog-stage-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="12" x2="15" y2="14"/></svg>
+            </div>
+            <h3 class="prog-stage-title">Air purifier only</h3>
+            <p class="prog-stage-sub">₹25K purifier running on max</p>
+          </div>
+          <div class="prog-metrics">
+            <div class="prog-metric"><span class="prog-metric-label">CO₂</span><span class="prog-metric-value bad">3,200+</span><span class="prog-metric-status bad">No change</span></div>
+            <div class="prog-metric"><span class="prog-metric-label">Particles</span><span class="prog-metric-value mid">85</span><span class="prog-metric-status mid">Still 6x over</span></div>
+            <div class="prog-metric"><span class="prog-metric-label">Fresh air</span><span class="prog-metric-value bad">0%</span><span class="prog-metric-status bad">Still none</span></div>
+          </div>
+          <div class="prog-verdict mid"><span class="prog-verdict-icon">△</span>Filters some particles, but air stays stale</div>
+        </div>
+        <div class="prog-arrow">→</div>
+        <div class="prog-stage featured">
+          <div class="prog-stage-header good">
+            <div class="prog-stage-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 12 10 16 18 8"/></svg>
+            </div>
+            <h3 class="prog-stage-title">BreatheWise</h3>
+            <p class="prog-stage-sub">Filtering oxygen-rich fresh air from outside</p>
+          </div>
+          <div class="prog-metrics">
+            <div class="prog-metric"><span class="prog-metric-label">CO₂</span><span class="prog-metric-value good">648</span><span class="prog-metric-status good">Safe</span></div>
+            <div class="prog-metric"><span class="prog-metric-label">Particles</span><span class="prog-metric-value good">12</span><span class="prog-metric-status good">Below WHO limit</span></div>
+            <div class="prog-metric"><span class="prog-metric-label">Fresh air</span><span class="prog-metric-value good">100%</span><span class="prog-metric-status good">Continuous</span></div>
+          </div>
+          <div class="prog-verdict good"><span class="prog-verdict-icon">✓</span>Clean, oxygen-rich air flowing 24/7</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BEFORE/AFTER -->
+  <section class="before-after" id="before-after">
+    <div class="container">
+      <div class="section-header">
+        <p class="overline">The result</p>
+        <h2 class="section-headline">Same home. Real data.</h2>
+      </div>
+      <div class="slider-wrapper">
+        <div class="slider-after-layer"><img src="images/after.png" alt="Room after BreatheWise" loading="lazy"></div>
+        <div class="slider-before-layer"><img src="images/before.png" alt="Room before ventilation" loading="lazy"></div>
+        <div class="slider-badge before-badge">CO₂: 2,847 ppm<br>PM2.5: 84 µg/m³</div>
+        <div class="slider-badge after-badge">CO₂: 648 ppm<br>PM2.5: 12 µg/m³</div>
+        <div class="slider-handle"><div class="slider-handle-circle">⟷</div></div>
+      </div>
+      <p class="slider-caption">30-day average · 3BHK · DLF Phase 4, Gurgaon</p>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <div class="section-header">
+        <p class="overline">How it works</p>
+        <h2 class="section-headline">Three steps to clean air</h2>
+      </div>
+      <div class="how-layout">
+        <div class="how-image"><img src="images/audit.png" alt="Engineer placing sensor" loading="lazy"></div>
+        <div class="how-steps">
+          <div class="how-step">
+            <div class="how-step-num mono">01</div>
+            <div><h3 class="how-step-title">We measure</h3><p class="how-step-desc">Professional sensors in every room, 24-48 hours. PM2.5, CO₂, VOCs, humidity — room by room.</p></div>
+          </div>
+          <div class="how-step">
+            <div class="how-step-num mono">02</div>
+            <div><h3 class="how-step-title">We diagnose</h3><p class="how-step-desc">Data compared against WHO standards. Root causes identified. Specific solution designed for your home.</p></div>
+          </div>
+          <div class="how-step">
+            <div class="how-step-num mono">03</div>
+            <div><h3 class="how-step-title">We fix</h3><p class="how-step-desc">Custom ventilation installed. Fresh filtered air in, stale out, 24/7. Then we measure again to prove it.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE TEAM -->
+  <section class="team" id="team">
+    <div class="container">
+      <div class="section-header">
+        <p class="overline">The team</p>
+        <h2 class="section-headline">Engineers run the job.</h2>
+        <p class="section-subtitle">Not salesmen. Not contractors. Not channel partners. Every audit and install is led by the founders themselves.</p>
+      </div>
+
+      <div class="team-grid">
+        <article class="team-card">
+          <div class="team-photo-wrap">
+            <img src="images/team-nanu.png" alt="Er. Nanu Batra" loading="lazy">
+          </div>
+          <div class="team-content">
+            <div class="team-name-row">
+              <h3>Er. Nanu Batra</h3>
+              <span class="team-role">Principal Engineer</span>
+            </div>
+            <p class="team-bio">20+ years in structural consultancy and building audits. Government &amp; IBBI-approved valuer empanelled with SBI, PNB, and UCO Bank. Brings diagnostic rigor honed on thousands of commercial buildings.</p>
+            <div class="team-creds">
+              <span>M.Tech</span>
+              <span class="team-cred-inst">IIT Delhi</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="team-card">
+          <div class="team-photo-wrap">
+            <img src="images/team-kabir.png" alt="Kabir Batra" loading="lazy">
+          </div>
+          <div class="team-content">
+            <div class="team-name-row">
+              <h3>Kabir Batra</h3>
+              <span class="team-role">Instrumentation &amp; Controls</span>
+            </div>
+            <p class="team-bio">Instrumentation &amp; Control engineer. Ex-EY business consulting. Combines sensor engineering with consulting rigor — every home treated like a system to be measured, not guessed.</p>
+            <div class="team-creds">
+              <span>B.Tech</span>
+              <span class="team-cred-inst">NSUT Delhi · Ex-EY</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHERE WE WORK -->
+  <section class="verticals" id="verticals">
+    <div class="container">
+      <div class="section-header">
+        <p class="overline">Where we work</p>
+        <h2 class="section-headline">Clean air for every space</h2>
+      </div>
+      <div class="vertical-grid">
+        <a href="verticals/homes.html" class="v-card">
+          <img src="images/vertical-home.png" alt="Modern Indian home" loading="lazy">
+          <div class="v-overlay">
+            <span class="v-stat"><b>90%</b> of life indoors</span>
+            <h3>Homes</h3>
+            <span class="v-arrow">→</span>
+          </div>
+        </a>
+        <a href="verticals/offices.html" class="v-card">
+          <img src="images/vertical-office.png" alt="Modern office" loading="lazy">
+          <div class="v-overlay">
+            <span class="v-stat"><b>15%</b> focus drop</span>
+            <h3>Offices</h3>
+            <span class="v-arrow">→</span>
+          </div>
+        </a>
+        <a href="verticals/schools.html" class="v-card">
+          <img src="images/vertical-school.png" alt="Indian classroom" loading="lazy">
+          <div class="v-overlay">
+            <span class="v-stat"><b>2.5x</b> more air</span>
+            <h3>Schools</h3>
+            <span class="v-arrow">→</span>
+          </div>
+        </a>
+        <a href="verticals/clinics.html" class="v-card">
+          <img src="images/vertical-clinic.png" alt="Medical clinic" loading="lazy">
+          <div class="v-overlay">
+            <span class="v-stat"><b>WHO</b> grade air</span>
+            <h3>Clinics</h3>
+            <span class="v-arrow">→</span>
+          </div>
+        </a>
+        <a href="verticals/hotels.html" class="v-card">
+          <img src="images/vertical-hotel.png" alt="Luxury hotel" loading="lazy">
+          <div class="v-overlay">
+            <span class="v-stat"><b>5★</b> standards</span>
+            <h3>Hotels</h3>
+            <span class="v-arrow">→</span>
+          </div>
+        </a>
+        <a href="verticals/gyms.html" class="v-card">
+          <img src="images/vertical-gym.png" alt="Fitness gym" loading="lazy">
+          <div class="v-overlay">
+            <span class="v-stat"><b>10x</b> breathing</span>
+            <h3>Gyms &amp; studios</h3>
+            <span class="v-arrow">→</span>
+          </div>
+        </a>
+        <a href="verticals/restaurants.html" class="v-card">
+          <img src="images/vertical-restaurant.png" alt="Restaurant kitchen" loading="lazy">
+          <div class="v-overlay">
+            <span class="v-stat"><b>20x</b> PM2.5 spikes</span>
+            <h3>Restaurants</h3>
+            <span class="v-arrow">→</span>
+          </div>
+        </a>
+        <a href="verticals/bakeries.html" class="v-card">
+          <img src="images/vertical-bakery.png" alt="Artisan bakery" loading="lazy">
+          <div class="v-overlay">
+            <span class="v-stat"><b>Flour</b> dust + heat</span>
+            <h3>Bakeries</h3>
+            <span class="v-arrow">→</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH / BRANDS -->
+  <section class="tech-stack" id="tech">
+    <div class="container">
+      <div class="section-header">
+        <p class="overline">Our equipment</p>
+        <h2 class="section-headline">Best-in-class, brand-agnostic</h2>
+        <p class="section-subtitle">We recommend the right solution for your home — not whatever we stock.</p>
+      </div>
+      <div class="tech-grid">
+        <div class="tech-col">
+          <h4>Sensors we measure with</h4>
+          <ul class="tech-list">
+            <li>Temtop M2000 — PM2.5, PM10, CO₂, HCHO, TVOC</li>
+            <li>Aranet4 — CO₂ &amp; humidity precision</li>
+            <li>IQAir AirVisual Pro — reference-grade PM</li>
+            <li>Kaiterra Laser Egg — continuous monitoring</li>
+          </ul>
+        </div>
+        <div class="tech-col">
+          <h4>Ventilation partners</h4>
+          <ul class="tech-list">
+            <li>Zehnder ComfoAir ERV — premium European</li>
+            <li>Astberg fresh-air systems — India-made</li>
+            <li>Prana Air wall-mount units — compact retrofits</li>
+            <li>Systemair HRV — commercial-grade</li>
+          </ul>
+        </div>
+        <div class="tech-col">
+          <h4>Filtration</h4>
+          <ul class="tech-list">
+            <li>HEPA H13 — captures 99.95% of particles</li>
+            <li>Activated carbon — VOCs &amp; odors</li>
+            <li>MERV-13 pre-filters — extend system life</li>
+            <li>UV-C sterilization — optional add-on</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="testimonials" id="testimonials">
+    <div class="container">
+      <div class="section-header">
+        <div class="review-summary">
+          <span class="review-stars">★★★★★</span>
+          <span class="review-score">4.9/5</span>
+          <span class="review-count">from early assessments</span>
+        </div>
+        <h2 class="section-headline">What our clients say</h2>
+      </div>
+      <div class="testimonial-grid">
+        <div class="testimonial-card">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text">"We had no idea our bedroom CO₂ was at 2,800 ppm every night. The report was eye-opening. After the ventilation install, we're sleeping better than we have in years."</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">RS</div>
+            <div><strong>Mrs. Sharma</strong><span>DLF Phase 4, Gurgaon</span></div>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text">"I spent ₹1.5 lakh on purifiers. The BreatheWise assessment showed my CO₂ was still 3x over the limit. Now with ventilation, every reading is green. Should have done this first."</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">AK</div>
+            <div><strong>Amit K.</strong><span>South Delhi</span></div>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text">"Professional, data-driven, no sales pressure. They showed us the numbers, explained everything, and the installation was done in a day. The kids' room air quality is completely different now."</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">PM</div>
+            <div><strong>Priya M.</strong><span>Noida Sector 50</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHARE + BROCHURE -->
+  <section class="share-section" id="share">
+    <div class="container">
+      <div class="share-box">
+        <div class="share-left">
+          <h3>Know someone breathing toxic air?</h3>
+          <p>Share BreatheWise with family &amp; friends in Delhi NCR.</p>
+        </div>
+        <div class="share-buttons">
+          <a href="https://wa.me/?text=Check%20out%20BreatheWise%20-%20they%20measure%20and%20fix%20indoor%20air%20quality%20in%20Delhi%20NCR.%20https%3A%2F%2Fbreathewise.in" target="_blank" rel="noopener" class="share-btn wa">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/></svg>
+            WhatsApp
+          </a>
+          <button class="share-btn copy" data-copy="https://breathewise.in">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <span class="copy-text">Copy link</span>
+          </button>
+          <a href="#" class="share-btn download" id="brochure-download">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Brochure
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq" id="faq">
+    <div class="container">
+      <div class="section-header">
+        <p class="overline">Questions</p>
+        <h2 class="section-headline">Everything you need to know</h2>
+      </div>
+      <div class="faq-list">
+        <div class="faq-item"><button class="faq-question"><span>Isn't an air purifier enough?</span><span class="faq-icon">+</span></button><div class="faq-answer"><div class="faq-answer-inner">Purifiers filter particles from the same stale air. They can't remove CO₂ or bring in fresh oxygen. A purifier is a filter. Ventilation is fresh air. You need both.</div></div></div>
+        <div class="faq-item"><button class="faq-question"><span>What do you measure?</span><span class="faq-icon">+</span></button><div class="faq-answer"><div class="faq-answer-inner">PM2.5, PM10, CO₂, VOCs, temperature, and humidity — in every room, over 24-48 hours. You get a report against WHO standards.</div></div></div>
+        <div class="faq-item"><button class="faq-question"><span>How much does it cost?</span><span class="faq-icon">+</span></button><div class="faq-answer"><div class="faq-answer-inner">Assessment starts at ₹5,000. Ventilation from ₹60,000 (single room) to ₹3,00,000+ (full home). We start with assessment — no commitments.</div></div></div>
+        <div class="faq-item"><button class="faq-question"><span>Is installation disruptive?</span><span class="faq-icon">+</span></button><div class="faq-answer"><div class="faq-answer-inner">1-2 days. Ductwork inside false ceilings. One core drill for intake. Professional finish.</div></div></div>
+        <div class="faq-item"><button class="faq-question"><span>How do I know it's working?</span><span class="faq-icon">+</span></button><div class="faq-answer"><div class="faq-answer-inner">We measure before and after. Hard data. Many clients get a real-time monitor — you see the difference 24/7.</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section class="contact" id="contact">
+    <div class="container">
+      <div class="contact-left">
+        <h2 class="contact-headline">Find out what your family is breathing</h2>
+        <p class="contact-subtitle">Free 15-minute air check. We bring sensors, show you numbers. No sales pitch.</p>
+        <a href="https://wa.me/91XXXXXXXXXX?text=Hi%2C%20I'd%20like%20to%20book%20a%20free%20air%20quality%20check" target="_blank" rel="noopener" class="btn btn-whatsapp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          WhatsApp us
+        </a>
+        <div class="contact-info">
+          <a href="tel:+91XXXXXXXXXX">+91 XXXXXXXXXX</a>
+          <a href="mailto:hello@breathewise.in">hello@breathewise.in</a>
+        </div>
+        <div class="contact-address">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>BreatheWise · Urban Tech Solutions<br>Gurgaon, Haryana — Serving all of Delhi NCR</span>
+        </div>
+      </div>
+      <div class="contact-right">
+        <form class="contact-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+          <div class="form-row">
+            <div class="form-group"><label for="name">Name</label><input type="text" id="name" name="name" required placeholder="Your name"></div>
+            <div class="form-group"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" required placeholder="+91"></div>
+          </div>
+          <div class="form-group"><label for="location">Location</label><input type="text" id="location" name="location" required placeholder="e.g. DLF Phase 4, Gurgaon"></div>
+          <div class="form-group"><label for="message">Anything else?</label><textarea id="message" name="message" placeholder="Tell us about your space..."></textarea></div>
+          <button type="submit" class="form-submit">Request free air check</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div><div class="footer-logo">BreatheWise</div><p class="footer-tagline">Fixing the air your family breathes</p></div>
+        <div class="footer-links"><a href="#how-it-works">How it works</a><a href="#faq">FAQ</a><a href="#contact">Contact</a><a href="https://instagram.com/breathewise.air" target="_blank" rel="noopener">Instagram</a></div>
+        <div class="footer-address">Urban Tech Solutions · Gurgaon, Haryana · Serving all of Delhi NCR</div>
+        <div class="footer-legal"><span>© 2026 Urban Tech Solutions</span><a href="#">Privacy</a><a href="#">Terms</a></div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- FLOATING CALL + WHATSAPP -->
+  <div class="floating-contacts" id="floating-contacts">
+    <a href="tel:+91XXXXXXXXXX" class="fc-btn fc-call" aria-label="Call us">
+      <span class="fc-label">Call now</span>
+      <span class="fc-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </span>
+    </a>
+    <a href="https://wa.me/91XXXXXXXXXX?text=Hi%2C%20I'd%20like%20to%20book%20a%20free%20air%20quality%20check" target="_blank" rel="noopener" class="fc-btn fc-wa" aria-label="WhatsApp us">
+      <span class="fc-label">WhatsApp</span>
+      <span class="fc-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/></svg>
+      </span>
+    </a>
+  </div>
+
+  <script src="script.js?v=5"></script>
+</body>
+</html>
