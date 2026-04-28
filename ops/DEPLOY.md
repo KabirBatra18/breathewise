@@ -1,55 +1,68 @@
 # BreatheWise Ops — Deploy
 
 Single-vendor: Vercel hosts the Next.js app **and** the Postgres database. Free
-tier. Roughly 10 minutes from zero to a public URL.
+tier. ~10 minutes from zero to a public URL.
 
-## What you need to do (the only manual steps)
+The ops app lives inside the public-website repo under `ops/`. Vercel imports
+the same repo and is told to treat `ops/` as the project root, so the public
+website at `/` is untouched.
 
-1. **GitHub** (3 min)
-   - Sign up / log in at https://github.com
-   - Create a new **private** repo named `breathewise-ops`. Leave it empty
-     (no README, no .gitignore).
-   - Send the URL to Claude (looks like
-     `https://github.com/YOUR_USERNAME/breathewise-ops.git`).
+## Vercel project setup
 
-2. **Vercel** (3 min)
-   - Sign up at https://vercel.com using "Continue with GitHub".
-   - Once logged in, **Add New → Project → Import Git Repository**, pick
-     `breathewise-ops` (after Claude has pushed code there).
-   - Click **Deploy**. The first deploy will fail because there's no DB yet;
-     that's fine.
+1. **Import** — at vercel.com → **Add New → Project → Import Git Repository**,
+   pick `breathewise`.
+2. **Configure project** — in the Configure form before clicking Deploy:
+   - **Root Directory** → click **Edit** → select **`ops`**. (This is the
+     critical step. Without it, Vercel tries to deploy the public website
+     root and fails.)
+   - Framework Preset should auto-detect as Next.js.
+   - Leave the rest at defaults.
+3. **Click Deploy.** First deploy will fail because there's no DB yet —
+   that's expected.
 
-3. **Vercel Postgres** (2 min)
-   - In the project, go to **Storage → Create Database → Postgres**.
-   - Pick a region (Singapore `sin1` for India proximity).
-   - Click **Connect Project**. Vercel auto-injects `POSTGRES_URL`,
-     `POSTGRES_URL_NON_POOLING`, and other Postgres env vars into the deploy.
+## Provision the database
 
-4. **Set the remaining env vars** (1 min, in Vercel project Settings → Environment
-   Variables, add to all environments):
-   - `SESSION_SECRET` — Claude generates this and shares
-   - `SEED_OWNER_USERNAME` — `Kabir`
-   - `SEED_OWNER_PASSWORD` — `101510` (change after first login)
-   - `SEED_OWNER_FULLNAME` — `Kabir`
+1. In the project, **Storage → Create Database → Postgres**.
+2. Pick region **Singapore `sin1`** for India proximity.
+3. **Connect Project**. Vercel auto-injects `POSTGRES_URL`,
+   `POSTGRES_URL_NON_POOLING`, etc. into all deployments.
 
-5. **Trigger redeploy** from the Vercel Deployments tab so the new env vars
-   are picked up.
+## Set the remaining env vars
 
-## What Claude does
+In the Vercel project, **Settings → Environment Variables** (apply to
+Production, Preview, and Development):
 
-- Pushes the 13 commits to the GitHub repo.
-- Pulls the new env vars locally (`vercel env pull`).
-- Runs `pnpm db:migrate` to create all tables on Vercel Postgres.
-- Runs `pnpm db:seed` to create your `Kabir` owner account.
-- Verifies the production URL responds correctly.
-- Sends you the URL and next steps for setting up a custom subdomain
-  (`hub.breathewise.in`) on GoDaddy.
+| Name | Value |
+|------|-------|
+| `SESSION_SECRET` | (32-byte base64, Claude provides) |
+| `SEED_OWNER_USERNAME` | `Kabir` |
+| `SEED_OWNER_PASSWORD` | `101510` |
+| `SEED_OWNER_FULLNAME` | `Kabir` |
 
-## After deployment
+Trigger a redeploy from the **Deployments** tab so the new env vars apply.
 
-Open the production URL, log in as `Kabir / 101510`, change your password, and
-add employees from `/settings/users`. The team accesses the same URL from any
-device.
+## After the redeploy succeeds
 
-If anything breaks: the Vercel Deployments tab has logs; psql connection
-string is in Storage → your DB → `.env.local` tab.
+Claude runs locally:
+- `vercel env pull .env.production.local` — fetches the live `POSTGRES_URL`.
+- `DATABASE_URL=$(grep POSTGRES_URL_NON_POOLING .env.production.local | cut -d= -f2-) pnpm db:migrate` — creates tables.
+- Same with `pnpm db:seed` — creates the OWNER account.
+- Curls the production URL to verify `/login` is up.
+
+You then open the URL, log in as `Kabir / 101510`, change your password, and
+add employees from `/settings/users`.
+
+## Custom subdomain (`hub.breathewise.in`)
+
+Once verified, in Vercel project → **Settings → Domains** add `hub.breathewise.in`.
+Vercel shows you a CNAME record. Add it at GoDaddy → DNS → CNAME, host `hub`,
+points to `cname.vercel-dns.com`. Wait 5–30 min for propagation. Done.
+
+## Troubleshooting
+
+- **Build fails complaining about Next.js not found** — Root Directory wasn't
+  set to `ops`. Project Settings → General → Root Directory → `ops`.
+- **App loads but DB queries 500** — Postgres not yet connected, or env vars
+  missing. Storage tab confirms DB; Deployments tab shows logs.
+- **Login form doesn't accept Kabir/101510** — seed didn't run. Local: check
+  `.env.production.local` was pulled, then re-run `pnpm db:seed`.
