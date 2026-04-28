@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import {
@@ -97,11 +97,7 @@ export async function saveRoughQuoteAction(
         costPrice: productCosts.costPrice,
       })
       .from(productCosts)
-      .where(
-        productIds.length === 1
-          ? eq(productCosts.productId, productIds[0]!)
-          : sql`${productCosts.productId} = ANY(${productIds}::uuid[])`,
-      );
+      .where(inArray(productCosts.productId, productIds));
     for (const row of rows) costMap.set(row.productId, row.costPrice);
   }
 
@@ -201,9 +197,7 @@ export async function saveRoughQuoteAction(
       const clauseRows = await tx
         .select()
         .from(termsClauses)
-        .where(
-          sql`${termsClauses.id} = ANY(${data.termsClauseIds}::uuid[])`,
-        );
+        .where(inArray(termsClauses.id, data.termsClauseIds));
       const orderById = new Map(
         data.termsClauseIds.map((id, idx) => [id, idx]),
       );
