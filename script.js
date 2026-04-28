@@ -128,13 +128,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ========== GSAP ANIMATIONS ========== */
 
-  // Hero
-  gsap.timeline({ delay: 0.3 })
-    .from('.hero-overline', { y: 10, opacity: 0, duration: 0.6, ease: 'power3.out' })
-    .from('.hero-headline', { y: 20, opacity: 0, duration: 1, ease: 'power3.out' }, '-=.35')
-    .from('.hero-subtitle', { y: 14, opacity: 0, duration: 0.7, ease: 'power3.out' }, '-=.5')
-    .from('.hero .btn', { y: 10, opacity: 0, duration: 0.5, ease: 'power3.out' }, '-=.3')
-    .from('.hero-trust', { opacity: 0, duration: 0.6 }, '-=.2');
+  // Hero (v2 — editorial cream)
+  gsap.timeline({ delay: 0.2 })
+    .from('.hero-v2-meta-row', { y: 10, opacity: 0, duration: 0.6, ease: 'power3.out' })
+    .from('.hero-v2-headline', { y: 24, opacity: 0, duration: 1, ease: 'power3.out' }, '-=.35')
+    .from('.hero-v2-sub', { y: 14, opacity: 0, duration: 0.7, ease: 'power3.out' }, '-=.5')
+    .from('.hero-v2-actions', { y: 10, opacity: 0, duration: 0.5, ease: 'power3.out' }, '-=.4')
+    .from('.hero-v2-proof', { y: 16, opacity: 0, duration: 0.7, ease: 'power3.out' }, '-=.5');
 
   // Section headers
   gsap.utils.toArray('.section-header').forEach(h => {
