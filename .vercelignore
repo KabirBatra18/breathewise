@@ -1,7 +1,0 @@
-# Used by the public-site Vercel project (Root Directory = /).
-# The ops/ subfolder is its own Vercel project (Root Directory = ops/).
-# Excluding it here keeps the static-site deploy from picking up Next.js files.
-ops/
-node_modules/
-.next/
-*.log
