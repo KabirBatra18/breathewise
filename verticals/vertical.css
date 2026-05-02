@@ -1,4 +1,4 @@
-/* Vertical detail page shared styles — extends main style.css */
+/* Vertical detail page shared styles - extends main style.css */
 
 .v-hero {
   position: relative;
@@ -183,7 +183,7 @@
 }
 .v-solution-image img { width: 100%; }
 
-/* Results — card-based comparison grid */
+/* Results - card-based comparison grid */
 .v-results { background: var(--g100); padding: 120px 0; }
 .v-results .v-section-header .overline { color: var(--green); }
 
@@ -206,7 +206,7 @@
   position: relative;
 }
 
-/* Header row is hidden — we'll show metric label inside each card */
+/* Header row is hidden - we'll show metric label inside each card */
 .v-result-header { display: none; }
 
 /* Top label spans both columns */

@@ -1,12 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════
-   BreatheWise — v2 brand overlay
+   BreatheWise - v2 brand overlay
    Layered on top of style.css. Drop this file in AFTER style.css
    in index.html and the website inherits the IG post brand.
 
    Type system (matches IG posts):
-     • Fraunces       — display, headlines, accent words (italic)
-     • Inter          — body, UI, nav
-     • JetBrains Mono — eyebrows, numbers, labels
+     • Fraunces       - display, headlines, accent words (italic)
+     • Inter          - body, UI, nav
+     • JetBrains Mono - eyebrows, numbers, labels
      (Space Grotesk has been dropped entirely.)
 
    Color system:
@@ -95,7 +95,7 @@ body {
 .nav-cta:hover { background: #234d33; }
 
 /* ─────────────────────────────────────────────────────────────
-   HERO V2 — editorial cream
+   HERO V2 - editorial cream
    ───────────────────────────────────────────────────────────── */
 .hero-v2 {
   background: var(--paper);
@@ -243,7 +243,7 @@ body {
 .hero-v2-danger { color: var(--danger); font-weight: 600; }
 
 /* ─────────────────────────────────────────────────────────────
-   Section headers — Fraunces
+   Section headers - Fraunces
    ───────────────────────────────────────────────────────────── */
 .section-headline {
   font-family: var(--serif);
@@ -272,7 +272,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   PROBLEM — dark warm card, serif numbers
+   PROBLEM - dark warm card, serif numbers
    ───────────────────────────────────────────────────────────── */
 .data-table {
   background: var(--hero-black);
@@ -459,7 +459,7 @@ body {
 .faq-item.open .faq-icon { background: var(--green); }
 
 /* ─────────────────────────────────────────────────────────────
-   CONTACT — deep green
+   CONTACT - deep green
    ───────────────────────────────────────────────────────────── */
 .contact {
   background: var(--green);
@@ -532,7 +532,7 @@ body {
 .fc-btn { background: var(--black); }
 
 /* ─────────────────────────────────────────────────────────────
-   STAKES — minimal list
+   STAKES - minimal list
    ───────────────────────────────────────────────────────────── */
 .stakes { background: var(--white); padding: 120px 0; }
 .stakes-mini {
@@ -608,7 +608,7 @@ body {
 .stakes-old-keep { background: var(--white); padding: 120px 0; }
 .stakes-sub { max-width: 680px; margin-top: 16px; font-size: 17px; line-height: 1.55; }
 
-/* Trust bar — institutional logos */
+/* Trust bar - institutional logos */
 .stakes-trustbar {
   margin-top: 56px;
   padding: 28px 36px;
@@ -746,7 +746,7 @@ body {
   margin-top: auto;
 }
 
-/* Quote card — full width hero */
+/* Quote card - full width hero */
 .stakes-v2-quote {
   grid-column: span 3;
   background: var(--green);
@@ -838,7 +838,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   COMPARE — purifier vs BreatheWise
+   COMPARE - purifier vs BreatheWise
    ───────────────────────────────────────────────────────────── */
 .compare { background: var(--g100); padding: 120px 0; }
 .compare-table {
