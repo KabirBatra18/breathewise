@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx drizzle/migrate.ts",
     "db:seed": "tsx db/seed.ts",
+    "db:seed:astberg": "tsx db/seed-astberg.ts",
     "db:setup": "tsx drizzle/migrate.ts && tsx db/seed.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"

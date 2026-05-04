@@ -1,0 +1,537 @@
+{
+  "metadata": {
+    "supplier": "Astberg Ventilation Pvt Ltd",
+    "priceListDate": "2026-01-05",
+    "currency": "INR",
+    "gstRatePercent": 18,
+    "ourSupplierDiscountPercent": 20,
+    "notes": [
+      "All MRP, DP Basic, GST 18%, and DP figures are from Astberg's printed price list dated 5-Jan-2026.",
+      "DP Basic = ex-GST list price. DP = DP Basic + 18% GST = the rightmost column.",
+      "For non-ERV items: defaultSellRateExGst = DP (lands at DP*1.18 < MRP after we add GST).",
+      "For ERV/HRV items: only MRP printed. defaultSellRateExGst = MRP / 1.18 (lands at MRP after we add GST).",
+      "Cost (post-ITC) = (ex-GST list price) * 0.80 — Astberg gives us 20% discount on ex-GST.",
+      "Cash to Astberg = cost * 1.18 (the GST portion is recovered via input tax credit).",
+      "Per-line override always allowed in the quote builder — these are defaults only."
+    ]
+  },
+  "categories": [
+    {
+      "name": "Inline Fans",
+      "subcategories": [
+        {
+          "name": "AF Series — Mix Flow Inline Fan",
+          "skus": [
+            {"sku": "AF-100", "name": "Astberg AF 100 Mix Flow Inline Fan", "size_mm": 100, "airflow_m3h": 198, "pressure_pa": 156, "amp": 0.12, "mrp": 7490, "dp_basic": 5331, "gst_18": 959, "dp": 6290, "is_erv": false},
+            {"sku": "AF-125", "name": "Astberg AF 125 Mix Flow Inline Fan", "size_mm": 125, "airflow_m3h": 284, "pressure_pa": 159, "amp": 0.14, "mrp": 7790, "dp_basic": 5500, "gst_18": 990, "dp": 6490, "is_erv": false},
+            {"sku": "AF-150", "name": "Astberg AF 150 Mix Flow Inline Fan", "size_mm": 150, "airflow_m3h": 530, "pressure_pa": 300, "amp": 0.22, "mrp": 9190, "dp_basic": 6432, "gst_18": 1158, "dp": 7590, "is_erv": false},
+            {"sku": "AF-200", "name": "Astberg AF 200 Mix Flow Inline Fan", "size_mm": 200, "airflow_m3h": 840, "pressure_pa": 352, "amp": 0.53, "mrp": 12090, "dp_basic": 8466, "gst_18": 1524, "dp": 9990, "is_erv": false},
+            {"sku": "AF-250", "name": "Astberg AF 250 Mix Flow Inline Fan", "size_mm": 250, "airflow_m3h": 1405, "pressure_pa": 488, "amp": 1.20, "mrp": 23490, "dp_basic": 16517, "gst_18": 2973, "dp": 19490, "is_erv": false},
+            {"sku": "AF-315", "name": "Astberg AF 315 Mix Flow Inline Fan", "size_mm": 315, "airflow_m3h": 2206, "pressure_pa": 693, "amp": 1.90, "mrp": 27490, "dp_basic": 19483, "gst_18": 3507, "dp": 22990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASMK Series — Mixed Flow with Silencer",
+          "skus": [
+            {"sku": "ASMK-300-AC", "name": "Astberg ASMK 300 AC Mixed Flow Fan with Silencer", "airflow_m3h": 3150, "pressure_pa": 620, "db": 55, "mrp": 51490, "dp_basic": 36432, "gst_18": 6558, "dp": 42990, "is_erv": false},
+            {"sku": "ASMK-355-AC", "name": "Astberg ASMK 355 AC Mixed Flow Fan with Silencer", "airflow_m3h": 6450, "pressure_pa": 880, "db": 57, "mrp": 70990, "dp_basic": 49992, "gst_18": 8998, "dp": 58990, "is_erv": false},
+            {"sku": "ASMK-400-AC", "name": "Astberg ASMK 400 AC Mixed Flow Fan with Silencer", "airflow_m3h": 7100, "pressure_pa": 980, "db": 61, "mrp": 84490, "dp_basic": 59737, "gst_18": 10753, "dp": 70490, "is_erv": false},
+            {"sku": "ASMK-400-EC", "name": "Astberg ASMK 400 EC MOTOR Mixed Flow Fan with Silencer", "airflow_m3h": 6800, "pressure_pa": 890, "db": 59, "mrp": 109990, "dp_basic": 77958, "gst_18": 14032, "dp": 91990, "is_erv": false, "notes": "Controller available with EC motor fan"}
+          ]
+        },
+        {
+          "name": "ATMK Series — Mixed Flow Fan",
+          "skus": [
+            {"sku": "ATMK-300-AC", "name": "Astberg ATMK 300 AC Mixed Flow Fan", "airflow_m3h": 3150, "pressure_pa": 680, "db": 72, "mrp": 30990, "dp_basic": 22025, "gst_18": 3965, "dp": 25990, "is_erv": false},
+            {"sku": "ATMK-400-AC", "name": "Astberg ATMK 400 AC Mixed Flow Fan", "airflow_m3h": 7100, "pressure_pa": 850, "db": 83, "mrp": 50990, "dp_basic": 35585, "gst_18": 6405, "dp": 41990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AFB Series — Black Mix Flow Inline Fan",
+          "skus": [
+            {"sku": "AFB-200", "name": "Astberg AFB 200 Black Mix Flow Inline Fan", "size_mm": 200, "airflow_m3h": 840, "pressure_pa": 352, "db": "55-63", "mrp": 11090, "dp_basic": 7873, "gst_18": 1417, "dp": 9290, "is_erv": false},
+            {"sku": "AFB-250", "name": "Astberg AFB 250 Black Mix Flow Inline Fan", "size_mm": 250, "airflow_m3h": 1405, "pressure_pa": 488, "db": "58-66", "mrp": 21490, "dp_basic": 15246, "gst_18": 2744, "dp": 17990, "is_erv": false},
+            {"sku": "AFB-315", "name": "Astberg AFB 315 Black Mix Flow Inline Fan", "size_mm": 315, "airflow_m3h": 2206, "pressure_pa": 693, "db": "61-69", "mrp": 25790, "dp_basic": 18212, "gst_18": 3278, "dp": 21490, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AEE Series — Circular Duct Fan (G Series)",
+          "skus": [
+            {"sku": "AEE-100", "name": "Astberg AEE 100 Circular Duct Fan", "size_mm": 100, "airflow_m3h": 290, "pressure_pa": 290, "db": 65, "mrp": 7690, "dp_basic": 5415, "gst_18": 975, "dp": 6390, "is_erv": false},
+            {"sku": "AEE-125", "name": "Astberg AEE 125 Circular Duct Fan", "size_mm": 125, "airflow_m3h": 370, "pressure_pa": 350, "db": 65, "mrp": 8190, "dp_basic": 5754, "gst_18": 1036, "dp": 6790, "is_erv": false},
+            {"sku": "AEE-150", "name": "Astberg AEE 150 Circular Duct Fan", "size_mm": 150, "airflow_m3h": 740, "pressure_pa": 325, "db": 68, "mrp": 10390, "dp_basic": 7364, "gst_18": 1326, "dp": 8690, "is_erv": false},
+            {"sku": "AEE-200", "name": "Astberg AEE 200 Circular Duct Fan", "size_mm": 200, "airflow_m3h": 1020, "pressure_pa": 520, "db": 70, "mrp": 12390, "dp_basic": 8720, "gst_18": 1570, "dp": 10290, "is_erv": false},
+            {"sku": "AEE-250", "name": "Astberg AEE 250 Circular Duct Fan", "size_mm": 250, "airflow_m3h": 1050, "pressure_pa": 550, "db": 72, "mrp": 12790, "dp_basic": 8975, "gst_18": 1615, "dp": 10590, "is_erv": false},
+            {"sku": "AEE-315", "name": "Astberg AEE 315 Circular Duct Fan", "size_mm": 315, "airflow_m3h": 1600, "pressure_pa": 650, "db": 75, "mrp": 14990, "dp_basic": 10585, "gst_18": 1905, "dp": 12490, "is_erv": false},
+            {"sku": "AEE-400", "name": "Astberg AEE 400 Circular Duct Fan", "size_mm": 400, "airflow_m3h": 2500, "pressure_pa": 325, "db": 60, "mrp": 29890, "dp_basic": 21178, "gst_18": 3812, "dp": 24990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "Typhoon Series",
+          "skus": [
+            {"sku": "TYPHOON-100-125", "name": "Astberg Typhoon 100/125", "size_mm": "100/125", "airflow_m3h": 250, "pressure_pa": 190, "amp": 0.11, "mrp": 8790, "dp_basic": 6178, "gst_18": 1112, "dp": 7290, "is_erv": false},
+            {"sku": "TYPHOON-150-160", "name": "Astberg Typhoon 150/160", "size_mm": "150/160", "airflow_m3h": 570, "pressure_pa": 380, "amp": 0.22, "mrp": 9890, "dp_basic": 6941, "gst_18": 1249, "dp": 8190, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AEC Series — Inline Fan with Speed Controller",
+          "skus": [
+            {"sku": "AEC-150", "name": "Astberg AEC 150 Inline Fan with Speed Controller", "size_mm": 150, "airflow_m3h": "20-530", "pressure_pa": 350, "amp": 0.35, "mrp": 11890, "dp_basic": 8381, "gst_18": 1509, "dp": 9890, "is_erv": false},
+            {"sku": "AEC-160", "name": "Astberg AEC 160 Inline Fan with Speed Controller", "size_mm": 160, "airflow_m3h": "20-798", "pressure_pa": 542, "amp": 1.40, "mrp": 15390, "dp_basic": 11008, "gst_18": 1982, "dp": 12990, "is_erv": false},
+            {"sku": "AEC-200", "name": "Astberg AEC 200 Inline Fan with Speed Controller", "size_mm": 200, "airflow_m3h": "20-1292", "pressure_pa": 485, "amp": 1.00, "mrp": 20990, "dp_basic": 14822, "gst_18": 2668, "dp": 17490, "is_erv": false}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Specialty Fans",
+      "subcategories": [
+        {
+          "name": "Micro Jet Fan",
+          "skus": [
+            {"sku": "AMJ-100B", "name": "Astberg AMJ 100B Micro Jet Fan", "size_mm": 100, "airflow_m3h": 150, "pressure_pa": 170, "amp": 0.25, "mrp": 5890, "dp_basic": 3975, "gst_18": 715, "dp": 4690, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ADD Series — Mix Flow Silent Fan",
+          "skus": [
+            {"sku": "ADD-100-125", "name": "Astberg ADD 100/125 Mix Flow Silent Fan", "size_mm": "100/125", "airflow_m3h": 284, "pressure_pa": 159, "db": 25, "mrp": 16990, "dp_basic": 11856, "gst_18": 2134, "dp": 13990, "is_erv": false},
+            {"sku": "ADD-150-FAN", "name": "Astberg ADD 150 Mix Flow Silent Fan", "size_mm": 150, "airflow_m3h": 530, "pressure_pa": 300, "db": 31, "mrp": 19990, "dp_basic": 13975, "gst_18": 2515, "dp": 16490, "is_erv": false},
+            {"sku": "ADD-200-FAN", "name": "Astberg ADD 200 Mix Flow Silent Fan", "size_mm": 200, "airflow_m3h": 840, "pressure_pa": 352, "db": 35, "mrp": 25490, "dp_basic": 17788, "gst_18": 3202, "dp": 20990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AHT Series — Kitchen Fan",
+          "skus": [
+            {"sku": "AHT-15-34", "name": "Astberg AHT 15-34 Metal Kitchen Circular Inline Duct Blower Ventilation Fan", "size_mm": 150, "airflow_m3h": 450, "pressure_pa": 170, "db": 48, "mrp": 9790, "dp_basic": 6771, "gst_18": 1219, "dp": 7990, "is_erv": false},
+            {"sku": "AHT-20-55", "name": "Astberg AHT 20-55 Metal Kitchen Circular Inline Duct Blower Ventilation Fan", "size_mm": 200, "airflow_m3h": 800, "pressure_pa": 220, "db": 50, "mrp": 19490, "dp_basic": 13551, "gst_18": 2439, "dp": 15990, "is_erv": false},
+            {"sku": "AHT-20-65B", "name": "Astberg AHT 20-65B Metal Kitchen Circular Inline Duct Blower Ventilation Fan", "size_mm": 200, "airflow_m3h": 1500, "pressure_pa": 235, "db": 41, "mrp": 23490, "dp_basic": 16093, "gst_18": 2897, "dp": 18990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASP/ASE Series — Ceiling Mount Fan",
+          "skus": [
+            {"sku": "ASP-1001", "name": "Astberg ASP 1001 Ceiling Mount Fan", "size_mm": "4 inch", "airflow_m3h": 170, "pressure_pa": 120, "mrp": 8790, "dp_basic": 6178, "gst_18": 1112, "dp": 7290, "is_erv": false},
+            {"sku": "ASE-1003", "name": "Astberg ASE 1003 Ceiling Mount Fan", "size_mm": "4 inch", "airflow_m3h": 200, "pressure_pa": 150, "mrp": 9790, "dp_basic": 6771, "gst_18": 1219, "dp": 7990, "is_erv": false},
+            {"sku": "ASE-1501", "name": "Astberg ASE 1501 Ceiling Mount Fan", "size_mm": "6 inch", "airflow_m3h": 270, "pressure_pa": 170, "mrp": 10890, "dp_basic": 7619, "gst_18": 1371, "dp": 8990, "is_erv": false},
+            {"sku": "ASE-1502", "name": "Astberg ASE 1502 Ceiling Mount Fan", "size_mm": "6 inch", "airflow_m3h": 270, "pressure_pa": 170, "mrp": 10890, "dp_basic": 7619, "gst_18": 1371, "dp": 8990, "is_erv": false},
+            {"sku": "ASE-1503", "name": "Astberg ASE 1503 Ceiling Mount Fan", "airflow_m3h": 300, "mrp": 11490, "dp_basic": 8042, "gst_18": 1448, "dp": 9490, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASP Series — Ceiling Mount Fan (Alternative)",
+          "skus": [
+            {"sku": "ASP-1002", "name": "Astberg ASP 1002 Ceiling Mount Fan", "size_mm": "4 inch", "airflow_m3h": 200, "pressure_pa": 110, "mrp": 8790, "dp_basic": 6178, "gst_18": 1112, "dp": 7290, "is_erv": false},
+            {"sku": "ASP-1010", "name": "Astberg ASP 1010 Ceiling Mount Fan", "size_mm": "4 inch", "airflow_m3h": 200, "pressure_pa": 150, "mrp": 9190, "dp_basic": 6432, "gst_18": 1158, "dp": 7590, "is_erv": false},
+            {"sku": "ASP-5050", "name": "Astberg ASP 5050 Ceiling Mount Fan", "airflow_m3h": 200, "mrp": 12990, "dp_basic": 8890, "gst_18": 1600, "dp": 10490, "is_erv": false},
+            {"sku": "ASP-MOTION-SENSOR", "name": "Astberg Motion Sensor with Timer (optional add-on)", "mrp": 4990, "dp_basic": 3381, "gst_18": 609, "dp": 3990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "APT Series — Ceiling Mount Cassette Type Fan",
+          "skus": [
+            {"sku": "APT-10-21S", "name": "Astberg APT 10-21S Ceiling Mount Cassette Fan", "size_mm": "4 inch", "airflow_m3h": 150, "pressure_pa": 100, "mrp": 6190, "dp_basic": 4229, "gst_18": 761, "dp": 4990, "is_erv": false},
+            {"sku": "APT-10-24SL", "name": "Astberg APT 10-24SL Ceiling Mount Cassette Fan", "size_mm": "4 inch", "airflow_m3h": 200, "pressure_pa": 110, "mrp": 6690, "dp_basic": 4568, "gst_18": 822, "dp": 5390, "is_erv": false},
+            {"sku": "APT-15-27SL", "name": "Astberg APT 15-27SL Ceiling Mount Cassette Fan", "size_mm": "6 inch", "airflow_m3h": 300, "pressure_pa": 120, "mrp": 8790, "dp_basic": 6093, "gst_18": 1097, "dp": 7190, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASL Series — Ceiling Mounted Exhaust with Light",
+          "skus": [
+            {"sku": "ASL-1005", "name": "Astberg ASL 1005 Ceiling Mounted Exhaust Fan with Light", "airflow_m3h": 190, "pressure_pa": 146, "db": 32, "mrp": 12490, "dp_basic": 8466, "gst_18": 1524, "dp": 9990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AHA Series — Propeller Fan",
+          "skus": [
+            {"sku": "AHA-12", "name": "Astberg AHA 12 Propeller Fan", "size_mm": 300, "airflow_m3h": 590, "pressure_pa": 30, "db": 33.9, "mrp": 8690, "dp_basic": 5924, "gst_18": 1066, "dp": 6990, "is_erv": false},
+            {"sku": "AHA-14", "name": "Astberg AHA 14 Propeller Fan", "size_mm": 350, "airflow_m3h": 710, "pressure_pa": 48, "db": 39.4, "mrp": 9690, "dp_basic": 6771, "gst_18": 1219, "dp": 7990, "is_erv": false},
+            {"sku": "AHA-16", "name": "Astberg AHA 16 Propeller Fan", "size_mm": 400, "airflow_m3h": 1180, "pressure_pa": 59, "db": 43.9, "mrp": 11490, "dp_basic": 8042, "gst_18": 1448, "dp": 9490, "is_erv": false},
+            {"sku": "AHA-20", "name": "Astberg AHA 20 Propeller Fan", "size_mm": 500, "airflow_m3h": 5950, "mrp": 17990, "dp_basic": 12703, "gst_18": 2287, "dp": 14990, "is_erv": false},
+            {"sku": "AHA-26", "name": "Astberg AHA 26 Propeller Fan", "size_mm": 650, "airflow_m3h": 9350, "mrp": 21990, "dp_basic": 15669, "gst_18": 2821, "dp": 18490, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AHI Series — Booster Fan",
+          "skus": [
+            {"sku": "AHI-75SD", "name": "Astberg AHI 75SD Booster Fan", "size_mm": 75, "airflow_m3h": 115, "pressure_pa": 338, "mrp": 2990, "dp_basic": 2025, "gst_18": 365, "dp": 2390, "is_erv": false},
+            {"sku": "AHI-100SD", "name": "Astberg AHI 100SD Booster Fan", "size_mm": 100, "airflow_m3h": 170, "pressure_pa": 165, "mrp": 3290, "dp_basic": 2280, "gst_18": 410, "dp": 2690, "is_erv": false},
+            {"sku": "AHI-150SD", "name": "Astberg AHI 150SD Booster Fan", "size_mm": 150, "airflow_m3h": 452, "pressure_pa": 142, "mrp": 4190, "dp_basic": 2958, "gst_18": 532, "dp": 3490, "is_erv": false},
+            {"sku": "AHI-200SD", "name": "Astberg AHI 200SD Booster Fan", "size_mm": 200, "airflow_m3h": 816, "pressure_pa": 171, "mrp": 6790, "dp_basic": 4737, "gst_18": 853, "dp": 5590, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AFP Series — 2-IN-1 Fresh Air Box",
+          "skus": [
+            {"sku": "AFP-350R", "name": "Astberg AFP 350R 2-IN-1 Fresh Air Box", "airflow_m3h": 350, "db": 40, "mrp": 34490, "dp_basic": 23720, "gst_18": 4270, "dp": 27990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AFV Series — Fresh Air Purifier",
+          "skus": [
+            {"sku": "AFV-45DF", "name": "Astberg AFV 45DF Fresh Air Purifier", "airflow_m3h": 450, "pressure_pa": 210, "db": 38, "mrp": 27990, "dp_basic": 19483, "gst_18": 3507, "dp": 22990, "is_erv": false},
+            {"sku": "AFV-75DF", "name": "Astberg AFV 75DF Fresh Air Purifier", "airflow_m3h": 650, "pressure_pa": 300, "db": 42, "mrp": 33990, "dp_basic": 23720, "gst_18": 4270, "dp": 27990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASF — Ultra Slim Fan",
+          "skus": [
+            {"sku": "ASF-25", "name": "Astberg ASF 25 Ultra Slim Fan", "airflow_m3h": 250, "pressure_pa": 200, "watts": 35, "mrp": 12490, "dp_basic": 8466, "gst_18": 1524, "dp": 9990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AFV-DP Series — Cabinet Fan with Pre-Filter",
+          "skus": [
+            {"sku": "AFV-15DP", "name": "Astberg AFV 15DP Cabinet Fan with Pre-Filter", "airflow_m3h": 370, "pressure_pa": 105, "db": 27, "mrp": 18490, "dp_basic": 12703, "gst_18": 2287, "dp": 14990, "is_erv": false},
+            {"sku": "AFV-18DP", "name": "Astberg AFV 18DP Cabinet Fan with Pre-Filter", "airflow_m3h": 500, "pressure_pa": 180, "db": 29, "mrp": 20990, "dp_basic": 14398, "gst_18": 2592, "dp": 16990, "is_erv": false},
+            {"sku": "AFV-19DP", "name": "Astberg AFV 19DP Cabinet Fan with Pre-Filter", "airflow_m3h": 770, "pressure_pa": 140, "db": 31, "mrp": 21990, "dp_basic": 15246, "gst_18": 2744, "dp": 17990, "is_erv": false},
+            {"sku": "AFV-23DP", "name": "Astberg AFV 23DP Cabinet Fan with Pre-Filter", "airflow_m3h": 1200, "pressure_pa": 160, "db": 40, "mrp": 33490, "dp_basic": 23297, "gst_18": 4193, "dp": 27490, "is_erv": false},
+            {"sku": "AFV-28DP", "name": "Astberg AFV 28DP Cabinet Fan with Pre-Filter", "airflow_m3h": 1900, "pressure_pa": 400, "db": 43, "mrp": 42990, "dp_basic": 30076, "gst_18": 5414, "dp": 35490, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ABF Series — Air Box Fan",
+          "skus": [
+            {"sku": "ABF-30P", "name": "Astberg ABF 30P Air Box Fan", "airflow_m3h": 3000, "pressure_pa": 508, "db": 50, "mrp": 63990, "dp_basic": 44907, "gst_18": 8083, "dp": 52990, "is_erv": false},
+            {"sku": "ABF-50P", "name": "Astberg ABF 50P Air Box Fan", "airflow_m3h": 5000, "pressure_pa": 610, "db": 55, "mrp": 83990, "dp_basic": 59314, "gst_18": 10676, "dp": 69990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASHT Series — Portable Blower Fan with Duct",
+          "skus": [
+            {"sku": "ASHT-200", "name": "Astberg ASHT 200 Portable Blower Fan + 5m Duct", "airflow_m3h": 1300, "pressure_pa": 200, "db": 58, "mrp": 17990, "dp_basic": 12280, "gst_18": 2210, "dp": 14490, "is_erv": false},
+            {"sku": "ASHT-250", "name": "Astberg ASHT 250 Portable Blower Fan + 5m Duct", "airflow_m3h": 2200, "pressure_pa": 230, "db": 62, "mrp": 18990, "dp_basic": 13127, "gst_18": 2363, "dp": 15490, "is_erv": false},
+            {"sku": "ASHT-300", "name": "Astberg ASHT 300 Portable Blower Fan + 5m Duct", "airflow_m3h": 3200, "pressure_pa": 280, "db": 65, "mrp": 20990, "dp_basic": 14398, "gst_18": 2592, "dp": 16990, "is_erv": false},
+            {"sku": "ASHT-DUCT-12-10M", "name": "Astberg 12 inch Duct (10 metre) for ASHT", "size_mm": 300, "unit": "set", "mrp": 10990, "dp_basic": 7619, "gst_18": 1371, "dp": 8990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ARMD Series — Roof and Wall Exhaust Fan",
+          "skus": [
+            {"sku": "ARMD-12", "name": "Astberg ARMD 12 Roof and Wall Exhaust Fan", "size_mm": 300, "airflow_m3h": 1250, "pressure_pa": 170, "mrp": 39990, "dp_basic": 27958, "gst_18": 5032, "dp": 32990, "is_erv": false},
+            {"sku": "ARMD-14", "name": "Astberg ARMD 14 Roof and Wall Exhaust Fan", "size_mm": 350, "airflow_m3h": 1650, "pressure_pa": 140, "mrp": 43990, "dp_basic": 30500, "gst_18": 5490, "dp": 35990, "is_erv": false},
+            {"sku": "ARMD-18", "name": "Astberg ARMD 18 Roof and Wall Exhaust Fan", "size_mm": 450, "airflow_m3h": 3200, "pressure_pa": 175, "mrp": 60490, "dp_basic": 42364, "gst_18": 7626, "dp": 49990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AL Series — Exhaust Fan with Light",
+          "skus": [
+            {"sku": "AL-30", "name": "Astberg AL 30 Exhaust Fan with Light", "airflow_m3h": 150, "pressure_pa": 100, "watts": "32/12", "mrp": 8490, "dp_basic": 5924, "gst_18": 1066, "dp": 6990, "is_erv": false}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Domestic Fans",
+      "subcategories": [
+        {
+          "name": "Domestic Fans",
+          "skus": [
+            {"sku": "AURA-6C-03", "name": "Astberg Aura 6C-03 Domestic Fan", "size_mm": "6 inch", "airflow_m3h": "225/320", "pressure_pa": "50/95", "mrp": 9590, "dp_basic": 6771, "gst_18": 1219, "dp": 7990, "is_erv": false},
+            {"sku": "DISC-4C", "name": "Astberg Disc 4C Domestic Fan", "size_mm": "4 inch", "airflow_m3h": "105/80", "pressure_pa": "45/28", "mrp": 2890, "dp_basic": 1856, "gst_18": 334, "dp": 2190, "is_erv": false},
+            {"sku": "SLIM-6C", "name": "Astberg Slim 6C Domestic Fan", "size_mm": "6 inch", "airflow_m3h": 250, "pressure_pa": 54, "mrp": 4190, "dp_basic": 2958, "gst_18": 532, "dp": 3490, "is_erv": false},
+            {"sku": "EURO-4A", "name": "Astberg Euro 4A Domestic Fan", "size_mm": "4 inch", "airflow_m3h": 85, "pressure_pa": 33, "mrp": 4990, "dp_basic": 3212, "gst_18": 578, "dp": 3790, "is_erv": false},
+            {"sku": "EURO-6A", "name": "Astberg Euro 6A Domestic Fan", "size_mm": "6 inch", "airflow_m3h": 230, "pressure_pa": 52, "mrp": 6090, "dp_basic": 4229, "gst_18": 761, "dp": 4990, "is_erv": false},
+            {"sku": "RIO-4C", "name": "Astberg Rio 4C Domestic Fan", "size_mm": "4 inch", "airflow_m3h": 100, "pressure_pa": 32, "mrp": 4090, "dp_basic": 2873, "gst_18": 517, "dp": 3390, "is_erv": false},
+            {"sku": "E150-SC", "name": "Astberg E 150 SC Domestic Fan", "size_mm": "6 inch", "airflow_m3h": 250, "pressure_pa": 54, "mrp": 3790, "dp_basic": 2619, "gst_18": 471, "dp": 3090, "is_erv": false},
+            {"sku": "NEO-6SC", "name": "Astberg Neo 6SC Domestic Fan", "size_mm": "6 inch", "airflow_m3h": 250, "pressure_pa": 54, "mrp": 3990, "dp_basic": 2703, "gst_18": 487, "dp": 3190, "is_erv": false},
+            {"sku": "ERA-6C", "name": "Astberg Era 6C Domestic Fan", "size_mm": "6 inch", "airflow_m3h": 290, "pressure_pa": 42, "mrp": 3990, "dp_basic": 2703, "gst_18": 487, "dp": 3190, "is_erv": false},
+            {"sku": "QUADRO-4C", "name": "Astberg Quadro 4C Domestic Fan", "size_mm": "4 inch", "airflow_m3h": 90, "pressure_pa": 31, "mrp": 3390, "dp_basic": 2280, "gst_18": 410, "dp": 2690, "is_erv": false},
+            {"sku": "QUADRO-5C", "name": "Astberg Quadro 5C Domestic Fan", "size_mm": "5 inch", "airflow_m3h": 140, "pressure_pa": 38, "mrp": 3890, "dp_basic": 2619, "gst_18": 471, "dp": 3090, "is_erv": false}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Accessories",
+      "subcategories": [
+        {
+          "name": "ADD — ABS Disk Diffuser with Volume Controller Valve",
+          "skus": [
+            {"sku": "ADD-75", "name": "Astberg ABS Disk Diffuser ADD 75mm / 3 inch", "size_mm": 75, "mrp": 450, "dp_basic": 318, "gst_18": 57, "dp": 375, "is_erv": false},
+            {"sku": "ADD-100", "name": "Astberg ABS Disk Diffuser ADD 100mm / 4 inch", "size_mm": 100, "mrp": 490, "dp_basic": 347, "gst_18": 63, "dp": 410, "is_erv": false},
+            {"sku": "ADD-125", "name": "Astberg ABS Disk Diffuser ADD 125mm / 5 inch", "size_mm": 125, "mrp": 620, "dp_basic": 436, "gst_18": 79, "dp": 515, "is_erv": false},
+            {"sku": "ADD-150", "name": "Astberg ABS Disk Diffuser ADD 150mm / 6 inch", "size_mm": 150, "mrp": 680, "dp_basic": 479, "gst_18": 86, "dp": 565, "is_erv": false},
+            {"sku": "ADD-200", "name": "Astberg ABS Disk Diffuser ADD 200mm / 8 inch", "size_mm": 200, "mrp": 840, "dp_basic": 593, "gst_18": 107, "dp": 700, "is_erv": false}
+          ]
+        },
+        {
+          "name": "APP — Round Air Outlet",
+          "skus": [
+            {"sku": "APP-100A", "name": "Astberg APP 100A Round Air Outlet", "size_mm": 100, "mrp": 840, "dp_basic": 585, "gst_18": 105, "dp": 690, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASD — 3-Step Diffuser",
+          "skus": [
+            {"sku": "ASD-100", "name": "Astberg ASD 100 — 3-Step Diffuser 100mm / 4 inch", "size_mm": 100, "mrp": 1030, "dp_basic": 699, "gst_18": 126, "dp": 825, "is_erv": false},
+            {"sku": "ASD-150", "name": "Astberg ASD 150 — 3-Step Diffuser 150mm / 6 inch", "size_mm": 150, "mrp": 1220, "dp_basic": 826, "gst_18": 149, "dp": 975, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ARD — Rotating Grill Diffuser",
+          "skus": [
+            {"sku": "ARD-100", "name": "Astberg ARD 100 Rotating Grill Diffuser 100mm", "size_mm": 100, "mrp": 570, "dp_basic": 403, "gst_18": 72, "dp": 475, "is_erv": false},
+            {"sku": "ARD-125", "name": "Astberg ARD 125 Rotating Grill Diffuser 125mm", "size_mm": 125, "mrp": 640, "dp_basic": 449, "gst_18": 81, "dp": 530, "is_erv": false},
+            {"sku": "ARD-150", "name": "Astberg ARD 150 Rotating Grill Diffuser 150mm", "size_mm": 150, "mrp": 690, "dp_basic": 487, "gst_18": 88, "dp": 575, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ARG — Round Grill",
+          "skus": [
+            {"sku": "ARG-75", "name": "Astberg ARG 75 Round Grill 75mm", "size_mm": 75, "mrp": 450, "dp_basic": 318, "gst_18": 57, "dp": 375, "is_erv": false},
+            {"sku": "ARG-100", "name": "Astberg ARG 100 Round Grill 100mm", "size_mm": 100, "mrp": 490, "dp_basic": 347, "gst_18": 63, "dp": 410, "is_erv": false},
+            {"sku": "ARG-125", "name": "Astberg ARG 125 Round Grill 125mm", "size_mm": 125, "mrp": 620, "dp_basic": 436, "gst_18": 79, "dp": 515, "is_erv": false},
+            {"sku": "ARG-150", "name": "Astberg ARG 150 Round Grill 150mm", "size_mm": 150, "mrp": 690, "dp_basic": 487, "gst_18": 88, "dp": 575, "is_erv": false},
+            {"sku": "ARG-200", "name": "Astberg ARG 200 Round Grill 200mm", "size_mm": 200, "mrp": 840, "dp_basic": 593, "gst_18": 107, "dp": 700, "is_erv": false},
+            {"sku": "ARG-150P", "name": "Astberg ARG 150P Round Grill 150mm — Grey Color", "size_mm": 150, "mrp": 720, "dp_basic": 508, "gst_18": 92, "dp": 600, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AYJ — Y Joint PVC",
+          "skus": [
+            {"sku": "AYJ-100", "name": "Astberg AYJ 100 Y Joint PVC 100mm", "size_mm": 100, "mrp": 590, "dp_basic": 398, "gst_18": 72, "dp": 470, "is_erv": false},
+            {"sku": "AYJ-150", "name": "Astberg AYJ 150 Y Joint PVC 150mm", "size_mm": 150, "mrp": 650, "dp_basic": 445, "gst_18": 80, "dp": 525, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASC — Outer Steel Cowl (Steel Finish, SS304)",
+          "skus": [
+            {"sku": "ASC-100", "name": "Astberg ASC 100 Outer Steel Cowl SS304 100mm", "size_mm": 100, "mrp": 840, "dp_basic": 576.27, "gst_18": 103.73, "dp": 680, "is_erv": false, "notes": "Real-world Astberg paperwork sometimes calls this 'ASC GP 100' or 'ASCGP 100' — that label refers to THIS SKU (SS304), not the premium ASC-100-P powder-coated line."},
+            {"sku": "ASC-150", "name": "Astberg ASC 150 Outer Steel Cowl SS304 150mm", "size_mm": 150, "mrp": 1090, "dp_basic": 745.76, "gst_18": 134.24, "dp": 880, "is_erv": false},
+            {"sku": "ASC-200", "name": "Astberg ASC 200 Outer Steel Cowl SS304 200mm", "size_mm": 200, "mrp": 1820, "dp_basic": 1228.81, "gst_18": 221.19, "dp": 1450, "is_erv": false},
+            {"sku": "ASC-250", "name": "Astberg ASC 250 Outer Steel Cowl SS304 250mm", "size_mm": 250, "mrp": 3990, "dp_basic": 2533.90, "gst_18": 456.10, "dp": 2990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASC-P — Outer Steel Cowl (Powder Coated SUS304, premium line)",
+          "skus": [
+            {"sku": "ASC-100-P", "name": "Astberg ASC 100 P Outer Steel Cowl Powder Coated SUS304 100mm", "size_mm": 100, "mrp": 1390, "dp_basic": 923.39, "gst_18": 166.27, "dp": 1090, "is_erv": false, "notes": "Premium powder-coated line. Real-world Astberg paperwork using 'ASC GP' / 'ASCGP' typically refers to the SS304 line (SKU ASC-100), NOT this powder-coated version."},
+            {"sku": "ASC-150-P", "name": "Astberg ASC 150 P Outer Steel Cowl Powder Coated SUS304 150mm", "size_mm": 150, "mrp": 1940, "dp_basic": 1313.64, "gst_18": 236.36, "dp": 1550, "is_erv": false},
+            {"sku": "ASC-200-P", "name": "Astberg ASC 200 P Outer Steel Cowl Powder Coated SUS304 200mm", "size_mm": 200, "mrp": 2990, "dp_basic": 2042.37, "gst_18": 367.63, "dp": 2410, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AWC — ABS Wall Cowl / PVC Long Pipe Cowl",
+          "skus": [
+            {"sku": "AWC-100", "name": "Astberg AWC 100 ABS Wall Cowl 100mm", "size_mm": 100, "mrp": 1390, "dp_basic": 932, "gst_18": 168, "dp": 1100, "is_erv": false},
+            {"sku": "AWC-150", "name": "Astberg AWC 150 ABS Wall Cowl 150mm", "size_mm": 150, "mrp": 1790, "dp_basic": 1229, "gst_18": 221, "dp": 1450, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASG — Outer Flat Grill Steel",
+          "skus": [
+            {"sku": "ASG-100", "name": "Astberg ASG 100 Outer Flat Grill Steel 100mm (Bird Mesh Inside)", "size_mm": 100, "mrp": 790, "dp_basic": 530, "gst_18": 95, "dp": 625, "is_erv": false},
+            {"sku": "ASG-150", "name": "Astberg ASG 150 Outer Flat Grill Steel 150mm (Bird Mesh Inside)", "size_mm": 150, "mrp": 1090, "dp_basic": 742, "gst_18": 133, "dp": 875, "is_erv": false},
+            {"sku": "ASG-100P", "name": "Astberg ASG 100P Outer Flat Grill Steel Powder Coated 100mm", "size_mm": 100, "mrp": 890, "dp_basic": 614, "gst_18": 111, "dp": 725, "is_erv": false},
+            {"sku": "ASG-150P", "name": "Astberg ASG 150P Outer Flat Grill Steel Powder Coated 150mm", "size_mm": 150, "mrp": 1190, "dp_basic": 826, "gst_18": 149, "dp": 975, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AVG — Varanda Grill",
+          "skus": [
+            {"sku": "AVG-100", "name": "Astberg AVG 100 Varanda Grill 100mm (Outer Grill ABS, Mesh Inside)", "size_mm": 100, "mrp": 690, "dp_basic": 445, "gst_18": 80, "dp": 525, "is_erv": false},
+            {"sku": "AVG-150", "name": "Astberg AVG 150 Varanda Grill 150mm", "size_mm": 150, "mrp": 690, "dp_basic": 445, "gst_18": 80, "dp": 525, "is_erv": false}
+          ]
+        },
+        {
+          "name": "APF — ABS Pre Filter",
+          "skus": [
+            {"sku": "APF-100", "name": "Astberg APF 100 ABS Pre Filter 100mm", "size_mm": 100, "mrp": 1490, "dp_basic": 953, "gst_18": 172, "dp": 1125, "is_erv": false},
+            {"sku": "APF-150", "name": "Astberg APF 150 ABS Pre Filter 150mm", "size_mm": 150, "mrp": 1690, "dp_basic": 1127, "gst_18": 203, "dp": 1330, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AEB — ABS Ball Jet Nozzle",
+          "skus": [
+            {"sku": "AEB-75", "name": "Astberg AEB 75 ABS Ball Jet Nozzle 75mm", "size_mm": 75, "mrp": 1090, "dp_basic": 890, "gst_18": 160, "dp": 1050, "is_erv": false},
+            {"sku": "AEB-100", "name": "Astberg AEB 100 ABS Ball Jet Nozzle 100mm", "size_mm": 100, "mrp": 1190, "dp_basic": 932, "gst_18": 168, "dp": 1100, "is_erv": false},
+            {"sku": "AEB-150", "name": "Astberg AEB 150 ABS Ball Jet Nozzle 150mm", "size_mm": 150, "mrp": 1990, "dp_basic": 1610, "gst_18": 290, "dp": 1900, "is_erv": false},
+            {"sku": "AEB-200", "name": "Astberg AEB 200 ABS Ball Jet Nozzle 200mm", "size_mm": 200, "mrp": 2290, "dp_basic": 1864, "gst_18": 336, "dp": 2200, "is_erv": false},
+            {"sku": "AEB-250", "name": "Astberg AEB 250 ABS Ball Jet Nozzle 250mm", "size_mm": 250, "mrp": 2990, "dp_basic": 2373, "gst_18": 427, "dp": 2800, "is_erv": false},
+            {"sku": "AEB-315", "name": "Astberg AEB 315 ABS Ball Jet Nozzle 315mm", "size_mm": 315, "mrp": 3690, "dp_basic": 2966, "gst_18": 534, "dp": 3500, "is_erv": false},
+            {"sku": "AEB-350", "name": "Astberg AEB 350 ABS Ball Jet Nozzle 350mm", "size_mm": 350, "mrp": 3890, "dp_basic": 3093, "gst_18": 557, "dp": 3650, "is_erv": false},
+            {"sku": "AEB-400", "name": "Astberg AEB 400 ABS Ball Jet Nozzle 400mm", "size_mm": 400, "mrp": 4390, "dp_basic": 3517, "gst_18": 633, "dp": 4150, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AGD — Astberg Gravity Damper / Air Fresh Pipeline Check Valve",
+          "skus": [
+            {"sku": "AGD-80", "name": "Astberg AGD 80 Gravity Damper 80mm", "size_mm": 80, "mrp": null, "dp_basic": null, "gst_18": null, "dp": null, "is_erv": false, "notes": "Pricing not printed in PDF — confirm with Astberg"},
+            {"sku": "AGD-110", "name": "Astberg AGD 110 Gravity Damper 110mm", "size_mm": 110, "mrp": 530, "dp_basic": 360, "gst_18": 65, "dp": 425, "is_erv": false},
+            {"sku": "AGD-150", "name": "Astberg AGD 150 Gravity Damper 150mm", "size_mm": 150, "mrp": 625, "dp_basic": 424, "gst_18": 76, "dp": 500, "is_erv": false},
+            {"sku": "AGD-200", "name": "Astberg AGD 200 Gravity Damper / Air Fresh Pipeline Check Valve 200mm", "size_mm": 200, "mrp": null, "dp_basic": null, "gst_18": null, "dp": null, "is_erv": false, "notes": "Pricing not printed in PDF — confirm with Astberg"}
+          ]
+        },
+        {
+          "name": "APB — Air Purification Box (UV Light Filter Box)",
+          "skus": [
+            {"sku": "APB-100", "name": "Astberg APB 100 Air Purification Box 100mm", "size_mm": 100, "mrp": 9390, "dp_basic": 6771, "gst_18": 1219, "dp": 7990, "is_erv": false},
+            {"sku": "APB-150", "name": "Astberg APB 150 Air Purification Box 150mm", "size_mm": 150, "mrp": 10390, "dp_basic": 7619, "gst_18": 1371, "dp": 8990, "is_erv": false},
+            {"sku": "APB-200", "name": "Astberg APB 200 Air Purification Box 200mm", "size_mm": 200, "mrp": 20990, "dp_basic": 15839, "gst_18": 2851, "dp": 18690, "is_erv": false},
+            {"sku": "APB-250", "name": "Astberg APB 250 Air Purification Box 250mm — UV Light Filter Box", "size_mm": 250, "mrp": 25900, "dp_basic": 17788, "gst_18": 3202, "dp": 20990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AVC — ABS Air Volume Control Valve",
+          "skus": [
+            {"sku": "AVC-100", "name": "Astberg AVC 100 ABS Air Volume Control Valve 100mm", "size_mm": 100, "mrp": 740, "dp_basic": 508, "gst_18": 92, "dp": 600, "is_erv": false},
+            {"sku": "AVC-150", "name": "Astberg AVC 150 ABS Air Volume Control Valve 150mm", "size_mm": 150, "mrp": 850, "dp_basic": 593, "gst_18": 107, "dp": 700, "is_erv": false},
+            {"sku": "AVC-200", "name": "Astberg AVC 200 ABS Air Volume Control Valve 200mm", "size_mm": 200, "mrp": 960, "dp_basic": 678, "gst_18": 122, "dp": 800, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ABC — Beam Crosser Lantel Device Adaptor",
+          "skus": [
+            {"sku": "ABC-100", "name": "Astberg ABC 100 Beam Crosser Lantel Device Adaptor 100mm", "size_mm": 100, "mrp": 2390, "dp_basic": 1610, "gst_18": 290, "dp": 1900, "is_erv": false},
+            {"sku": "ABC-150", "name": "Astberg ABC 150 Beam Crosser Lantel Device Adaptor 150mm", "size_mm": 150, "mrp": 3090, "dp_basic": 2097, "gst_18": 378, "dp": 2475, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ALM — Aluminium Flexible Duct (3 metres)",
+          "skus": [
+            {"sku": "ALM-100", "name": "Astberg ALM 100 Aluminium Flexible Duct 100mm — 3 metres", "size_mm": 100, "unit": "set", "mrp": 750, "dp_basic": 508, "gst_18": 92, "dp": 600, "is_erv": false},
+            {"sku": "ALM-125", "name": "Astberg ALM 125 Aluminium Flexible Duct 125mm — 3 metres", "size_mm": 125, "unit": "set", "mrp": 825, "dp_basic": 559, "gst_18": 101, "dp": 660, "is_erv": false},
+            {"sku": "ALM-150", "name": "Astberg ALM 150 Aluminium Flexible Duct 150mm — 3 metres", "size_mm": 150, "unit": "set", "mrp": 990, "dp_basic": 669, "gst_18": 121, "dp": 790, "is_erv": false},
+            {"sku": "ALM-200", "name": "Astberg ALM 200 Aluminium Flexible Duct 200mm — 3 metres", "size_mm": 200, "unit": "set", "mrp": 1490, "dp_basic": 1017, "gst_18": 183, "dp": 1200, "is_erv": false},
+            {"sku": "ALM-250", "name": "Astberg ALM 250 Aluminium Flexible Duct 250mm — 3 metres", "size_mm": 250, "unit": "set", "mrp": 1990, "dp_basic": 1356, "gst_18": 244, "dp": 1600, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AFD — Insulated PVC Flexible Duct",
+          "skus": [
+            {"sku": "AFD-100", "name": "Astberg AFD 100 Insulated PVC Flexible Duct 100mm — 10 metres", "size_mm": 100, "unit": "set", "mrp": 2190, "dp_basic": 1483, "gst_18": 267, "dp": 1750, "is_erv": false},
+            {"sku": "AFD-150", "name": "Astberg AFD 150 Insulated PVC Flexible Duct 150mm — 5 metres", "size_mm": 150, "unit": "set", "mrp": 2990, "dp_basic": 2076, "gst_18": 374, "dp": 2450, "is_erv": false},
+            {"sku": "AFD-200", "name": "Astberg AFD 200 Insulated PVC Flexible Duct 200mm — 5 metres", "size_mm": 200, "unit": "set", "mrp": 3290, "dp_basic": 2246, "gst_18": 404, "dp": 2650, "is_erv": false},
+            {"sku": "AFD-250", "name": "Astberg AFD 250 Insulated PVC Flexible Duct 250mm — 5 metres", "size_mm": 250, "unit": "set", "mrp": 3490, "dp_basic": 2373, "gst_18": 427, "dp": 2800, "is_erv": false},
+            {"sku": "AFD-315", "name": "Astberg AFD 315 Insulated PVC Flexible Duct 315mm — 5 metres", "size_mm": 315, "unit": "set", "mrp": 3690, "dp_basic": 2542, "gst_18": 458, "dp": 3000, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ARD — ABS Reducer",
+          "skus": [
+            {"sku": "ARD-150-100", "name": "Astberg ARD 150-100 ABS Reducer 150mm to 100mm", "size_mm": "150-100", "mrp": 530, "dp_basic": 360, "gst_18": 65, "dp": 425, "is_erv": false},
+            {"sku": "ARD-200-150", "name": "Astberg ARD 200-150 ABS Reducer 200mm to 150mm", "size_mm": "200-150", "mrp": 690, "dp_basic": 445, "gst_18": 80, "dp": 525, "is_erv": false},
+            {"sku": "ARD-250-200", "name": "Astberg ARD 250-200 ABS Reducer 250mm to 200mm", "size_mm": "250-200", "mrp": 720, "dp_basic": 487, "gst_18": 88, "dp": 575, "is_erv": false},
+            {"sku": "ARD-315-250", "name": "Astberg ARD 315-250 ABS Reducer 315mm to 250mm", "size_mm": "315-250", "mrp": 1290, "dp_basic": 839, "gst_18": 151, "dp": 990, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ANR — Noise Reducer",
+          "skus": [
+            {"sku": "ANR-100", "name": "Astberg ANR 100 Noise Reducer 100mm", "size_mm": 100, "mrp": 1590, "dp_basic": 1102, "gst_18": 198, "dp": 1300, "is_erv": false},
+            {"sku": "ANR-150", "name": "Astberg ANR 150 Noise Reducer 150mm", "size_mm": 150, "mrp": 1790, "dp_basic": 1229, "gst_18": 221, "dp": 1450, "is_erv": false},
+            {"sku": "ANR-200", "name": "Astberg ANR 200 Noise Reducer 200mm", "size_mm": 200, "mrp": 2190, "dp_basic": 1483, "gst_18": 267, "dp": 1750, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ACL — PVC Clamps",
+          "skus": [
+            {"sku": "ACL-100", "name": "Astberg ACL 100 PVC Clamp 100mm", "size_mm": 100, "mrp": 75, "dp_basic": 51, "gst_18": 9, "dp": 60, "is_erv": false},
+            {"sku": "ACL-150", "name": "Astberg ACL 150 PVC Clamp 150mm", "size_mm": 150, "mrp": 105, "dp_basic": 72, "gst_18": 13, "dp": 85, "is_erv": false},
+            {"sku": "ACL-200", "name": "Astberg ACL 200 PVC Clamp 200mm", "size_mm": 200, "mrp": 190, "dp_basic": 136, "gst_18": 24, "dp": 160, "is_erv": false},
+            {"sku": "ACL-250", "name": "Astberg ACL 250 PVC Clamp 250mm", "size_mm": 250, "mrp": 300, "dp_basic": 212, "gst_18": 38, "dp": 250, "is_erv": false},
+            {"sku": "ACL-315", "name": "Astberg ACL 315 PVC Clamp 315mm", "size_mm": 315, "mrp": 650, "dp_basic": 445, "gst_18": 80, "dp": 525, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ASL — Steel Grip Clamp",
+          "skus": [
+            {"sku": "ASL-100", "name": "Astberg ASL 100 Steel Grip Clamp 100mm", "size_mm": 100, "mrp": 70, "dp_basic": 47, "gst_18": 8, "dp": 55, "is_erv": false},
+            {"sku": "ASL-150", "name": "Astberg ASL 150 Steel Grip Clamp 150mm", "size_mm": 150, "mrp": 75, "dp_basic": 51, "gst_18": 9, "dp": 60, "is_erv": false},
+            {"sku": "ASL-200", "name": "Astberg ASL 200 Steel Grip Clamp 200mm", "size_mm": 200, "mrp": 80, "dp_basic": 55, "gst_18": 10, "dp": 65, "is_erv": false},
+            {"sku": "ASL-250", "name": "Astberg ASL 250 Steel Grip Clamp 250mm", "size_mm": 250, "mrp": 85, "dp_basic": 59, "gst_18": 11, "dp": 70, "is_erv": false},
+            {"sku": "ASL-315", "name": "Astberg ASL 315 Steel Grip Clamp 315mm", "size_mm": 315, "mrp": 90, "dp_basic": 64, "gst_18": 11, "dp": 75, "is_erv": false}
+          ]
+        },
+        {
+          "name": "AOG — ABS Oblique Air Grill",
+          "skus": [
+            {"sku": "AOG-75", "name": "Astberg AOG 75 ABS Oblique Air Grill 75mm", "size_mm": 75, "mrp": null, "dp_basic": null, "gst_18": null, "dp": null, "is_erv": false, "notes": "Pricing not printed in PDF"},
+            {"sku": "AOG-100", "name": "Astberg AOG 100 ABS Oblique Air Grill 100mm", "size_mm": 100, "mrp": 890, "dp_basic": 572, "gst_18": 103, "dp": 675, "is_erv": false},
+            {"sku": "AOG-150", "name": "Astberg AOG 150 ABS Oblique Air Grill 150mm", "size_mm": 150, "mrp": 890, "dp_basic": 572, "gst_18": 103, "dp": 675, "is_erv": false},
+            {"sku": "AOG-200", "name": "Astberg AOG 200 ABS Oblique Air Grill 200mm", "size_mm": 200, "mrp": null, "dp_basic": null, "gst_18": null, "dp": null, "is_erv": false, "notes": "Pricing not printed in PDF"}
+          ]
+        },
+        {
+          "name": "AFG — ABS Fancy Air Grill",
+          "skus": [
+            {"sku": "AFG-75", "name": "Astberg AFG 75 ABS Fancy Air Grill 75mm", "size_mm": 75, "mrp": null, "dp_basic": null, "gst_18": null, "dp": null, "is_erv": false, "notes": "Pricing not printed in PDF"},
+            {"sku": "AFG-100", "name": "Astberg AFG 100 ABS Fancy Air Grill 100mm", "size_mm": 100, "mrp": 690, "dp_basic": 445, "gst_18": 80, "dp": 525, "is_erv": false},
+            {"sku": "AFG-150", "name": "Astberg AFG 150 ABS Fancy Air Grill 150mm", "size_mm": 150, "mrp": 890, "dp_basic": 572, "gst_18": 103, "dp": 675, "is_erv": false},
+            {"sku": "AFG-200", "name": "Astberg AFG 200 ABS Fancy Air Grill 200mm", "size_mm": 200, "mrp": null, "dp_basic": null, "gst_18": null, "dp": null, "is_erv": false, "notes": "Pricing not printed in PDF"}
+          ]
+        },
+        {
+          "name": "APE — Double Wall Corrugated Flexible Duct (Pipe)",
+          "skus": [
+            {"sku": "APE-75-50M", "name": "Astberg APE 75 Double Wall Corrugated Flexible Duct 75mm — 50 metres", "size_mm": 75, "unit": "set", "mrp": 16800, "dp_basic": 11864, "gst_18": 2136, "dp": 14000, "is_erv": false},
+            {"sku": "APE-110-30M", "name": "Astberg APE 110 Double Wall Corrugated Flexible Duct 110mm — 30 metres", "size_mm": 110, "unit": "set", "mrp": 19200, "dp_basic": 13559, "gst_18": 2441, "dp": 16000, "is_erv": false}
+          ]
+        },
+        {
+          "name": "ABB — Branch Box",
+          "skus": [
+            {"sku": "ABB-150-7", "name": "Astberg ABB 150-7 Branch Box (Supervisor 150mm, Branch 75mm)", "size_mm": "150 / 75", "mrp": 6490, "dp_basic": 4653, "gst_18": 837, "dp": 5490, "is_erv": false},
+            {"sku": "ABB-200-8", "name": "Astberg ABB 200-8 Metal Branch Box (Supervisor 200mm, Branch 75mm)", "size_mm": "200 / 75", "mrp": 10190, "dp_basic": 7195, "gst_18": 1295, "dp": 8490, "is_erv": false}
+          ]
+        },
+        {
+          "name": "PE — Pipe Connectors",
+          "skus": [
+            {"sku": "ARD-100-75PE", "name": "Astberg ARD 100-75PE ABS Reducer 100mm to 75mm", "size_mm": "100-75", "mrp": 690, "dp_basic": 445, "gst_18": 80, "dp": 525, "is_erv": false},
+            {"sku": "AJT-75", "name": "Astberg AJT 75 PE Pipe Connector 75mm", "size_mm": 75, "mrp": 490, "dp_basic": 318, "gst_18": 57, "dp": 375, "is_erv": false},
+            {"sku": "AYJ-100X100X75PE", "name": "Astberg AYJ 100x100x75PE — PE Pipe Oblique Connector", "size_mm": "110x110x75", "mrp": 720, "dp_basic": 466, "gst_18": 84, "dp": 575, "is_erv": false},
+            {"sku": "AYJ-100X75X75PE", "name": "Astberg AYJ 100x75x75PE — Y Type Connector", "size_mm": "110x75x75", "mrp": 720, "dp_basic": 487, "gst_18": 88, "dp": 575, "is_erv": false}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ERV / HRV — Bigger Machines",
+      "subcategories": [
+        {
+          "name": "ASF / AT Series",
+          "skus": [
+            {"sku": "ASF-50THP", "name": "Astberg ASF 50THP", "airflow_m3h": 500, "pressure_pa": 260, "watts": 93, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 153390, "is_erv": true},
+            {"sku": "AT-501", "name": "Astberg AT 501", "airflow_m3h": 60, "pressure_pa": 75, "watts": 6, "filtration": "Pre Filter", "mrp": 31900, "is_erv": true}
+          ]
+        },
+        {
+          "name": "AHE Series — D / THP / TH / THB Models",
+          "skus": [
+            {"sku": "AHE-D-20THA", "name": "Astberg AHE-D 20THA", "airflow_m3h": 200, "pressure_pa": 75, "watts": 117, "filtration": "Pre Filter", "mrp": 50990, "is_erv": true},
+            {"sku": "AHE-25THP", "name": "Astberg AHE 25 THP", "airflow_m3h": 250, "pressure_pa": 98, "watts": 127, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 68900, "is_erv": true},
+            {"sku": "AHE-35THP", "name": "Astberg AHE 35 THP", "airflow_m3h": 350, "pressure_pa": 110, "watts": 165, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 84490, "is_erv": true},
+            {"sku": "AHE-50THP", "name": "Astberg AHE 50 THP — Energy Recovery Ventilator (ERV/HRV) with HEPA + Carbon + Dust Filter, 500CMH", "airflow_m3h": 500, "pressure_pa": 175, "watts": 248, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 103490, "is_erv": true},
+            {"sku": "AHE-80THP", "name": "Astberg AHE 80 THP", "airflow_m3h": 800, "pressure_pa": 150, "watts": 320, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 124990, "is_erv": true},
+            {"sku": "AHE-100THP", "name": "Astberg AHE 100 THP", "airflow_m3h": 1000, "pressure_pa": 115, "watts": 450, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 164990, "is_erv": true},
+            {"sku": "AHE-130TH", "name": "Astberg AHE 130 TH", "airflow_m3h": 1300, "pressure_pa": 90, "watts": 680, "filtration": "Pre Filter", "mrp": 160490, "is_erv": true},
+            {"sku": "AHE-150THB", "name": "Astberg AHE 150 THB", "airflow_m3h": 1500, "pressure_pa": 185, "watts": 580, "filtration": "Pre Filter", "mrp": 193490, "is_erv": true},
+            {"sku": "AHE-200THB", "name": "Astberg AHE 200 THB", "airflow_m3h": 2000, "pressure_pa": 210, "watts": 880, "filtration": "Pre Filter", "mrp": 240490, "is_erv": true},
+            {"sku": "AHE-250THB", "name": "Astberg AHE 250 THB", "airflow_m3h": 2500, "pressure_pa": 260, "watts": 1200, "filtration": "Pre Filter", "mrp": 265490, "is_erv": true},
+            {"sku": "AHE-300THB", "name": "Astberg AHE 300 THB", "airflow_m3h": 3000, "pressure_pa": 210, "watts": 1950, "filtration": "Pre Filter", "mrp": 314490, "is_erv": true},
+            {"sku": "AHE-400THB", "name": "Astberg AHE 400 THB", "airflow_m3h": 4000, "pressure_pa": 300, "watts": 2000, "filtration": "Pre Filter", "mrp": 387490, "is_erv": true},
+            {"sku": "AHE-500THB", "name": "Astberg AHE 500 THB", "airflow_m3h": 5000, "pressure_pa": 330, "watts": 2000, "filtration": "Pre Filter", "mrp": 470990, "is_erv": true}
+          ]
+        },
+        {
+          "name": "AHC Series — With Return Air Filter",
+          "skus": [
+            {"sku": "AHC-500TH", "name": "Astberg AHC 500TH", "airflow_m3h": 500, "pressure_pa": 245, "watts": 165, "filtration": "Hepa+Carbon+Pre Filter+Return Air Filter", "mrp": 82900, "is_erv": true},
+            {"sku": "AHC-800TH", "name": "Astberg AHC 800TH", "airflow_m3h": 800, "pressure_pa": 321, "watts": 385, "filtration": "Hepa+Carbon+Pre Filter+Return Air Filter", "mrp": 103900, "is_erv": true},
+            {"sku": "AHC-1000TH", "name": "Astberg AHC 1000TH", "airflow_m3h": 1000, "pressure_pa": 355, "watts": 421, "filtration": "Hepa+Carbon+Pre Filter+Return Air Filter", "mrp": 130900, "is_erv": true}
+          ]
+        },
+        {
+          "name": "Darwin Series — IFD Filters",
+          "skus": [
+            {"sku": "DARWIN-AVD25", "name": "Astberg Darwin AVD25", "airflow_m3h": 250, "pressure_pa": 280, "watts": 110, "filtration": "IFD Filters", "mrp": 94490, "is_erv": true},
+            {"sku": "DARWIN-AVD35", "name": "Astberg Darwin AVD35", "airflow_m3h": 350, "pressure_pa": 310, "watts": 120, "filtration": "IFD Filters", "mrp": 107900, "is_erv": true},
+            {"sku": "DARWIN-AVD50", "name": "Astberg Darwin AVD50", "airflow_m3h": 500, "pressure_pa": 260, "watts": 140, "filtration": "IFD Filters", "mrp": 127490, "is_erv": true}
+          ]
+        }
+      ]
+    }
+  ]
+}
