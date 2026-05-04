@@ -159,8 +159,11 @@ export function QuoteBuilder({
   const calcInput = useMemo<SectionInput[]>(
     () =>
       sections.map((s) => ({
-        discountPercent,
-        gstRate: s.gstRate || "0",
+        // Empty input fields must be coerced to "0" before they reach
+        // the pricing engine — `new Decimal("")` throws and crashes
+        // the whole quote builder otherwise.
+        discountPercent: numericOrZero(discountPercent),
+        gstRate: numericOrZero(s.gstRate),
         isLabourStyle: s.isLabourStyle,
         appliesDiscount: s.appliesDiscount,
         lines: s.lines.map((l) => ({
@@ -365,7 +368,7 @@ export function QuoteBuilder({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="discountPercent">Discount %</Label>
+              <Label htmlFor="discountPercent">Extra discount %</Label>
               <Input
                 id="discountPercent"
                 type="number"
@@ -376,7 +379,11 @@ export function QuoteBuilder({
                 onChange={(e) => setDiscountPercent(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Applied to every section below where &ldquo;applies discount&rdquo; is on.
+                Concession on top of the Astberg DP / MRP line rate. Applied to
+                each section&apos;s subtotal before GST, only on sections of
+                type <em>Goods</em> (or <em>Custom</em> with &ldquo;apply
+                discount&rdquo; on). Eats into your margin — leave at 0 if you
+                aren&apos;t giving the client an extra discount.
               </p>
             </div>
           </CardContent>
