@@ -1,6 +1,12 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
   type Decimal,
@@ -21,22 +27,21 @@ export function TotalsPanel({
   isOwner: boolean;
   quoteNumber?: string;
 }) {
+  const isEmpty = totals.grandTotal.isZero();
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardDescription>
-            {quoteNumber ? quoteNumber : "Unsaved quote"}
-          </CardDescription>
-          <CardTitle>Totals</CardTitle>
+          <CardDescription>{quoteNumber ?? "Unsaved quote"}</CardDescription>
+          <CardTitle>What the client pays</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm tabular-nums">
+        <CardContent className="space-y-3 text-sm tabular-nums">
           {totals.sections.map((s, idx) => (
             <div key={idx} className="space-y-1">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Section {String.fromCharCode(65 + idx)}
               </p>
-              <Row label="Subtotal" value={s.subtotal} />
+              <Row label="Items subtotal" value={s.subtotal} />
               {s.discountAmount.isZero() ? null : (
                 <Row label="Discount" value={s.discountAmount.neg()} parens />
               )}
@@ -44,36 +49,42 @@ export function TotalsPanel({
                 <Row label="GST" value={s.gstAmount} />
               )}
               <Row label="Section total" value={s.total} bold />
-              {idx < totals.sections.length - 1 ? <Separator /> : null}
+              {idx < totals.sections.length - 1 ? (
+                <Separator className="my-2" />
+              ) : null}
             </div>
           ))}
           <Separator className="my-3" />
           <Row label="Grand total" value={totals.grandTotal} bold large />
-          {totals.grandTotal.gt(0) ? (
-            <p className="pt-2 text-xs italic text-muted-foreground">
+          {!isEmpty ? (
+            <p className="pt-1 text-xs italic text-muted-foreground">
               {amountInWords(totals.grandTotal)}
             </p>
-          ) : null}
+          ) : (
+            <p className="pt-1 text-xs italic text-muted-foreground">
+              Add line items to see totals.
+            </p>
+          )}
         </CardContent>
       </Card>
 
       {isOwner && financials ? (
-        <Card>
+        <Card className="border-dashed">
           <CardHeader>
-            <CardDescription>Owner only</CardDescription>
+            <CardDescription>Owner only — not on PDF</CardDescription>
             <CardTitle>Margin</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm tabular-nums">
-            <Row label="Cost of goods" value={financials.costOfGoods} muted />
+          <CardContent className="space-y-1 text-sm tabular-nums">
             <Row label="Revenue (ex-GST)" value={financials.revenuePostDiscount} muted />
+            <Row label="Cost of goods" value={financials.costOfGoods} muted />
             <Separator className="my-2" />
             <Row label="Gross margin" value={financials.grossMargin} bold />
-            <p className="text-right text-sm">
-              <span className="text-muted-foreground">Margin %</span>{" "}
-              <span className="ml-2 font-medium">
+            <div className="flex items-baseline justify-between gap-2 pt-0.5">
+              <span className="text-muted-foreground">Margin %</span>
+              <span className="font-semibold">
                 {financials.grossMarginPercent.toFixed(2)}%
               </span>
-            </p>
+            </div>
           </CardContent>
         </Card>
       ) : null}

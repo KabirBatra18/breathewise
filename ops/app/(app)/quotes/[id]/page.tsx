@@ -109,6 +109,7 @@ export default async function QuoteDetailPage({
           sku: products.sku,
           name: products.name,
           category: products.category,
+          mrp: products.mrp,
         })
         .from(products)
         .where(and(isNull(products.deletedAt), eq(products.isActive, true)))

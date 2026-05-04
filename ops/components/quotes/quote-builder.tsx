@@ -26,8 +26,11 @@ import { ProductPicker, type ProductOption } from "./product-picker";
 import { TotalsPanel } from "./totals-panel";
 import { saveRoughQuoteAction, type SaveQuoteInput } from "@/app/(app)/quotes/actions";
 import {
+  Decimal,
   computeFinancials,
+  computeLineAmount,
   computeQuoteTotals,
+  formatIndianNumber,
   type SectionInput,
 } from "@/lib/pricing";
 
@@ -433,6 +436,24 @@ export function QuoteBuilder({
   );
 }
 
+type SectionType = "GOODS" | "LABOUR" | "CUSTOM";
+
+function deriveSectionType(s: SectionState): SectionType {
+  if (s.isLabourStyle) return "LABOUR";
+  if (Number(s.gstRate) === 18 && s.appliesDiscount) return "GOODS";
+  return "CUSTOM";
+}
+
+function applySectionType(type: SectionType): Partial<SectionState> | null {
+  if (type === "GOODS") {
+    return { gstRate: "18.00", appliesDiscount: true, isLabourStyle: false };
+  }
+  if (type === "LABOUR") {
+    return { gstRate: "0.00", appliesDiscount: false, isLabourStyle: true };
+  }
+  return null;
+}
+
 function SectionCard({
   section,
   products,
@@ -452,11 +473,12 @@ function SectionCard({
   onAddLine: () => void;
   onRemoveLine: (lineIdx: number) => void;
 }) {
+  const sectionType = deriveSectionType(section);
   return (
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
-          <div className="space-y-2 flex-1">
+          <div className="flex-1 space-y-2">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
               Section {section.letter}
             </Label>
@@ -479,141 +501,87 @@ function SectionCard({
             </Button>
           ) : null}
         </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 space-y-3">
           <div className="space-y-2">
-            <Label>GST %</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min={0}
-              max={100}
-              value={section.gstRate}
-              onChange={(e) => onPatch({ gstRate: e.target.value })}
-              disabled={section.isLabourStyle}
-            />
+            <Label>Section type</Label>
+            <Select
+              value={sectionType}
+              onValueChange={(v) => {
+                const patch = applySectionType(v as SectionType);
+                if (patch) onPatch(patch);
+                else onPatch({}); // Custom: keep current values, just exposes the raw controls below
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GOODS">
+                  Goods · 18% GST · applies discount
+                </SelectItem>
+                <SelectItem value="LABOUR">
+                  Labour / Services · no GST · no discount
+                </SelectItem>
+                <SelectItem value="CUSTOM">Custom (manual controls)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <label className="flex items-center gap-2 text-sm md:mt-7">
-            <input
-              type="checkbox"
-              checked={section.appliesDiscount}
-              onChange={(e) =>
-                onPatch({ appliesDiscount: e.target.checked })
-              }
-              disabled={section.isLabourStyle}
-              className="h-4 w-4 rounded border-input"
-            />
-            Apply discount
-          </label>
-          <label className="flex items-center gap-2 text-sm md:mt-7">
-            <input
-              type="checkbox"
-              checked={section.isLabourStyle}
-              onChange={(e) =>
-                onPatch({
-                  isLabourStyle: e.target.checked,
-                  gstRate: e.target.checked ? "0.00" : "18.00",
-                  appliesDiscount: e.target.checked
-                    ? false
-                    : section.appliesDiscount,
-                })
-              }
-              className="h-4 w-4 rounded border-input"
-            />
-            Labour-style (lump sum, no GST/discount)
-          </label>
+          {sectionType === "CUSTOM" ? (
+            <div className="grid gap-4 rounded-md border border-dashed p-3 md:grid-cols-3">
+              <div className="space-y-1">
+                <Label className="text-xs">GST %</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  max={100}
+                  value={section.gstRate}
+                  onChange={(e) => onPatch({ gstRate: e.target.value })}
+                  disabled={section.isLabourStyle}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm md:mt-7">
+                <input
+                  type="checkbox"
+                  checked={section.appliesDiscount}
+                  onChange={(e) => onPatch({ appliesDiscount: e.target.checked })}
+                  disabled={section.isLabourStyle}
+                  className="h-4 w-4 rounded border-input"
+                />
+                Apply discount
+              </label>
+              <label className="flex items-center gap-2 text-sm md:mt-7">
+                <input
+                  type="checkbox"
+                  checked={section.isLabourStyle}
+                  onChange={(e) =>
+                    onPatch({
+                      isLabourStyle: e.target.checked,
+                      gstRate: e.target.checked ? "0.00" : section.gstRate,
+                      appliesDiscount: e.target.checked
+                        ? false
+                        : section.appliesDiscount,
+                    })
+                  }
+                  className="h-4 w-4 rounded border-input"
+                />
+                Lump sum (no GST/discount)
+              </label>
+            </div>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {section.lines.map((line, lIdx) => (
-          <div
+          <LineRow
             key={line.id}
-            className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_90px_110px_70px_30px]"
-          >
-            <div className="space-y-2">
-              <ProductPicker
-                products={products}
-                value={line.productId}
-                onPick={async (productId) => {
-                  if (!productId) {
-                    onPatchLine(lIdx, { productId: null });
-                    return;
-                  }
-                  const res = await fetch(`/api/products/${productId}`);
-                  if (!res.ok) return;
-                  const data: {
-                    description: string;
-                    mrp: string | null;
-                    unitPrice: string;
-                    unit: string;
-                    costPrice: string | null;
-                  } = await res.json();
-                  onPatchLine(lIdx, {
-                    productId,
-                    description: data.description,
-                    mrp: data.mrp ?? "",
-                    unitPrice: data.unitPrice,
-                    unit: data.unit,
-                    costPriceSnapshot: data.costPrice,
-                  });
-                }}
-              />
-              <Textarea
-                value={line.description}
-                onChange={(e) =>
-                  onPatchLine(lIdx, { description: e.target.value })
-                }
-                placeholder="Description"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Qty</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={line.quantity}
-                onChange={(e) => onPatchLine(lIdx, { quantity: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Unit price</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={line.unitPrice}
-                onChange={(e) =>
-                  onPatchLine(lIdx, { unitPrice: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Unit</Label>
-              <Input
-                value={line.unit}
-                onChange={(e) => onPatchLine(lIdx, { unit: e.target.value })}
-              />
-            </div>
-            <div className="flex items-end justify-end">
-              {section.lines.length > 1 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onRemoveLine(lIdx)}
-                  aria-label="Remove line"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </div>
-            {isOwner && line.costPriceSnapshot ? (
-              <p className="text-xs text-muted-foreground md:col-span-5">
-                Cost snapshot: ₹{line.costPriceSnapshot}
-              </p>
-            ) : null}
-          </div>
+            line={line}
+            products={products}
+            isOwner={isOwner}
+            canRemove={section.lines.length > 1}
+            onPatch={(patch) => onPatchLine(lIdx, patch)}
+            onRemove={() => onRemoveLine(lIdx)}
+          />
         ))}
         <Button type="button" variant="outline" size="sm" onClick={onAddLine}>
           <Plus className="h-4 w-4" />
@@ -621,6 +589,128 @@ function SectionCard({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+function LineRow({
+  line,
+  products,
+  isOwner,
+  canRemove,
+  onPatch,
+  onRemove,
+}: {
+  line: LineState;
+  products: ProductOption[];
+  isOwner: boolean;
+  canRemove: boolean;
+  onPatch: (patch: Partial<LineState>) => void;
+  onRemove: () => void;
+}) {
+  const lineTotal = useMemo(
+    () =>
+      computeLineAmount({
+        qty: numericOrZero(line.quantity),
+        unitPrice: numericOrZero(line.unitPrice),
+      }),
+    [line.quantity, line.unitPrice],
+  );
+
+  return (
+    <div className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_80px_110px_60px_28px]">
+      <div className="space-y-2 md:col-span-5">
+        <ProductPicker
+          products={products}
+          value={line.productId}
+          onPick={async (productId) => {
+            if (!productId) {
+              onPatch({ productId: null });
+              return;
+            }
+            const res = await fetch(`/api/products/${productId}`);
+            if (!res.ok) return;
+            const data: {
+              description: string;
+              mrp: string | null;
+              unitPrice: string;
+              unit: string;
+              costPrice: string | null;
+            } = await res.json();
+            onPatch({
+              productId,
+              description: data.description,
+              mrp: data.mrp ?? "",
+              unitPrice: data.unitPrice,
+              unit: data.unit,
+              costPriceSnapshot: data.costPrice,
+            });
+          }}
+        />
+        <Textarea
+          value={line.description}
+          onChange={(e) => onPatch({ description: e.target.value })}
+          placeholder="Description"
+          rows={2}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Qty</Label>
+        <Input
+          type="number"
+          step="0.01"
+          min={0}
+          value={line.quantity}
+          onChange={(e) => onPatch({ quantity: e.target.value })}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Unit price</Label>
+        <Input
+          type="number"
+          step="0.01"
+          min={0}
+          value={line.unitPrice}
+          onChange={(e) => onPatch({ unitPrice: e.target.value })}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Unit</Label>
+        <Input
+          value={line.unit}
+          onChange={(e) => onPatch({ unit: e.target.value })}
+        />
+      </div>
+      <div className="flex items-end justify-end">
+        {canRemove ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onRemove}
+            aria-label="Remove line"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        ) : null}
+      </div>
+      <div className="md:col-span-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-dashed pt-2 text-xs tabular-nums">
+        <span className="text-muted-foreground">
+          {isOwner && line.costPriceSnapshot ? (
+            <>
+              Cost ₹{formatIndianNumber(new Decimal(line.costPriceSnapshot))} / {line.unit || "pcs"}
+            </>
+          ) : null}
+        </span>
+        <span>
+          <span className="text-muted-foreground">
+            {line.quantity || "0"} × ₹{line.unitPrice || "0"} ={" "}
+          </span>
+          <span className="font-semibold">
+            ₹{formatIndianNumber(lineTotal)}
+          </span>
+        </span>
+      </div>
+    </div>
   );
 }
 
