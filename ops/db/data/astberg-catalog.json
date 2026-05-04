@@ -498,15 +498,30 @@
           ]
         },
         {
-          "name": "AHE Series — D / THP / TH / THB Models",
+          "name": "AHE-D Series — Pre-Filter ERV (compact)",
           "skus": [
-            {"sku": "AHE-D-20THA", "name": "Astberg AHE-D 20THA", "airflow_m3h": 200, "pressure_pa": 75, "watts": 117, "filtration": "Pre Filter", "mrp": 50990, "is_erv": true},
+            {"sku": "AHE-D-20THA", "name": "Astberg AHE-D 20THA", "airflow_m3h": 200, "pressure_pa": 75, "watts": 117, "filtration": "Pre Filter", "mrp": 50990, "is_erv": true}
+          ]
+        },
+        {
+          "name": "AHE-THP Series — HEPA + Carbon ERV",
+          "skus": [
             {"sku": "AHE-25THP", "name": "Astberg AHE 25 THP", "airflow_m3h": 250, "pressure_pa": 98, "watts": 127, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 68900, "is_erv": true},
             {"sku": "AHE-35THP", "name": "Astberg AHE 35 THP", "airflow_m3h": 350, "pressure_pa": 110, "watts": 165, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 84490, "is_erv": true},
             {"sku": "AHE-50THP", "name": "Astberg AHE 50 THP — Energy Recovery Ventilator (ERV/HRV) with HEPA + Carbon + Dust Filter, 500CMH", "airflow_m3h": 500, "pressure_pa": 175, "watts": 248, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 103490, "is_erv": true},
             {"sku": "AHE-80THP", "name": "Astberg AHE 80 THP", "airflow_m3h": 800, "pressure_pa": 150, "watts": 320, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 124990, "is_erv": true},
-            {"sku": "AHE-100THP", "name": "Astberg AHE 100 THP", "airflow_m3h": 1000, "pressure_pa": 115, "watts": 450, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 164990, "is_erv": true},
-            {"sku": "AHE-130TH", "name": "Astberg AHE 130 TH", "airflow_m3h": 1300, "pressure_pa": 90, "watts": 680, "filtration": "Pre Filter", "mrp": 160490, "is_erv": true},
+            {"sku": "AHE-100THP", "name": "Astberg AHE 100 THP", "airflow_m3h": 1000, "pressure_pa": 115, "watts": 450, "filtration": "Hepa+Carbon+Pre Filter", "mrp": 164990, "is_erv": true}
+          ]
+        },
+        {
+          "name": "AHE-TH Series — Pre-Filter ERV (mid)",
+          "skus": [
+            {"sku": "AHE-130TH", "name": "Astberg AHE 130 TH", "airflow_m3h": 1300, "pressure_pa": 90, "watts": 680, "filtration": "Pre Filter", "mrp": 160490, "is_erv": true}
+          ]
+        },
+        {
+          "name": "AHE-THB Series — Pre-Filter ERV (large)",
+          "skus": [
             {"sku": "AHE-150THB", "name": "Astberg AHE 150 THB", "airflow_m3h": 1500, "pressure_pa": 185, "watts": 580, "filtration": "Pre Filter", "mrp": 193490, "is_erv": true},
             {"sku": "AHE-200THB", "name": "Astberg AHE 200 THB", "airflow_m3h": 2000, "pressure_pa": 210, "watts": 880, "filtration": "Pre Filter", "mrp": 240490, "is_erv": true},
             {"sku": "AHE-250THB", "name": "Astberg AHE 250 THB", "airflow_m3h": 2500, "pressure_pa": 260, "watts": 1200, "filtration": "Pre Filter", "mrp": 265490, "is_erv": true},
