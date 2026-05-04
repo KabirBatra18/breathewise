@@ -761,8 +761,8 @@ function LineRow({
               className={
                 "px-2 py-1 transition-colors " +
                 (line.priceMode === "DP"
-                  ? "bg-foreground text-background"
-                  : "hover:bg-muted")
+                  ? "bg-sky-600 text-white"
+                  : "text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950/40")
               }
             >
               Astberg DP · ₹{formatIndianNumber(new Decimal(line.dpRate))}
@@ -775,17 +775,23 @@ function LineRow({
               className={
                 "border-l px-2 py-1 transition-colors " +
                 (line.priceMode === "MRP"
-                  ? "bg-foreground text-background"
-                  : "hover:bg-muted")
+                  ? "bg-amber-500 text-white"
+                  : "text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40")
               }
             >
               MRP · ₹{formatIndianNumber(new Decimal(line.mrpRate))}
             </button>
           </div>
-          <span className="text-muted-foreground">
+          <span
+            className={
+              line.priceMode === "DP"
+                ? "text-sky-700 dark:text-sky-300"
+                : "text-amber-700 dark:text-amber-400"
+            }
+          >
             {line.priceMode === "DP"
-              ? "Astberg-quoted item — keep at DP."
-              : "Self-added item — quoting up to MRP for max margin."}
+              ? "Astberg-quoted — keep at DP."
+              : "Self-added — quoting up to MRP for max margin."}
           </span>
         </div>
       ) : null}

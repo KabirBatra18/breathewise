@@ -16,6 +16,17 @@ import {
   type QuoteTotals,
 } from "@/lib/pricing";
 
+type Tone = "default" | "discount" | "gst" | "positive" | "negative" | "muted";
+
+const TONE_TEXT: Record<Tone, string> = {
+  default: "",
+  muted: "text-muted-foreground",
+  discount: "text-rose-600 dark:text-rose-400",
+  gst: "text-amber-700 dark:text-amber-400",
+  positive: "text-emerald-700 dark:text-emerald-400",
+  negative: "text-rose-700 dark:text-rose-400",
+};
+
 export function TotalsPanel({
   totals,
   financials,
@@ -28,6 +39,13 @@ export function TotalsPanel({
   quoteNumber?: string;
 }) {
   const isEmpty = totals.grandTotal.isZero();
+  const marginIsPositive = financials ? financials.grossMargin.gt(0) : true;
+  const marginTone: Tone = financials
+    ? marginIsPositive
+      ? "positive"
+      : "negative"
+    : "default";
+
   return (
     <div className="space-y-4">
       <Card>
@@ -43,10 +61,15 @@ export function TotalsPanel({
               </p>
               <Row label="Items subtotal" value={s.subtotal} />
               {s.discountAmount.isZero() ? null : (
-                <Row label="Discount" value={s.discountAmount.neg()} parens />
+                <Row
+                  label="Discount"
+                  value={s.discountAmount.neg()}
+                  parens
+                  tone="discount"
+                />
               )}
               {s.gstAmount.isZero() ? null : (
-                <Row label="GST" value={s.gstAmount} />
+                <Row label="GST" value={s.gstAmount} tone="gst" />
               )}
               <Row label="Section total" value={s.total} bold />
               {idx < totals.sections.length - 1 ? (
@@ -75,13 +98,26 @@ export function TotalsPanel({
             <CardTitle>Margin</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm tabular-nums">
-            <Row label="Revenue (ex-GST)" value={financials.revenuePostDiscount} muted />
-            <Row label="Cost of goods" value={financials.costOfGoods} muted />
+            <Row
+              label="Revenue (ex-GST)"
+              value={financials.revenuePostDiscount}
+              tone="muted"
+            />
+            <Row
+              label="Cost of goods"
+              value={financials.costOfGoods}
+              tone="muted"
+            />
             <Separator className="my-2" />
-            <Row label="Gross margin" value={financials.grossMargin} bold />
+            <Row
+              label="Gross margin"
+              value={financials.grossMargin}
+              bold
+              tone={marginTone}
+            />
             <div className="flex items-baseline justify-between gap-2 pt-0.5">
               <span className="text-muted-foreground">Margin %</span>
-              <span className="font-semibold">
+              <span className={`font-semibold ${TONE_TEXT[marginTone]}`}>
                 {financials.grossMarginPercent.toFixed(2)}%
               </span>
             </div>
@@ -97,24 +133,25 @@ function Row({
   value,
   bold,
   large,
-  muted,
+  tone = "default",
   parens,
 }: {
   label: string;
   value: Decimal;
   bold?: boolean;
   large?: boolean;
-  muted?: boolean;
+  tone?: Tone;
   parens?: boolean;
 }) {
+  const toneClass = TONE_TEXT[tone];
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className={muted ? "text-muted-foreground" : ""}>{label}</span>
+      <span className={toneClass}>{label}</span>
       <span
         className={[
           large ? "text-base" : "text-sm",
           bold ? "font-semibold" : "",
-          muted ? "text-muted-foreground" : "",
+          toneClass,
         ].join(" ")}
       >
         ₹{formatIndianNumber(value, { negativeAsParens: parens })}

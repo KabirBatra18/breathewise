@@ -95,6 +95,47 @@ const TOP_ORDER = [
   "Other",
 ] as const;
 
+// Each top-level category has a distinct hue so the user can recognise
+// the section at a glance — the inactive chip shows that hue as a tiny
+// dot, the active chip uses it as a solid background, and the selected
+// subcategory in the left pane gets a matching coloured left-border.
+// Class names must be full literals so Tailwind's JIT picks them up.
+const TOP_STYLE: Record<
+  string,
+  { active: string; dot: string; borderL: string }
+> = {
+  "Inline Fans": {
+    active: "bg-sky-600 text-white border-sky-600",
+    dot: "bg-sky-500",
+    borderL: "border-l-sky-500",
+  },
+  "Specialty Fans": {
+    active: "bg-violet-600 text-white border-violet-600",
+    dot: "bg-violet-500",
+    borderL: "border-l-violet-500",
+  },
+  "Domestic Fans": {
+    active: "bg-rose-600 text-white border-rose-600",
+    dot: "bg-rose-500",
+    borderL: "border-l-rose-500",
+  },
+  Accessories: {
+    active: "bg-slate-700 text-white border-slate-700",
+    dot: "bg-slate-500",
+    borderL: "border-l-slate-500",
+  },
+  "ERV / HRV": {
+    active: "bg-emerald-600 text-white border-emerald-600",
+    dot: "bg-emerald-500",
+    borderL: "border-l-emerald-500",
+  },
+  Other: {
+    active: "bg-zinc-700 text-white border-zinc-700",
+    dot: "bg-zinc-400",
+    borderL: "border-l-zinc-400",
+  },
+};
+
 function topOf(sub: string | null): string {
   if (!sub) return "Other";
   return SUB_TO_TOP[sub] ?? "Other";
@@ -164,8 +205,6 @@ export function ProductPicker({
     [allGroups, topFilter],
   );
 
-  // Auto-pick the first subcategory of the active chip when it changes
-  // (or on first open) so the right pane is never empty.
   useEffect(() => {
     if (!open || isSearching) return;
     if (!selectedSubcat || !subsInChip.find((g) => g.sub === selectedSubcat)) {
@@ -240,8 +279,9 @@ export function ProductPicker({
         <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
       </Button>
       {open ? (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10">
-          <div className="border-b p-2">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 flex max-h-[480px] flex-col overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10">
+          {/* Search */}
+          <div className="shrink-0 border-b p-2">
             <Input
               ref={inputRef}
               value={query}
@@ -254,84 +294,119 @@ export function ProductPicker({
             <button
               type="button"
               onClick={() => handlePick(null)}
-              className="block w-full border-b px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
+              className="shrink-0 border-b px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
             >
               Clear selection
             </button>
           ) : null}
 
           {isSearching ? (
-            <div className="max-h-80 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {searchGroups.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-muted-foreground">
                   No matches.
                 </p>
               ) : (
-                searchGroups.map((g) => (
-                  <div key={g.sub}>
-                    <div className="bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                      {g.sub}
+                searchGroups.map((g) => {
+                  const sty = TOP_STYLE[g.top] ?? TOP_STYLE.Other;
+                  return (
+                    <div key={g.sub}>
+                      <div className="flex items-center gap-2 bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                        <span
+                          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", sty.dot)}
+                          aria-hidden
+                        />
+                        <span className="truncate">{g.sub}</span>
+                      </div>
+                      {g.items.map((p) => (
+                        <ItemRow
+                          key={p.id}
+                          p={p}
+                          active={value === p.id}
+                          onPick={() => handlePick(p.id)}
+                        />
+                      ))}
                     </div>
-                    {g.items.map((p) => (
-                      <ItemRow
-                        key={p.id}
-                        p={p}
-                        active={value === p.id}
-                        onPick={() => handlePick(p.id)}
-                      />
-                    ))}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap gap-1 border-b p-2">
-                {visibleChips.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTopFilter(t)}
-                    className={cn(
-                      "rounded-md px-2 py-1 text-xs transition-colors",
-                      t === topFilter
-                        ? "bg-foreground text-background"
-                        : "hover:bg-muted",
-                    )}
-                  >
-                    {t}{" "}
-                    <span className="opacity-60">({chipCounts[t]})</span>
-                  </button>
-                ))}
+              {/* Chips */}
+              <div className="shrink-0 flex flex-wrap items-center gap-1.5 border-b p-2">
+                {visibleChips.map((t) => {
+                  const sty = TOP_STYLE[t] ?? TOP_STYLE.Other;
+                  const isActive = t === topFilter;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTopFilter(t)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
+                        isActive
+                          ? sty.active
+                          : "border-transparent bg-muted/40 hover:bg-muted",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 shrink-0 rounded-full",
+                          isActive ? "bg-white/80" : sty.dot,
+                        )}
+                        aria-hidden
+                      />
+                      <span>{t}</span>
+                      <span
+                        className={cn(
+                          "tabular-nums",
+                          isActive ? "opacity-80" : "opacity-60",
+                        )}
+                      >
+                        {chipCounts[t]}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="grid max-h-80 grid-cols-1 md:grid-cols-[220px_1fr]">
-                <div className="max-h-32 overflow-y-auto border-b md:max-h-80 md:border-b-0 md:border-r">
+
+              {/* Master-detail body */}
+              <div className="flex flex-1 min-h-0 flex-col md:flex-row">
+                {/* Left: subcategory list */}
+                <div className="max-h-40 shrink-0 overflow-y-auto border-b md:max-h-none md:w-[240px] md:border-b-0 md:border-r">
                   {subsInChip.length === 0 ? (
                     <p className="px-3 py-4 text-center text-xs text-muted-foreground">
                       No subcategories.
                     </p>
                   ) : (
-                    subsInChip.map((g) => (
-                      <button
-                        key={g.sub}
-                        type="button"
-                        onClick={() => setSelectedSubcat(g.sub)}
-                        className={cn(
-                          "flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors",
-                          selectedSubcat === g.sub
-                            ? "bg-muted font-medium"
-                            : "hover:bg-muted/50",
-                        )}
-                      >
-                        <span className="truncate">{g.sub}</span>
-                        <span className="shrink-0 tabular-nums opacity-60">
-                          {g.items.length}
-                        </span>
-                      </button>
-                    ))
+                    subsInChip.map((g) => {
+                      const isSel = selectedSubcat === g.sub;
+                      const sty = TOP_STYLE[g.top] ?? TOP_STYLE.Other;
+                      return (
+                        <button
+                          key={g.sub}
+                          type="button"
+                          onClick={() => setSelectedSubcat(g.sub)}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-2 border-l-2 px-3 py-2 text-left text-xs transition-colors",
+                            isSel
+                              ? cn("bg-muted font-medium", sty.borderL)
+                              : "border-l-transparent hover:bg-muted/40",
+                          )}
+                        >
+                          <span className="truncate">{g.sub}</span>
+                          <span className="shrink-0 tabular-nums opacity-60">
+                            {g.items.length}
+                          </span>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
-                <div className="max-h-80 overflow-y-auto">
+
+                {/* Right: items */}
+                <div className="flex-1 min-h-0 overflow-y-auto">
                   {detailItems.length === 0 ? (
                     <p className="px-3 py-6 text-center text-xs text-muted-foreground">
                       Pick a series on the left.
@@ -369,11 +444,16 @@ function ItemRow({
     <button
       type="button"
       onClick={onPick}
-      className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+      className={cn(
+        "flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors",
+        active
+          ? "bg-sky-50 text-sky-900 dark:bg-sky-950/40 dark:text-sky-100"
+          : "hover:bg-muted",
+      )}
     >
       <Check
         className={cn(
-          "mt-0.5 h-4 w-4 shrink-0",
+          "mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400",
           active ? "opacity-100" : "opacity-0",
         )}
       />
