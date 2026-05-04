@@ -1,56 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Input } from "@/components/ui/input";
 
 export interface ProductOption {
   id: string;
   sku: string | null;
   name: string;
   category: string;
+  subcategory: string | null;
   mrp: string | null;
 }
 
-const FAMILY_LABELS: Record<string, string> = {
-  AEE: "Inline Round Fans",
-  AEB: "Inline Box Fans",
-  AAF: "Axial Flow Fans",
-  AHI: "Boosters",
-  AFP: "Fresh Air Boxes",
-  AFV: "Fresh Air Purifiers",
-  ABF: "Air Box Fans",
-  ASF: "Ultra Slim Fans",
-  ASC: "Centrifugal Cabinet Fans",
-  AOG: "Range Hoods",
-  AGD: "Grilles",
-  AAFD: "Aerofin Dampers",
-  ABB: "Branch Boxes",
-  ABC: "Beam Crossers",
-  ASHT: "Portable Blowers",
-  ASHTDUCT: "Portable Blower Ducts",
-  ERV: "ERV / HRV (Energy Recovery)",
-  HRV: "ERV / HRV (Energy Recovery)",
-  AST: "Legacy / Custom",
-};
-
-function familyLabel(sku: string | null): string {
-  if (!sku) return "Other";
-  const upper = sku.toUpperCase();
-  if (upper.startsWith("ASHT-DUCT")) return FAMILY_LABELS.ASHTDUCT;
-  if (upper.startsWith("AFV-DP")) return FAMILY_LABELS.AFV;
-  if (upper.startsWith("ERVRX") || upper.startsWith("ERV-")) return FAMILY_LABELS.ERV;
-  const prefix = upper.split("-")[0];
-  return FAMILY_LABELS[prefix] ?? "Other";
+function formatINR0(s: string | null): string {
+  if (!s) return "";
+  const n = Number(s);
+  if (isNaN(n)) return s;
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
 interface Group {
@@ -61,10 +30,10 @@ interface Group {
 function groupProducts(products: ProductOption[]): Group[] {
   const map = new Map<string, ProductOption[]>();
   for (const p of products) {
-    const label = familyLabel(p.sku);
-    const list = map.get(label) ?? [];
+    const key = p.subcategory ?? "Legacy / Other";
+    const list = map.get(key) ?? [];
     list.push(p);
-    map.set(label, list);
+    map.set(key, list);
   }
   for (const list of map.values()) {
     list.sort((a, b) => (a.sku ?? "").localeCompare(b.sku ?? ""));
@@ -72,17 +41,10 @@ function groupProducts(products: ProductOption[]): Group[] {
   return [...map.entries()]
     .map(([label, items]) => ({ label, items }))
     .sort((a, b) => {
-      if (a.label === "Other") return 1;
-      if (b.label === "Other") return -1;
+      if (a.label === "Legacy / Other") return 1;
+      if (b.label === "Legacy / Other") return -1;
       return a.label.localeCompare(b.label);
     });
-}
-
-function formatINR0(s: string | null): string {
-  if (!s) return "";
-  const n = Number(s);
-  if (isNaN(n)) return s;
-  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
 export function ProductPicker({
@@ -95,10 +57,27 @@ export function ProductPicker({
   onPick: (productId: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const selected = products.find((p) => p.id === value);
-  const groups = useMemo(() => groupProducts(products), [products]);
+
+  const allGroups = useMemo(() => groupProducts(products), [products]);
+  const q = query.trim().toLowerCase();
+  const isSearching = q.length > 0;
+
+  const visibleGroups = useMemo(() => {
+    if (!isSearching) return allGroups;
+    return allGroups
+      .map((g) => ({
+        label: g.label,
+        items: g.items.filter((p) =>
+          `${p.name} ${p.sku ?? ""}`.toLowerCase().includes(q),
+        ),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [allGroups, isSearching, q]);
 
   useEffect(() => {
     if (!open) return;
@@ -123,7 +102,23 @@ export function ProductPicker({
       const t = window.setTimeout(() => inputRef.current?.focus(), 0);
       return () => window.clearTimeout(t);
     }
+    setQuery("");
+    setExpanded(new Set());
   }, [open]);
+
+  function toggleGroup(label: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
+
+  function handlePick(productId: string | null) {
+    onPick(productId);
+    setOpen(false);
+  }
 
   const triggerLabel = selected
     ? selected.sku
@@ -147,59 +142,95 @@ export function ProductPicker({
       </Button>
       {open ? (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10">
-          <Command shouldFilter>
-            <CommandInput ref={inputRef} placeholder="Search by name or SKU…" />
-            <CommandList className="max-h-80">
-              <CommandEmpty>No matches.</CommandEmpty>
-              {value ? (
-                <CommandGroup>
-                  <CommandItem
-                    value="__clear"
-                    onSelect={() => {
-                      onPick(null);
-                      setOpen(false);
+          <div className="border-b p-2">
+            <Input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name or SKU…"
+              className="h-8"
+            />
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {value ? (
+              <button
+                type="button"
+                onClick={() => handlePick(null)}
+                className="flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+              >
+                <span>Clear selection</span>
+              </button>
+            ) : null}
+            {visibleGroups.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                No matches.
+              </p>
+            ) : null}
+            {visibleGroups.map((g) => {
+              const isExpanded = isSearching || expanded.has(g.label);
+              return (
+                <div key={g.label} className="border-t first:border-t-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isSearching) toggleGroup(g.label);
                     }}
+                    aria-expanded={isExpanded}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 bg-muted/40 px-3 py-2 text-left text-sm transition-colors",
+                      isSearching
+                        ? "cursor-default"
+                        : "hover:bg-muted",
+                    )}
                   >
-                    <span className="text-muted-foreground">Clear selection</span>
-                  </CommandItem>
-                </CommandGroup>
-              ) : null}
-              {groups.map((g) => (
-                <CommandGroup key={g.label} heading={g.label}>
-                  {g.items.map((p) => (
-                    <CommandItem
-                      key={p.id}
-                      value={`${p.name} ${p.sku ?? ""}`}
-                      onSelect={() => {
-                        onPick(p.id);
-                        setOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          "h-4 w-4",
-                          value === p.id ? "opacity-100" : "opacity-0",
-                        )}
-                      />
-                      <div className="flex flex-1 flex-col overflow-hidden">
-                        <span className="truncate text-sm">{p.name}</span>
-                        {p.sku ? (
-                          <span className="font-mono text-[10px] text-muted-foreground">
-                            {p.sku}
-                          </span>
-                        ) : null}
-                      </div>
-                      {p.mrp ? (
-                        <span className="ml-2 shrink-0 text-xs tabular-nums text-muted-foreground">
-                          MRP ₹{formatINR0(p.mrp)}
-                        </span>
-                      ) : null}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))}
-            </CommandList>
-          </Command>
+                    <span className="flex items-center gap-2 truncate">
+                      {isExpanded ? (
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                      )}
+                      <span className="truncate font-medium">{g.label}</span>
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {g.items.length}
+                    </span>
+                  </button>
+                  {isExpanded ? (
+                    <div>
+                      {g.items.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handlePick(p.id)}
+                          className="flex w-full items-start gap-2 px-3 py-2 pl-9 text-left text-sm hover:bg-muted"
+                        >
+                          <Check
+                            className={cn(
+                              "mt-0.5 h-4 w-4 shrink-0",
+                              value === p.id ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          <div className="flex flex-1 flex-col overflow-hidden">
+                            <span className="truncate text-sm">{p.name}</span>
+                            {p.sku ? (
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                {p.sku}
+                              </span>
+                            ) : null}
+                          </div>
+                          {p.mrp ? (
+                            <span className="ml-2 shrink-0 text-xs tabular-nums text-muted-foreground">
+                              MRP ₹{formatINR0(p.mrp)}
+                            </span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : null}
     </div>

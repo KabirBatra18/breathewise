@@ -55,7 +55,7 @@
           ]
         },
         {
-          "name": "AEE Series — Circular Duct Fan (G Series)",
+          "name": "AEE Series — Circular Duct Fan",
           "skus": [
             {"sku": "AEE-100", "name": "Astberg AEE 100 Circular Duct Fan", "size_mm": 100, "airflow_m3h": 290, "pressure_pa": 290, "db": 65, "mrp": 7690, "dp_basic": 5415, "gst_18": 975, "dp": 6390, "is_erv": false},
             {"sku": "AEE-125", "name": "Astberg AEE 125 Circular Duct Fan", "size_mm": 125, "airflow_m3h": 370, "pressure_pa": 350, "db": 65, "mrp": 8190, "dp_basic": 5754, "gst_18": 1036, "dp": 6790, "is_erv": false},

@@ -109,6 +109,7 @@ export default async function QuoteDetailPage({
           sku: products.sku,
           name: products.name,
           category: products.category,
+          subcategory: products.subcategory,
           mrp: products.mrp,
         })
         .from(products)

@@ -56,6 +56,7 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   category: text("category").notNull(),
+  subcategory: text("subcategory"),
   mrp: money("mrp"),
   defaultUnitPrice: money("default_unit_price").notNull(),
   defaultGstRate: percent("default_gst_rate").notNull().default("18.00"),

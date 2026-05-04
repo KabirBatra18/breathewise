@@ -5,7 +5,11 @@ import postgres from "postgres";
 
 config({ path: ".env.local" });
 
-const MIGRATIONS = ["0000_initial_schema.sql", "0001_seed_data.sql"];
+const MIGRATIONS = [
+  "0000_initial_schema.sql",
+  "0001_seed_data.sql",
+  "0002_products_subcategory.sql",
+];
 
 async function main() {
   const url =
