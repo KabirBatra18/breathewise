@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,36 +15,102 @@ export interface ProductOption {
   mrp: string | null;
 }
 
+// Subcategory → top-level Astberg PDF section. Mirrors
+// db/data/astberg-catalog.json `categories[].name`. Anything not listed
+// falls into "Other" (e.g. legacy AST-prefixed products).
+const SUB_TO_TOP: Record<string, string> = {
+  // Inline Fans
+  "AF Series — Mix Flow Inline Fan": "Inline Fans",
+  "ASMK Series — Mixed Flow with Silencer": "Inline Fans",
+  "ATMK Series — Mixed Flow Fan": "Inline Fans",
+  "AFB Series — Black Mix Flow Inline Fan": "Inline Fans",
+  "AEE Series — Circular Duct Fan": "Inline Fans",
+  "Typhoon Series": "Inline Fans",
+  "AEC Series — Inline Fan with Speed Controller": "Inline Fans",
+  // Specialty Fans
+  "Micro Jet Fan": "Specialty Fans",
+  "ADD Series — Mix Flow Silent Fan": "Specialty Fans",
+  "AHT Series — Kitchen Fan": "Specialty Fans",
+  "ASP/ASE Series — Ceiling Mount Fan": "Specialty Fans",
+  "ASP Series — Ceiling Mount Fan (Alternative)": "Specialty Fans",
+  "APT Series — Ceiling Mount Cassette Type Fan": "Specialty Fans",
+  "ASL Series — Ceiling Mounted Exhaust with Light": "Specialty Fans",
+  "AHA Series — Propeller Fan": "Specialty Fans",
+  "AHI Series — Booster Fan": "Specialty Fans",
+  "AFP Series — 2-IN-1 Fresh Air Box": "Specialty Fans",
+  "AFV Series — Fresh Air Purifier": "Specialty Fans",
+  "ASF — Ultra Slim Fan": "Specialty Fans",
+  "AFV-DP Series — Cabinet Fan with Pre-Filter": "Specialty Fans",
+  "ABF Series — Air Box Fan": "Specialty Fans",
+  "ASHT Series — Portable Blower Fan with Duct": "Specialty Fans",
+  "ARMD Series — Roof and Wall Exhaust Fan": "Specialty Fans",
+  "AL Series — Exhaust Fan with Light": "Specialty Fans",
+  // Domestic
+  "Domestic Fans": "Domestic Fans",
+  // Accessories
+  "ADD — ABS Disk Diffuser with Volume Controller Valve": "Accessories",
+  "APP — Round Air Outlet": "Accessories",
+  "ASD — 3-Step Diffuser": "Accessories",
+  "ARD — Rotating Grill Diffuser": "Accessories",
+  "ARG — Round Grill": "Accessories",
+  "AYJ — Y Joint PVC": "Accessories",
+  "ASC — Outer Steel Cowl (Steel Finish, SS304)": "Accessories",
+  "ASC-P — Outer Steel Cowl (Powder Coated SUS304, premium line)": "Accessories",
+  "AWC — ABS Wall Cowl / PVC Long Pipe Cowl": "Accessories",
+  "ASG — Outer Flat Grill Steel": "Accessories",
+  "AVG — Varanda Grill": "Accessories",
+  "APF — ABS Pre Filter": "Accessories",
+  "AEB — ABS Ball Jet Nozzle": "Accessories",
+  "AGD — Astberg Gravity Damper / Air Fresh Pipeline Check Valve": "Accessories",
+  "APB — Air Purification Box (UV Light Filter Box)": "Accessories",
+  "AVC — ABS Air Volume Control Valve": "Accessories",
+  "ABC — Beam Crosser Lantel Device Adaptor": "Accessories",
+  "ALM — Aluminium Flexible Duct (3 metres)": "Accessories",
+  "AFD — Insulated PVC Flexible Duct": "Accessories",
+  "ARD — ABS Reducer": "Accessories",
+  "ANR — Noise Reducer": "Accessories",
+  "ACL — PVC Clamps": "Accessories",
+  "ASL — Steel Grip Clamp": "Accessories",
+  "AOG — ABS Oblique Air Grill": "Accessories",
+  "AFG — ABS Fancy Air Grill": "Accessories",
+  "APE — Double Wall Corrugated Flexible Duct (Pipe)": "Accessories",
+  "ABB — Branch Box": "Accessories",
+  "PE — Pipe Connectors": "Accessories",
+  // ERV / HRV
+  "ASF / AT Series": "ERV / HRV",
+  "AHE-D Series — Pre-Filter ERV (compact)": "ERV / HRV",
+  "AHE-THP Series — HEPA + Carbon ERV": "ERV / HRV",
+  "AHE-TH Series — Pre-Filter ERV (mid)": "ERV / HRV",
+  "AHE-THB Series — Pre-Filter ERV (large)": "ERV / HRV",
+  "AHC Series — With Return Air Filter": "ERV / HRV",
+  "Darwin Series — IFD Filters": "ERV / HRV",
+};
+
+const TOP_ORDER = [
+  "Inline Fans",
+  "Specialty Fans",
+  "Domestic Fans",
+  "Accessories",
+  "ERV / HRV",
+  "Other",
+] as const;
+
+function topOf(sub: string | null): string {
+  if (!sub) return "Other";
+  return SUB_TO_TOP[sub] ?? "Other";
+}
+
+interface SubGroup {
+  sub: string;
+  top: string;
+  items: ProductOption[];
+}
+
 function formatINR0(s: string | null): string {
   if (!s) return "";
   const n = Number(s);
   if (isNaN(n)) return s;
   return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
-}
-
-interface Group {
-  label: string;
-  items: ProductOption[];
-}
-
-function groupProducts(products: ProductOption[]): Group[] {
-  const map = new Map<string, ProductOption[]>();
-  for (const p of products) {
-    const key = p.subcategory ?? "Legacy / Other";
-    const list = map.get(key) ?? [];
-    list.push(p);
-    map.set(key, list);
-  }
-  for (const list of map.values()) {
-    list.sort((a, b) => (a.sku ?? "").localeCompare(b.sku ?? ""));
-  }
-  return [...map.entries()]
-    .map(([label, items]) => ({ label, items }))
-    .sort((a, b) => {
-      if (a.label === "Legacy / Other") return 1;
-      if (b.label === "Legacy / Other") return -1;
-      return a.label.localeCompare(b.label);
-    });
 }
 
 export function ProductPicker({
@@ -58,20 +124,63 @@ export function ProductPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [topFilter, setTopFilter] = useState<string>("Inline Fans");
+  const [selectedSubcat, setSelectedSubcat] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const selected = products.find((p) => p.id === value);
-
-  const allGroups = useMemo(() => groupProducts(products), [products]);
   const q = query.trim().toLowerCase();
   const isSearching = q.length > 0;
 
-  const visibleGroups = useMemo(() => {
-    if (!isSearching) return allGroups;
+  const allGroups: SubGroup[] = useMemo(() => {
+    const map = new Map<string, ProductOption[]>();
+    for (const p of products) {
+      const key = p.subcategory ?? "Legacy / Other";
+      const list = map.get(key) ?? [];
+      list.push(p);
+      map.set(key, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => (a.sku ?? "").localeCompare(b.sku ?? ""));
+    }
+    return [...map.entries()]
+      .map(([sub, items]) => ({ sub, top: topOf(sub), items }))
+      .sort((a, b) => a.sub.localeCompare(b.sub));
+  }, [products]);
+
+  const chipCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const g of allGroups) counts[g.top] = (counts[g.top] ?? 0) + g.items.length;
+    return counts;
+  }, [allGroups]);
+
+  const visibleChips = useMemo(
+    () => TOP_ORDER.filter((t) => (chipCounts[t] ?? 0) > 0),
+    [chipCounts],
+  );
+
+  const subsInChip = useMemo(
+    () => allGroups.filter((g) => g.top === topFilter),
+    [allGroups, topFilter],
+  );
+
+  // Auto-pick the first subcategory of the active chip when it changes
+  // (or on first open) so the right pane is never empty.
+  useEffect(() => {
+    if (!open || isSearching) return;
+    if (!selectedSubcat || !subsInChip.find((g) => g.sub === selectedSubcat)) {
+      setSelectedSubcat(subsInChip[0]?.sub ?? null);
+    }
+  }, [open, isSearching, subsInChip, selectedSubcat]);
+
+  const detailItems =
+    subsInChip.find((g) => g.sub === selectedSubcat)?.items ?? [];
+
+  const searchGroups = useMemo(() => {
+    if (!isSearching) return [];
     return allGroups
       .map((g) => ({
-        label: g.label,
+        ...g,
         items: g.items.filter((p) =>
           `${p.name} ${p.sku ?? ""}`.toLowerCase().includes(q),
         ),
@@ -103,17 +212,7 @@ export function ProductPicker({
       return () => window.clearTimeout(t);
     }
     setQuery("");
-    setExpanded(new Set());
   }, [open]);
-
-  function toggleGroup(label: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      return next;
-    });
-  }
 
   function handlePick(productId: string | null) {
     onPick(productId);
@@ -151,88 +250,146 @@ export function ProductPicker({
               className="h-8"
             />
           </div>
-          <div className="max-h-80 overflow-y-auto">
-            {value ? (
-              <button
-                type="button"
-                onClick={() => handlePick(null)}
-                className="flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
-              >
-                <span>Clear selection</span>
-              </button>
-            ) : null}
-            {visibleGroups.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                No matches.
-              </p>
-            ) : null}
-            {visibleGroups.map((g) => {
-              const isExpanded = isSearching || expanded.has(g.label);
-              return (
-                <div key={g.label} className="border-t first:border-t-0">
+          {value ? (
+            <button
+              type="button"
+              onClick={() => handlePick(null)}
+              className="block w-full border-b px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
+            >
+              Clear selection
+            </button>
+          ) : null}
+
+          {isSearching ? (
+            <div className="max-h-80 overflow-y-auto">
+              {searchGroups.length === 0 ? (
+                <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  No matches.
+                </p>
+              ) : (
+                searchGroups.map((g) => (
+                  <div key={g.sub}>
+                    <div className="bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                      {g.sub}
+                    </div>
+                    {g.items.map((p) => (
+                      <ItemRow
+                        key={p.id}
+                        p={p}
+                        active={value === p.id}
+                        onPick={() => handlePick(p.id)}
+                      />
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-1 border-b p-2">
+                {visibleChips.map((t) => (
                   <button
+                    key={t}
                     type="button"
-                    onClick={() => {
-                      if (!isSearching) toggleGroup(g.label);
-                    }}
-                    aria-expanded={isExpanded}
+                    onClick={() => setTopFilter(t)}
                     className={cn(
-                      "flex w-full items-center justify-between gap-2 bg-muted/40 px-3 py-2 text-left text-sm transition-colors",
-                      isSearching
-                        ? "cursor-default"
+                      "rounded-md px-2 py-1 text-xs transition-colors",
+                      t === topFilter
+                        ? "bg-foreground text-background"
                         : "hover:bg-muted",
                     )}
                   >
-                    <span className="flex items-center gap-2 truncate">
-                      {isExpanded ? (
-                        <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                      ) : (
-                        <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                      )}
-                      <span className="truncate font-medium">{g.label}</span>
-                    </span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                      {g.items.length}
-                    </span>
+                    {t}{" "}
+                    <span className="opacity-60">({chipCounts[t]})</span>
                   </button>
-                  {isExpanded ? (
-                    <div>
-                      {g.items.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => handlePick(p.id)}
-                          className="flex w-full items-start gap-2 px-3 py-2 pl-9 text-left text-sm hover:bg-muted"
-                        >
-                          <Check
-                            className={cn(
-                              "mt-0.5 h-4 w-4 shrink-0",
-                              value === p.id ? "opacity-100" : "opacity-0",
-                            )}
-                          />
-                          <div className="flex flex-1 flex-col overflow-hidden">
-                            <span className="truncate text-sm">{p.name}</span>
-                            {p.sku ? (
-                              <span className="font-mono text-[10px] text-muted-foreground">
-                                {p.sku}
-                              </span>
-                            ) : null}
-                          </div>
-                          {p.mrp ? (
-                            <span className="ml-2 shrink-0 text-xs tabular-nums text-muted-foreground">
-                              MRP ₹{formatINR0(p.mrp)}
-                            </span>
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
+                ))}
+              </div>
+              <div className="grid max-h-80 grid-cols-1 md:grid-cols-[220px_1fr]">
+                <div className="max-h-32 overflow-y-auto border-b md:max-h-80 md:border-b-0 md:border-r">
+                  {subsInChip.length === 0 ? (
+                    <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                      No subcategories.
+                    </p>
+                  ) : (
+                    subsInChip.map((g) => (
+                      <button
+                        key={g.sub}
+                        type="button"
+                        onClick={() => setSelectedSubcat(g.sub)}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors",
+                          selectedSubcat === g.sub
+                            ? "bg-muted font-medium"
+                            : "hover:bg-muted/50",
+                        )}
+                      >
+                        <span className="truncate">{g.sub}</span>
+                        <span className="shrink-0 tabular-nums opacity-60">
+                          {g.items.length}
+                        </span>
+                      </button>
+                    ))
+                  )}
                 </div>
-              );
-            })}
-          </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {detailItems.length === 0 ? (
+                    <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                      Pick a series on the left.
+                    </p>
+                  ) : (
+                    detailItems.map((p) => (
+                      <ItemRow
+                        key={p.id}
+                        p={p}
+                        active={value === p.id}
+                        onPick={() => handlePick(p.id)}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function ItemRow({
+  p,
+  active,
+  onPick,
+}: {
+  p: ProductOption;
+  active: boolean;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+    >
+      <Check
+        className={cn(
+          "mt-0.5 h-4 w-4 shrink-0",
+          active ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <span className="truncate text-sm">{p.name}</span>
+        {p.sku ? (
+          <span className="font-mono text-[10px] text-muted-foreground">
+            {p.sku}
+          </span>
+        ) : null}
+      </div>
+      {p.mrp ? (
+        <span className="ml-2 shrink-0 text-xs tabular-nums text-muted-foreground">
+          MRP ₹{formatINR0(p.mrp)}
+        </span>
+      ) : null}
+    </button>
   );
 }
