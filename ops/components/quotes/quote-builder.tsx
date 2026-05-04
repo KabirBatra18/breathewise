@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -49,6 +49,8 @@ export interface TermsOption {
   isDefault: boolean;
 }
 
+type PriceMode = "DP" | "MRP";
+
 interface LineState {
   id: string;
   productId: string | null;
@@ -58,6 +60,12 @@ interface LineState {
   unitPrice: string;
   unit: string;
   costPriceSnapshot: string | null;
+  // Snapshots from the picker so the user can flip between Astberg DP
+  // and MRP without re-fetching. Empty string if unavailable (e.g. line
+  // loaded from an existing quote, or product has no MRP).
+  dpRate: string;
+  mrpRate: string;
+  priceMode: PriceMode;
 }
 
 interface SectionState {
@@ -86,6 +94,9 @@ const blankLine = (): LineState => ({
   unitPrice: "",
   unit: "pcs",
   costPriceSnapshot: null,
+  dpRate: "",
+  mrpRate: "",
+  priceMode: "DP",
 });
 
 const sectionLetterAt = (i: number) => String.fromCharCode("A".charCodeAt(0) + i);
@@ -616,15 +627,30 @@ function LineRow({
     [line.quantity, line.unitPrice],
   );
 
+  const hasModeChoice =
+    line.dpRate !== "" &&
+    line.mrpRate !== "" &&
+    Number(line.mrpRate) - Number(line.dpRate) > 0.5;
+
+  function bumpQty(delta: number) {
+    const next = Math.max(0, Math.floor(Number(line.quantity || "0")) + delta);
+    onPatch({ quantity: String(next) });
+  }
+
   return (
-    <div className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_80px_110px_60px_28px]">
+    <div className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_140px_120px_60px_28px]">
       <div className="space-y-2 md:col-span-5">
         <ProductPicker
           products={products}
           value={line.productId}
           onPick={async (productId) => {
             if (!productId) {
-              onPatch({ productId: null });
+              onPatch({
+                productId: null,
+                dpRate: "",
+                mrpRate: "",
+                priceMode: "DP",
+              });
               return;
             }
             const res = await fetch(`/api/products/${productId}`);
@@ -635,7 +661,12 @@ function LineRow({
               unitPrice: string;
               unit: string;
               costPrice: string | null;
+              dpRate: string;
+              mrpRate: string | null;
+              hasMrpUplift: boolean;
             } = await res.json();
+            // Default to ASTBERG_LED (safe): DP rate. User can flip to MRP
+            // for line items Astberg hasn't pre-quoted.
             onPatch({
               productId,
               description: data.description,
@@ -643,6 +674,9 @@ function LineRow({
               unitPrice: data.unitPrice,
               unit: data.unit,
               costPriceSnapshot: data.costPrice,
+              dpRate: data.dpRate,
+              mrpRate: data.mrpRate ?? "",
+              priceMode: "DP",
             });
           }}
         />
@@ -655,16 +689,38 @@ function LineRow({
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Qty</Label>
-        <Input
-          type="number"
-          step="0.01"
-          min={0}
-          value={line.quantity}
-          onChange={(e) => onPatch({ quantity: e.target.value })}
-        />
+        <div className="flex items-stretch gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={() => bumpQty(-1)}
+            aria-label="Decrease quantity"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </Button>
+          <Input
+            type="number"
+            step="1"
+            min={0}
+            inputMode="numeric"
+            value={line.quantity}
+            onChange={(e) => onPatch({ quantity: e.target.value })}
+            className="text-center"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={() => bumpQty(1)}
+            aria-label="Increase quantity"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">Unit price</Label>
+        <Label className="text-xs">Unit price (ex-GST)</Label>
         <Input
           type="number"
           step="0.01"
@@ -693,6 +749,46 @@ function LineRow({
           </Button>
         ) : null}
       </div>
+      {hasModeChoice ? (
+        <div className="md:col-span-5 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground">Quoted at:</span>
+          <div className="inline-flex overflow-hidden rounded-md border">
+            <button
+              type="button"
+              onClick={() =>
+                onPatch({ priceMode: "DP", unitPrice: line.dpRate })
+              }
+              className={
+                "px-2 py-1 transition-colors " +
+                (line.priceMode === "DP"
+                  ? "bg-foreground text-background"
+                  : "hover:bg-muted")
+              }
+            >
+              Astberg DP · ₹{formatIndianNumber(new Decimal(line.dpRate))}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onPatch({ priceMode: "MRP", unitPrice: line.mrpRate })
+              }
+              className={
+                "border-l px-2 py-1 transition-colors " +
+                (line.priceMode === "MRP"
+                  ? "bg-foreground text-background"
+                  : "hover:bg-muted")
+              }
+            >
+              MRP · ₹{formatIndianNumber(new Decimal(line.mrpRate))}
+            </button>
+          </div>
+          <span className="text-muted-foreground">
+            {line.priceMode === "DP"
+              ? "Astberg-quoted item — keep at DP."
+              : "Self-added item — quoting up to MRP for max margin."}
+          </span>
+        </div>
+      ) : null}
       <div className="md:col-span-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-dashed pt-2 text-xs tabular-nums">
         <span className="text-muted-foreground">
           {isOwner && line.costPriceSnapshot ? (

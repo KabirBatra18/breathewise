@@ -146,6 +146,11 @@ export default async function QuoteDetailPage({
           unitPrice: l.unitPrice,
           unit: l.unit,
           costPriceSnapshot: isOwner ? l.costPriceSnapshot : null,
+          // dpRate/mrpRate are picker snapshots; we don't persist them.
+          // The toggle stays hidden until the user re-picks the product.
+          dpRate: "",
+          mrpRate: "",
+          priceMode: "DP" as const,
         })),
       })),
       selectedTermIds: snapshotTerms.map((t) => t.clauseId).filter((id): id is string => Boolean(id)),

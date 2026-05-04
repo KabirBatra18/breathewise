@@ -17,8 +17,10 @@ import {
 } from "@/db/schema";
 import { requireAuth, requireEmployeeOrAbove } from "@/lib/auth/server";
 import {
+  Decimal,
   computeQuoteTotals,
   computeFinancials,
+  toMoney,
   type SectionInput,
 } from "@/lib/pricing";
 
@@ -293,7 +295,9 @@ export async function markQuoteStatusAction(
 
 // Used by the client-side combobox to fetch product detail when a user
 // picks one from the autocomplete. Returns selling price, GST, MRP, unit,
-// description. Cost price is included only when caller is OWNER.
+// description, and both Astberg-DP and MRP-derived ex-GST rates so the
+// quote builder can offer a per-line "Quoted at" toggle. Cost price is
+// included only when caller is OWNER.
 export async function fetchProductForLine(productId: string) {
   const me = await requireAuth();
   const product = await db.query.products.findFirst({
@@ -307,6 +311,19 @@ export async function fetchProductForLine(productId: string) {
     });
     costPrice = cost?.costPrice ?? null;
   }
+
+  // defaultUnitPrice is already stored as an ex-GST rate per Astberg's
+  // resale model (= DP for non-ERV, = MRP/1.18 for ERV). We also expose
+  // the MRP-derived ex-GST rate so the line UI can switch between them.
+  const dpRate = product.defaultUnitPrice;
+  const mrpRate = product.mrp
+    ? toMoney(new Decimal(product.mrp).div(new Decimal("1.18"))).toFixed(2)
+    : null;
+  // For ERV-style entries dpRate already equals mrpRate (within 1 paisa).
+  // The UI uses this flag to hide the toggle when there's no real choice.
+  const hasMrpUplift =
+    mrpRate != null && Number(mrpRate) - Number(dpRate) > 0.5;
+
   return {
     id: product.id,
     sku: product.sku,
@@ -317,6 +334,9 @@ export async function fetchProductForLine(productId: string) {
     gstRate: product.defaultGstRate,
     unit: product.unit,
     costPrice,
+    dpRate,
+    mrpRate,
+    hasMrpUplift,
   };
 }
 
