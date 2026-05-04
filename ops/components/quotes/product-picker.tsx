@@ -279,9 +279,9 @@ export function ProductPicker({
         <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
       </Button>
       {open ? (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 flex max-h-[480px] flex-col overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10">
           {/* Search */}
-          <div className="shrink-0 border-b p-2">
+          <div className="border-b p-2">
             <Input
               ref={inputRef}
               value={query}
@@ -294,14 +294,14 @@ export function ProductPicker({
             <button
               type="button"
               onClick={() => handlePick(null)}
-              className="shrink-0 border-b px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
+              className="block w-full border-b px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
             >
               Clear selection
             </button>
           ) : null}
 
           {isSearching ? (
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="max-h-[420px] overflow-y-auto overscroll-contain">
               {searchGroups.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-muted-foreground">
                   No matches.
@@ -334,7 +334,7 @@ export function ProductPicker({
           ) : (
             <>
               {/* Chips */}
-              <div className="shrink-0 flex flex-wrap items-center gap-1.5 border-b p-2">
+              <div className="flex flex-wrap items-center gap-1.5 border-b p-2">
                 {visibleChips.map((t) => {
                   const sty = TOP_STYLE[t] ?? TOP_STYLE.Other;
                   const isActive = t === topFilter;
@@ -371,10 +371,11 @@ export function ProductPicker({
                 })}
               </div>
 
-              {/* Master-detail body */}
-              <div className="flex flex-1 min-h-0 flex-col md:flex-row">
-                {/* Left: subcategory list */}
-                <div className="max-h-40 shrink-0 overflow-y-auto border-b md:max-h-none md:w-[240px] md:border-b-0 md:border-r">
+              {/* Master-detail body — explicit max-h on each scroll pane
+                  (the flex-1 + min-h-0 pattern was unreliable here, the
+                  parent never got a definite height). */}
+              <div className="flex flex-col md:flex-row">
+                <div className="max-h-32 overflow-y-auto overscroll-contain border-b md:max-h-[360px] md:w-[240px] md:border-b-0 md:border-r">
                   {subsInChip.length === 0 ? (
                     <p className="px-3 py-4 text-center text-xs text-muted-foreground">
                       No subcategories.
@@ -405,8 +406,7 @@ export function ProductPicker({
                   )}
                 </div>
 
-                {/* Right: items */}
-                <div className="flex-1 min-h-0 overflow-y-auto">
+                <div className="max-h-[320px] overflow-y-auto overscroll-contain md:max-h-[360px] md:flex-1">
                   {detailItems.length === 0 ? (
                     <p className="px-3 py-6 text-center text-xs text-muted-foreground">
                       Pick a series on the left.
