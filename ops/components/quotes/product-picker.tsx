@@ -38,7 +38,17 @@ export function ProductPicker({
   const selected = products.find((p) => p.id === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next, details) => {
+        // Base UI fires `focusOut` when cmdk's CommandInput auto-focuses
+        // inside the popup; ignore that or the popover closes the moment
+        // it opens. Real closes (escape, outside click, item select) still go through.
+        if (!next && details?.reason === "focus-out") return;
+        setOpen(next);
+      }}
+      modal="trap-focus"
+    >
       <PopoverTrigger
         render={
           <Button
