@@ -245,8 +245,17 @@ export function ProductPicker({
     };
   }, [open]);
 
+  // When the picker opens, scroll its trigger into view so the popup
+  // (which absolutely-positions below the trigger) doesn't hang off
+  // the visible page area. Without this, picking a product on a line
+  // near the bottom of the page would put half the popup offscreen
+  // and wheel events would scroll the page instead of the items pane.
   useEffect(() => {
     if (open) {
+      containerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
       const t = window.setTimeout(() => inputRef.current?.focus(), 0);
       return () => window.clearTimeout(t);
     }
@@ -301,7 +310,7 @@ export function ProductPicker({
           ) : null}
 
           {isSearching ? (
-            <div className="h-[420px] overflow-y-auto overscroll-contain">
+            <div className="h-[min(420px,60vh)] overflow-y-auto overscroll-contain">
               {searchGroups.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-muted-foreground">
                   No matches.
@@ -376,7 +385,7 @@ export function ProductPicker({
                   predictable two-column layout on md+ and stacked on
                   mobile, with no flex-stretch surprises. */}
               <div className="grid grid-cols-1 md:grid-cols-[240px_1fr]">
-                <div className="h-[140px] overflow-y-auto overscroll-contain border-b md:h-[360px] md:border-b-0 md:border-r">
+                <div className="h-[min(140px,25vh)] overflow-y-auto overscroll-contain border-b md:h-[min(360px,55vh)] md:border-b-0 md:border-r">
                   {subsInChip.length === 0 ? (
                     <p className="px-3 py-4 text-center text-xs text-muted-foreground">
                       No subcategories.
@@ -407,7 +416,7 @@ export function ProductPicker({
                   )}
                 </div>
 
-                <div className="h-[360px] overflow-y-auto overscroll-contain">
+                <div className="h-[min(360px,55vh)] overflow-y-auto overscroll-contain">
                   {detailItems.length === 0 ? (
                     <p className="px-3 py-6 text-center text-xs text-muted-foreground">
                       Pick a series on the left.
