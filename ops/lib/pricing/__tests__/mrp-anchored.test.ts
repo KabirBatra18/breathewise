@@ -86,6 +86,39 @@ describe("mrp-anchored totals (GST-inclusive)", () => {
     expect(t.totalDiscountVsMrp.toFixed(2)).toBe("0.00");
   });
 
+  test("goods/labour split: labour doesn't dilute the saving %", () => {
+    // 1 SKU at DP (qty 2 × 8690 ex-GST, mrp 10390 incl) + a labour line.
+    // Goods only:  mrp 20780, total 19482.98, saving 1297.02 → 6.24% off.
+    // Quote total: includes labour 5000 → would be 5.03% if rolled up.
+    // We expose goods-only figures so the headline % stays at 6.24%.
+    const totals = computeQuoteTotals([
+      {
+        lines: [{ qty: "2", unitPrice: "8690", mrp: "10390" }],
+        discountPercent: "5.00",
+        gstRate: "18.00",
+        isLabourStyle: false,
+        appliesDiscount: true,
+      },
+      {
+        lines: [{ qty: "1", unitPrice: "5000" }],
+        discountPercent: "5.00",
+        gstRate: "0",
+        isLabourStyle: true,
+        appliesDiscount: false,
+      },
+    ]);
+    expect(totals.grandTotal.toFixed(2)).toBe("24482.98");
+    expect(totals.goodsTotal.toFixed(2)).toBe("19482.98");
+    expect(totals.goodsMrpSubtotal.toFixed(2)).toBe("20780.00");
+    expect(totals.goodsSavingsVsMrp.toFixed(2)).toBe("1297.02");
+    expect(totals.labourTotal.toFixed(2)).toBe("5000.00");
+    // Headline % computed on goods only:
+    const pct = totals.goodsSavingsVsMrp
+      .div(totals.goodsMrpSubtotal)
+      .mul(100);
+    expect(pct.toFixed(2)).toBe("6.24");
+  });
+
   test("quote-level roll-up sums mrpSubtotal and saving across sections", () => {
     const totals = computeQuoteTotals([
       {

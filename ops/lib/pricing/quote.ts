@@ -7,9 +7,19 @@ export interface QuoteTotals {
   totalDiscount: Decimal;
   totalGst: Decimal;
   totalSubtotal: Decimal;
-  // Client-facing roll-up across all sections.
+  // Whole-quote MRP / saving (kept for compatibility — still summed
+  // including labour where labour contributes its own face value).
   totalMrpSubtotal: Decimal;
   totalSavingsVsMrp: Decimal;
+  // Goods-only roll-up (excludes labour-style sections). Use these
+  // when computing the headline "you save X% off MRP" figure so
+  // labour doesn't dilute the percentage.
+  goodsMrpSubtotal: Decimal;
+  goodsTotal: Decimal;
+  goodsSavingsVsMrp: Decimal;
+  // Labour-only total (sum of labour-section subtotals). Surfaced so
+  // the UI / PDF can show installation as a separate trailing block.
+  labourTotal: Decimal;
 }
 
 export function computeQuoteTotals(sections: SectionInput[]): QuoteTotals {
@@ -32,6 +42,20 @@ export function computeQuoteTotals(sections: SectionInput[]): QuoteTotals {
   const totalSavingsVsMrp = toMoney(
     sectionTotals.reduce((acc, s) => acc.plus(s.totalDiscountVsMrp), ZERO),
   );
+  const goodsTotals = sectionTotals.filter((s) => !s.isLabourStyle);
+  const labourTotals = sectionTotals.filter((s) => s.isLabourStyle);
+  const goodsMrpSubtotal = toMoney(
+    goodsTotals.reduce((acc, s) => acc.plus(s.mrpSubtotal), ZERO),
+  );
+  const goodsTotal = toMoney(
+    goodsTotals.reduce((acc, s) => acc.plus(s.total), ZERO),
+  );
+  const goodsSavingsVsMrp = toMoney(
+    goodsTotals.reduce((acc, s) => acc.plus(s.totalDiscountVsMrp), ZERO),
+  );
+  const labourTotal = toMoney(
+    labourTotals.reduce((acc, s) => acc.plus(s.total), ZERO),
+  );
   return {
     sections: sectionTotals,
     grandTotal,
@@ -40,6 +64,10 @@ export function computeQuoteTotals(sections: SectionInput[]): QuoteTotals {
     totalSubtotal,
     totalMrpSubtotal,
     totalSavingsVsMrp,
+    goodsMrpSubtotal,
+    goodsTotal,
+    goodsSavingsVsMrp,
+    labourTotal,
   };
 }
 

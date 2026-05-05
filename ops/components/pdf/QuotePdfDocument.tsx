@@ -178,6 +178,30 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     textAlign: "right",
   },
+  goodsSubtotalBar: {
+    flexDirection: "row",
+    backgroundColor: colors.greyTotal,
+    borderWidth: 0.5,
+    borderColor: colors.border,
+    marginTop: 12,
+    marginBottom: 0,
+  },
+  goodsSubtotalLabel: {
+    flexGrow: 1,
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
+    textAlign: "right",
+  },
+  goodsSubtotalAmount: {
+    width: COL.amount,
+    paddingVertical: 5,
+    paddingHorizontal: 4,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
+    textAlign: "right",
+  },
   termsTitle: {
     fontFamily: "Helvetica-Bold",
     fontSize: 10,
@@ -252,6 +276,12 @@ export interface QuotePdfData {
   grandTotal: string;
   totalMrpSubtotal: string;
   totalSavingsVsMrp: string;
+  // Goods / labour split for the new layout (goods first with the
+  // saving badge tied to goods only, then labour appended).
+  goodsTotal: string;
+  goodsMrpSubtotal: string;
+  goodsSavingsVsMrp: string;
+  labourTotal: string;
   amountInWords: string;
   terms: { title: string; body: string }[];
   brand: {
@@ -274,6 +304,77 @@ function trimZeroes(qty: string): string {
   const n = new Decimal(qty);
   if (n.isInt()) return n.toFixed(0);
   return n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function renderSection(section: QuotePdfSection) {
+  return (
+    <View key={section.letter} wrap>
+      <Text style={styles.sectionHeader}>
+        Section {section.letter} — {section.title}
+      </Text>
+      <View style={styles.table}>
+        <View style={styles.rowHeader}>
+          <Text style={[styles.cell, styles.cellHeader, styles.centerAlign, { width: COL.sno }]}>SNo</Text>
+          <Text style={[styles.cell, styles.cellHeader, { width: COL.description }]}>Description</Text>
+          <Text style={[styles.cell, styles.cellHeader, styles.rightAlign, { width: COL.qty }]}>Qty</Text>
+          <Text style={[styles.cell, styles.cellHeader, styles.centerAlign, { width: COL.unit }]}>Unit</Text>
+          <Text style={[styles.cell, styles.cellHeader, styles.rightAlign, { width: COL.unitPrice }]}>Unit Price</Text>
+          <Text style={[styles.cellNoBorder, styles.cellHeader, styles.rightAlign, { width: COL.amount }]}>Amount</Text>
+        </View>
+        {section.lines.map((line) => {
+          const amount = new Decimal(line.unitPrice).mul(new Decimal(line.quantity));
+          return (
+            <View key={line.sno} style={styles.row} wrap={false}>
+              <Text style={[styles.cell, styles.centerAlign, { width: COL.sno }]}>{line.sno}</Text>
+              <Text style={[styles.cell, { width: COL.description }]}>{line.description}</Text>
+              <Text style={[styles.cell, styles.rightAlign, { width: COL.qty }]}>{trimZeroes(line.quantity)}</Text>
+              <Text style={[styles.cell, styles.centerAlign, { width: COL.unit }]}>{line.unit}</Text>
+              <Text style={[styles.cell, styles.rightAlign, { width: COL.unitPrice }]}>{fmt(line.unitPrice)}</Text>
+              <Text style={[styles.cellNoBorder, styles.rightAlign, { width: COL.amount }]}>{fmt(amount.toFixed(2))}</Text>
+            </View>
+          );
+        })}
+
+        {!section.isLabourStyle ? (
+          <>
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabelCell}>MRP (with GST)</Text>
+              <Text style={styles.totalsAmountCell}>{fmt(section.mrpSubtotal)}</Text>
+            </View>
+            {!new Decimal(section.totalDiscountVsMrp).isZero() ? (
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabelCell}>Total discount</Text>
+                <Text style={styles.totalsAmountCell}>
+                  {fmt(`-${section.totalDiscountVsMrp}`, true)}
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabelCell}>Taxable value</Text>
+              <Text style={styles.totalsAmountCell}>{fmt(section.netAfterDiscount)}</Text>
+            </View>
+            {!new Decimal(section.gstAmount).isZero() ? (
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabelCell}>
+                  GST ({Number(section.gstRate).toFixed(0)}%)
+                </Text>
+                <Text style={styles.totalsAmountCell}>{fmt(section.gstAmount)}</Text>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
+        <View style={styles.totalsRow}>
+          <Text style={[styles.totalsLabelCell, styles.totalLabelGrey]}>
+            Section {section.letter} TOTAL
+          </Text>
+          <Text style={[styles.totalsAmountCell, styles.totalAmountGrey]}>
+            {fmt(section.total)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
 }
 
 export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
@@ -315,89 +416,62 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
           </View>
         </View>
 
-        {data.sections.map((section, i) => {
-          const isLast = i === data.sections.length - 1;
-          return (
-            <View key={section.letter} wrap={!isLast}>
-              <Text style={styles.sectionHeader}>
-                Section {section.letter} — {section.title}
+        {/* Render GOODS sections first. Labour is appended at the very
+            end (just before the grand total) so installation charges
+            don't dilute the goods discount %. */}
+        {data.sections
+          .filter((s) => !s.isLabourStyle)
+          .map((section) => renderSection(section))}
+
+        {/* Goods subtotal + saving badge, only when the quote has BOTH
+            goods and labour (otherwise the goods total is the grand
+            total and showing it twice is noise). The % is computed on
+            goods only. */}
+        {!new Decimal(data.labourTotal).isZero() &&
+        !new Decimal(data.goodsTotal).isZero() ? (
+          <View wrap={false}>
+            <View style={styles.goodsSubtotalBar}>
+              <Text style={styles.goodsSubtotalLabel}>GOODS SUBTOTAL</Text>
+              <Text style={styles.goodsSubtotalAmount}>
+                ₹ {fmt(data.goodsTotal)}
               </Text>
-              <View style={styles.table}>
-                <View style={styles.rowHeader}>
-                  <Text style={[styles.cell, styles.cellHeader, styles.centerAlign, { width: COL.sno }]}>SNo</Text>
-                  <Text style={[styles.cell, styles.cellHeader, { width: COL.description }]}>Description</Text>
-                  <Text style={[styles.cell, styles.cellHeader, styles.rightAlign, { width: COL.qty }]}>Qty</Text>
-                  <Text style={[styles.cell, styles.cellHeader, styles.centerAlign, { width: COL.unit }]}>Unit</Text>
-                  <Text style={[styles.cell, styles.cellHeader, styles.rightAlign, { width: COL.unitPrice }]}>Unit Price</Text>
-                  <Text style={[styles.cellNoBorder, styles.cellHeader, styles.rightAlign, { width: COL.amount }]}>Amount</Text>
-                </View>
-                {section.lines.map((line) => {
-                  const amount = new Decimal(line.unitPrice).mul(new Decimal(line.quantity));
-                  return (
-                    <View key={line.sno} style={styles.row} wrap={false}>
-                      <Text style={[styles.cell, styles.centerAlign, { width: COL.sno }]}>{line.sno}</Text>
-                      <Text style={[styles.cell, { width: COL.description }]}>{line.description}</Text>
-                      <Text style={[styles.cell, styles.rightAlign, { width: COL.qty }]}>{trimZeroes(line.quantity)}</Text>
-                      <Text style={[styles.cell, styles.centerAlign, { width: COL.unit }]}>{line.unit}</Text>
-                      <Text style={[styles.cell, styles.rightAlign, { width: COL.unitPrice }]}>{fmt(line.unitPrice)}</Text>
-                      <Text style={[styles.cellNoBorder, styles.rightAlign, { width: COL.amount }]}>{fmt(amount.toFixed(2))}</Text>
-                    </View>
-                  );
-                })}
-
-                {!section.isLabourStyle ? (
-                  <>
-                    <View style={styles.totalsRow}>
-                      <Text style={styles.totalsLabelCell}>MRP (with GST)</Text>
-                      <Text style={styles.totalsAmountCell}>{fmt(section.mrpSubtotal)}</Text>
-                    </View>
-                    {!new Decimal(section.totalDiscountVsMrp).isZero() ? (
-                      <View style={styles.totalsRow}>
-                        <Text style={styles.totalsLabelCell}>Total discount</Text>
-                        <Text style={styles.totalsAmountCell}>
-                          {fmt(`-${section.totalDiscountVsMrp}`, true)}
-                        </Text>
-                      </View>
-                    ) : null}
-                    {/* Tax breakdown shown below the section total for compliance. */}
-                    <View style={styles.totalsRow}>
-                      <Text style={styles.totalsLabelCell}>
-                        Taxable value
-                      </Text>
-                      <Text style={styles.totalsAmountCell}>{fmt(section.netAfterDiscount)}</Text>
-                    </View>
-                    {!new Decimal(section.gstAmount).isZero() ? (
-                      <View style={styles.totalsRow}>
-                        <Text style={styles.totalsLabelCell}>
-                          GST ({Number(section.gstRate).toFixed(0)}%)
-                        </Text>
-                        <Text style={styles.totalsAmountCell}>{fmt(section.gstAmount)}</Text>
-                      </View>
-                    ) : null}
-                  </>
-                ) : null}
-
-                <View style={styles.totalsRow}>
-                  <Text style={[styles.totalsLabelCell, styles.totalLabelGrey]}>
-                    Section {section.letter} TOTAL
-                  </Text>
-                  <Text style={[styles.totalsAmountCell, styles.totalAmountGrey]}>
-                    {fmt(section.total)}
-                  </Text>
-                </View>
-              </View>
             </View>
-          );
-        })}
+            {!new Decimal(data.goodsSavingsVsMrp).isZero() ? (
+              <Text style={styles.savingsBar}>
+                You save ₹ {fmt(data.goodsSavingsVsMrp)} vs MRP on goods
+                {(() => {
+                  const mrp = new Decimal(data.goodsMrpSubtotal);
+                  const sav = new Decimal(data.goodsSavingsVsMrp);
+                  if (mrp.isZero()) return "";
+                  return ` (${sav.div(mrp).mul(100).toFixed(1)}% off)`;
+                })()}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Then any labour sections, appended at the end. */}
+        {data.sections
+          .filter((s) => s.isLabourStyle)
+          .map((section) => renderSection(section))}
 
         <View wrap={false}>
           <View style={styles.grandTotalBar}>
             <Text style={styles.grandLabel}>GRAND TOTAL</Text>
             <Text style={styles.grandAmount}>₹ {fmt(data.grandTotal)}</Text>
           </View>
-          {!new Decimal(data.totalSavingsVsMrp).isZero() ? (
+          {/* "You save" only here when there's no labour (otherwise we
+              already showed it next to the goods subtotal above). */}
+          {new Decimal(data.labourTotal).isZero() &&
+          !new Decimal(data.goodsSavingsVsMrp).isZero() ? (
             <Text style={styles.savingsBar}>
-              You save ₹ {fmt(data.totalSavingsVsMrp)} vs list price
+              You save ₹ {fmt(data.goodsSavingsVsMrp)} vs MRP
+              {(() => {
+                const mrp = new Decimal(data.goodsMrpSubtotal);
+                const sav = new Decimal(data.goodsSavingsVsMrp);
+                if (mrp.isZero()) return "";
+                return ` (${sav.div(mrp).mul(100).toFixed(1)}% off)`;
+              })()}
             </Text>
           ) : null}
           <Text style={styles.amountInWords}>{data.amountInWords}</Text>
@@ -454,6 +528,10 @@ export function buildPdfDataFromQuote(input: {
   grandTotal: string;
   totalMrpSubtotal: string;
   totalSavingsVsMrp: string;
+  goodsTotal: string;
+  goodsMrpSubtotal: string;
+  goodsSavingsVsMrp: string;
+  labourTotal: string;
   terms: { title: string; body: string }[];
   brand: QuotePdfData["brand"];
 }): QuotePdfData {
