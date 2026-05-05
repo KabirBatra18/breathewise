@@ -10,9 +10,6 @@ export interface SectionInput {
 }
 
 export interface SectionTotals {
-  // Mirror of the input flag so the quote-level roll-up can split
-  // goods and labour without re-reading the SectionInput array.
-  isLabourStyle: boolean;
   // Engine-internal section maths: sum of qty × unitPrice (ex-GST),
   // then blanket discount, then GST.
   subtotal: Decimal;
@@ -42,7 +39,6 @@ export function computeSectionTotals(section: SectionInput): SectionTotals {
   if (section.isLabourStyle) {
     // Labour: face value, no list framing.
     return {
-      isLabourStyle: true,
       subtotal,
       discountAmount: ZERO,
       netAfterDiscount: subtotal,
@@ -90,7 +86,6 @@ export function computeSectionTotals(section: SectionInput): SectionTotals {
   const totalDiscountVsMrp = toMoney(mrpSubtotal.minus(total));
 
   return {
-    isLabourStyle: false,
     subtotal,
     discountAmount,
     netAfterDiscount,

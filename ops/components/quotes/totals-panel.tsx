@@ -39,18 +39,10 @@ export function TotalsPanel({
   quoteNumber?: string;
 }) {
   const isEmpty = totals.grandTotal.isZero();
-  // Headline saving % is computed on the GOODS portion only — labour
-  // has no list-price equivalent, so including it would dilute the
-  // percentage without telling the customer anything meaningful.
-  const hasGoodsSavings = totals.goodsSavingsVsMrp.gt(0);
-  const goodsSavingsPct =
-    hasGoodsSavings && totals.goodsMrpSubtotal.gt(0)
-      ? totals.goodsSavingsVsMrp
-          .div(totals.goodsMrpSubtotal)
-          .mul(100)
-          .toFixed(1)
-      : null;
-  const hasLabour = totals.labourTotal.gt(0);
+  const hasSavings = totals.totalSavingsVsMrp.gt(0);
+  const savingsPct = hasSavings && totals.totalMrpSubtotal.gt(0)
+    ? totals.totalSavingsVsMrp.div(totals.totalMrpSubtotal).mul(100).toFixed(1)
+    : null;
 
   const marginIsPositive = financials ? financials.grossMargin.gt(0) : true;
   const marginTone: Tone = financials
@@ -67,73 +59,56 @@ export function TotalsPanel({
           <CardTitle>What the client pays</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm tabular-nums">
-          {/* Goods sections */}
           {totals.sections.map((s, idx) => {
-            if (s.isLabourStyle) return null;
             const sectionHasSavings = s.totalDiscountVsMrp.gt(0);
+            const isLabour = s.gstAmount.isZero() && s.discountAmount.isZero();
             return (
               <div key={idx} className="space-y-1">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Section {String.fromCharCode(65 + idx)}
                 </p>
-                <Row label="MRP (with GST)" value={s.mrpSubtotal} />
-                {sectionHasSavings ? (
-                  <Row
-                    label="Total discount"
-                    value={s.totalDiscountVsMrp.neg()}
-                    parens
-                    tone="discount"
-                  />
-                ) : null}
+                {isLabour ? (
+                  <Row label="Lump sum" value={s.subtotal} />
+                ) : (
+                  <>
+                    <Row label="MRP (with GST)" value={s.mrpSubtotal} />
+                    {sectionHasSavings ? (
+                      <Row
+                        label="Total discount"
+                        value={s.totalDiscountVsMrp.neg()}
+                        parens
+                        tone="discount"
+                      />
+                    ) : null}
+                  </>
+                )}
                 <Row label="Section total" value={s.total} bold />
-                <p className="text-[10px] text-muted-foreground">
-                  of which: taxable ₹{formatIndianNumber(s.netAfterDiscount)}
-                  {s.gstAmount.isZero()
-                    ? ""
-                    : ` · GST ₹${formatIndianNumber(s.gstAmount)}`}
-                </p>
-                <Separator className="my-2" />
+                {!isLabour ? (
+                  <p className="text-[10px] text-muted-foreground">
+                    of which: taxable ₹{formatIndianNumber(s.netAfterDiscount)}
+                    {s.gstAmount.isZero()
+                      ? ""
+                      : ` · GST ₹${formatIndianNumber(s.gstAmount)}`}
+                  </p>
+                ) : null}
+                {idx < totals.sections.length - 1 ? (
+                  <Separator className="my-2" />
+                ) : null}
               </div>
             );
           })}
-
-          {/* Goods subtotal + savings badge (calculated on goods only) */}
-          {totals.goodsMrpSubtotal.gt(0) ? (
-            <div className="space-y-1">
-              <Row label="Goods subtotal" value={totals.goodsTotal} bold />
-              {hasGoodsSavings ? (
-                <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
-                  You save{" "}
-                  <span className="font-semibold">
-                    ₹{formatIndianNumber(totals.goodsSavingsVsMrp)}
-                  </span>{" "}
-                  vs MRP
-                  {goodsSavingsPct ? ` (${goodsSavingsPct}% off)` : ""}.
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {/* Labour appended at the end */}
-          {hasLabour ? (
-            <>
-              <Separator className="my-2" />
-              {totals.sections.map((s, idx) => {
-                if (!s.isLabourStyle) return null;
-                return (
-                  <div key={idx} className="space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Section {String.fromCharCode(65 + idx)} · installation
-                    </p>
-                    <Row label="Lump sum" value={s.subtotal} />
-                  </div>
-                );
-              })}
-            </>
-          ) : null}
-
           <Separator className="my-3" />
           <Row label="Grand total" value={totals.grandTotal} bold large />
+          {hasSavings ? (
+            <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+              You save{" "}
+              <span className="font-semibold">
+                ₹{formatIndianNumber(totals.totalSavingsVsMrp)}
+              </span>{" "}
+              vs list price
+              {savingsPct ? ` (${savingsPct}% off)` : ""}.
+            </div>
+          ) : null}
           {!isEmpty ? (
             <p className="pt-1 text-xs italic text-muted-foreground">
               {amountInWords(totals.grandTotal)}

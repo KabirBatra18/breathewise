@@ -140,10 +140,6 @@ export async function GET(
     grandTotal: totals.grandTotal.toFixed(2),
     totalMrpSubtotal: totals.totalMrpSubtotal.toFixed(2),
     totalSavingsVsMrp: totals.totalSavingsVsMrp.toFixed(2),
-    goodsTotal: totals.goodsTotal.toFixed(2),
-    goodsMrpSubtotal: totals.goodsMrpSubtotal.toFixed(2),
-    goodsSavingsVsMrp: totals.goodsSavingsVsMrp.toFixed(2),
-    labourTotal: totals.labourTotal.toFixed(2),
     terms: terms.map((t) => ({ title: t.titleSnapshot, body: t.bodySnapshot })),
     brand: {
       legalName: settings.legalName,
