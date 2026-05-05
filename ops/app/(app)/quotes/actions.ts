@@ -23,6 +23,7 @@ import {
   toMoney,
   type SectionInput,
 } from "@/lib/pricing";
+import { defaultDescriptionFor } from "@/lib/products/descriptions";
 
 const lineSchema = z.object({
   productId: z.string().uuid().nullable().optional(),
@@ -324,11 +325,17 @@ export async function fetchProductForLine(productId: string) {
   const hasMrpUplift =
     mrpRate != null && Number(mrpRate) - Number(dpRate) > 0.5;
 
+  // Prefer the consumer-facing one-liner from the subcategory map.
+  // Falls back to the auto-built spec sheet only when we don't have
+  // a canned line yet (e.g. legacy AST- products, a new subcategory).
+  const friendlyDescription =
+    defaultDescriptionFor(product.subcategory) ?? product.description;
+
   return {
     id: product.id,
     sku: product.sku,
     name: product.name,
-    description: product.description,
+    description: friendlyDescription,
     mrp: product.mrp,
     unitPrice: product.defaultUnitPrice,
     gstRate: product.defaultGstRate,

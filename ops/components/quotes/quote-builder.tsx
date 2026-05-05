@@ -596,6 +596,7 @@ function SectionCard({
             line={line}
             products={products}
             isOwner={isOwner}
+            isLabourSection={section.isLabourStyle}
             canRemove={section.lines.length > 1}
             onPatch={(patch) => onPatchLine(lIdx, patch)}
             onRemove={() => onRemoveLine(lIdx)}
@@ -614,6 +615,7 @@ function LineRow({
   line,
   products,
   isOwner,
+  isLabourSection,
   canRemove,
   onPatch,
   onRemove,
@@ -621,6 +623,7 @@ function LineRow({
   line: LineState;
   products: ProductOption[];
   isOwner: boolean;
+  isLabourSection: boolean;
   canRemove: boolean;
   onPatch: (patch: Partial<LineState>) => void;
   onRemove: () => void;
@@ -647,50 +650,56 @@ function LineRow({
   return (
     <div className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_140px_120px_60px_28px]">
       <div className="space-y-2 md:col-span-5">
-        <ProductPicker
-          products={products}
-          value={line.productId}
-          onPick={async (productId) => {
-            if (!productId) {
+        {isLabourSection ? null : (
+          <ProductPicker
+            products={products}
+            value={line.productId}
+            onPick={async (productId) => {
+              if (!productId) {
+                onPatch({
+                  productId: null,
+                  dpRate: "",
+                  mrpRate: "",
+                  priceMode: "DP",
+                });
+                return;
+              }
+              const res = await fetch(`/api/products/${productId}`);
+              if (!res.ok) return;
+              const data: {
+                description: string;
+                mrp: string | null;
+                unitPrice: string;
+                unit: string;
+                costPrice: string | null;
+                dpRate: string;
+                mrpRate: string | null;
+                hasMrpUplift: boolean;
+              } = await res.json();
+              // Default to ASTBERG_LED (safe): DP rate. User can flip to MRP
+              // for line items Astberg hasn't pre-quoted.
               onPatch({
-                productId: null,
-                dpRate: "",
-                mrpRate: "",
+                productId,
+                description: data.description,
+                mrp: data.mrp ?? "",
+                unitPrice: data.unitPrice,
+                unit: data.unit,
+                costPriceSnapshot: data.costPrice,
+                dpRate: data.dpRate,
+                mrpRate: data.mrpRate ?? "",
                 priceMode: "DP",
               });
-              return;
-            }
-            const res = await fetch(`/api/products/${productId}`);
-            if (!res.ok) return;
-            const data: {
-              description: string;
-              mrp: string | null;
-              unitPrice: string;
-              unit: string;
-              costPrice: string | null;
-              dpRate: string;
-              mrpRate: string | null;
-              hasMrpUplift: boolean;
-            } = await res.json();
-            // Default to ASTBERG_LED (safe): DP rate. User can flip to MRP
-            // for line items Astberg hasn't pre-quoted.
-            onPatch({
-              productId,
-              description: data.description,
-              mrp: data.mrp ?? "",
-              unitPrice: data.unitPrice,
-              unit: data.unit,
-              costPriceSnapshot: data.costPrice,
-              dpRate: data.dpRate,
-              mrpRate: data.mrpRate ?? "",
-              priceMode: "DP",
-            });
-          }}
-        />
+            }}
+          />
+        )}
         <Textarea
           value={line.description}
           onChange={(e) => onPatch({ description: e.target.value })}
-          placeholder="Description"
+          placeholder={
+            isLabourSection
+              ? "e.g. Installation, ducting labour, electrical work…"
+              : "Description"
+          }
           rows={2}
         />
       </div>
@@ -756,7 +765,7 @@ function LineRow({
           </Button>
         ) : null}
       </div>
-      {hasModeChoice ? (
+      {hasModeChoice && !isLabourSection ? (
         <div className="md:col-span-5 flex flex-wrap items-center gap-2 text-xs">
           <span className="text-muted-foreground">Quoted at:</span>
           <div className="inline-flex overflow-hidden rounded-md border">
