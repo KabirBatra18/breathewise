@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
-import { Plus, Search } from "lucide-react";
+import { ChevronRight, Plus, Search } from "lucide-react";
+import { QuoteRow } from "@/components/quotes/quote-row";
 import { db } from "@/lib/db/client";
 import {
   clients,
@@ -160,15 +161,14 @@ export default async function QuotesListPage({
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Grand total</TableHead>
                   <TableHead>Issued</TableHead>
+                  <TableHead className="w-8" aria-label="Open" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (
-                  <TableRow key={r.id}>
+                  <QuoteRow key={r.id} id={r.id}>
                     <TableCell className="font-mono text-sm">
-                      <Link href={`/quotes/${r.id}`} className="hover:underline">
-                        {r.quoteNumber}
-                      </Link>
+                      {r.quoteNumber}
                     </TableCell>
                     <TableCell>{r.clientName ?? "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -187,7 +187,10 @@ export default async function QuotesListPage({
                     <TableCell className="text-sm text-muted-foreground">
                       {r.issueDate}
                     </TableCell>
-                  </TableRow>
+                    <TableCell className="w-8 text-muted-foreground">
+                      <ChevronRight className="h-4 w-4" />
+                    </TableCell>
+                  </QuoteRow>
                 ))}
               </TableBody>
             </Table>
