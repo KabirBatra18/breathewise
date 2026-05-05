@@ -301,7 +301,7 @@ export function ProductPicker({
           ) : null}
 
           {isSearching ? (
-            <div className="max-h-[420px] overflow-y-auto overscroll-contain">
+            <div className="h-[420px] overflow-y-auto overscroll-contain">
               {searchGroups.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-muted-foreground">
                   No matches.
@@ -371,11 +371,12 @@ export function ProductPicker({
                 })}
               </div>
 
-              {/* Master-detail body — explicit max-h on each scroll pane
-                  (the flex-1 + min-h-0 pattern was unreliable here, the
-                  parent never got a definite height). */}
-              <div className="flex flex-col md:flex-row">
-                <div className="max-h-32 overflow-y-auto overscroll-contain border-b md:max-h-[360px] md:w-[240px] md:border-b-0 md:border-r">
+              {/* Master-detail body — fixed pixel heights via inline style
+                  so overflow-y-auto absolutely engages. CSS grid gives
+                  predictable two-column layout on md+ and stacked on
+                  mobile, with no flex-stretch surprises. */}
+              <div className="grid grid-cols-1 md:grid-cols-[240px_1fr]">
+                <div className="h-[140px] overflow-y-auto overscroll-contain border-b md:h-[360px] md:border-b-0 md:border-r">
                   {subsInChip.length === 0 ? (
                     <p className="px-3 py-4 text-center text-xs text-muted-foreground">
                       No subcategories.
@@ -406,7 +407,7 @@ export function ProductPicker({
                   )}
                 </div>
 
-                <div className="max-h-[320px] overflow-y-auto overscroll-contain md:max-h-[360px] md:flex-1">
+                <div className="h-[360px] overflow-y-auto overscroll-contain">
                   {detailItems.length === 0 ? (
                     <p className="px-3 py-6 text-center text-xs text-muted-foreground">
                       Pick a series on the left.
