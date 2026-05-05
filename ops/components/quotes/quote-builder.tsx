@@ -446,7 +446,9 @@ export function QuoteBuilder({
             {pending ? "Saving…" : initial ? "Save changes" : "Save as draft"}
           </Button>
           <p className="text-center text-xs text-muted-foreground">
-            Send to client (PDF) lands next.
+            {initial
+              ? "After saving, use Download PDF in the header."
+              : "After saving, you'll land on the draft page where you can Download PDF and Send to client."}
           </p>
         </div>
       </div>

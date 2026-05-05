@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
@@ -158,7 +158,7 @@ export default async function QuoteDetailPage({
 
     return (
       <div className="space-y-6 p-8">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <Link
               href="/quotes"
@@ -174,7 +174,23 @@ export default async function QuoteDetailPage({
               Editing draft. Save to update; sending will lock the quote.
             </p>
           </div>
-          <Badge variant="secondary">Draft</Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              render={
+                <a
+                  href={`/api/quotes/${quote.id}/pdf`}
+                  target="_blank"
+                  rel="noopener"
+                />
+              }
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+            </Button>
+            <Badge variant="secondary">Draft</Badge>
+          </div>
         </div>
 
         <QuoteBuilder
