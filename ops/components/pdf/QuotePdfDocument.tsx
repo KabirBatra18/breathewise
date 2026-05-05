@@ -348,19 +348,22 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
                 {!section.isLabourStyle ? (
                   <>
                     <View style={styles.totalsRow}>
-                      <Text style={styles.totalsLabelCell}>List price (ex-GST)</Text>
+                      <Text style={styles.totalsLabelCell}>MRP (with GST)</Text>
                       <Text style={styles.totalsAmountCell}>{fmt(section.mrpSubtotal)}</Text>
                     </View>
                     {!new Decimal(section.totalDiscountVsMrp).isZero() ? (
                       <View style={styles.totalsRow}>
-                        <Text style={styles.totalsLabelCell}>Discount</Text>
+                        <Text style={styles.totalsLabelCell}>Total discount</Text>
                         <Text style={styles.totalsAmountCell}>
                           {fmt(`-${section.totalDiscountVsMrp}`, true)}
                         </Text>
                       </View>
                     ) : null}
+                    {/* Tax breakdown shown below the section total for compliance. */}
                     <View style={styles.totalsRow}>
-                      <Text style={styles.totalsLabelCell}>Net before GST</Text>
+                      <Text style={styles.totalsLabelCell}>
+                        Taxable value
+                      </Text>
                       <Text style={styles.totalsAmountCell}>{fmt(section.netAfterDiscount)}</Text>
                     </View>
                     {!new Decimal(section.gstAmount).isZero() ? (

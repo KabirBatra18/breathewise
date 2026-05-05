@@ -71,22 +71,26 @@ export function TotalsPanel({
                   <Row label="Lump sum" value={s.subtotal} />
                 ) : (
                   <>
-                    <Row label="List price (ex-GST)" value={s.mrpSubtotal} />
+                    <Row label="MRP (with GST)" value={s.mrpSubtotal} />
                     {sectionHasSavings ? (
                       <Row
-                        label="Discount"
+                        label="Total discount"
                         value={s.totalDiscountVsMrp.neg()}
                         parens
                         tone="discount"
                       />
                     ) : null}
-                    <Row label="Net before GST" value={s.netAfterDiscount} />
-                    {s.gstAmount.isZero() ? null : (
-                      <Row label="GST" value={s.gstAmount} tone="gst" />
-                    )}
                   </>
                 )}
                 <Row label="Section total" value={s.total} bold />
+                {!isLabour ? (
+                  <p className="text-[10px] text-muted-foreground">
+                    of which: taxable ₹{formatIndianNumber(s.netAfterDiscount)}
+                    {s.gstAmount.isZero()
+                      ? ""
+                      : ` · GST ₹${formatIndianNumber(s.gstAmount)}`}
+                  </p>
+                ) : null}
                 {idx < totals.sections.length - 1 ? (
                   <Separator className="my-2" />
                 ) : null}
