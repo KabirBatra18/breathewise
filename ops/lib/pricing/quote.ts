@@ -7,6 +7,9 @@ export interface QuoteTotals {
   totalDiscount: Decimal;
   totalGst: Decimal;
   totalSubtotal: Decimal;
+  // Client-facing roll-up across all sections.
+  totalMrpSubtotal: Decimal;
+  totalSavingsVsMrp: Decimal;
 }
 
 export function computeQuoteTotals(sections: SectionInput[]): QuoteTotals {
@@ -23,7 +26,21 @@ export function computeQuoteTotals(sections: SectionInput[]): QuoteTotals {
   const totalGst = toMoney(
     sectionTotals.reduce((acc, s) => acc.plus(s.gstAmount), ZERO),
   );
-  return { sections: sectionTotals, grandTotal, totalDiscount, totalGst, totalSubtotal };
+  const totalMrpSubtotal = toMoney(
+    sectionTotals.reduce((acc, s) => acc.plus(s.mrpSubtotal), ZERO),
+  );
+  const totalSavingsVsMrp = toMoney(
+    sectionTotals.reduce((acc, s) => acc.plus(s.totalDiscountVsMrp), ZERO),
+  );
+  return {
+    sections: sectionTotals,
+    grandTotal,
+    totalDiscount,
+    totalGst,
+    totalSubtotal,
+    totalMrpSubtotal,
+    totalSavingsVsMrp,
+  };
 }
 
 export function computeGrandTotal(sections: SectionInput[]): Decimal {

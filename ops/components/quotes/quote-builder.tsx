@@ -170,6 +170,10 @@ export function QuoteBuilder({
           qty: numericOrZero(l.quantity),
           unitPrice: numericOrZero(l.unitPrice),
           costPriceSnapshot: isOwner ? l.costPriceSnapshot : null,
+          // Pass per-line MRP through so the totals panel can show
+          // a list-price-anchored discount that includes both the
+          // implicit Astberg DP markdown and the blanket discount.
+          mrp: l.mrp ? l.mrp : null,
         })),
       })),
     [sections, discountPercent, isOwner],

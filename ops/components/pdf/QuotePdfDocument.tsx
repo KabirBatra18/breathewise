@@ -167,6 +167,17 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Oblique",
     fontSize: 9,
   },
+  savingsBar: {
+    marginTop: 4,
+    marginBottom: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderWidth: 0.5,
+    borderColor: colors.border,
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "right",
+  },
   termsTitle: {
     fontFamily: "Helvetica-Bold",
     fontSize: 10,
@@ -219,6 +230,8 @@ export interface QuotePdfSection {
   netAfterDiscount: string;
   gstAmount: string;
   total: string;
+  mrpSubtotal: string;
+  totalDiscountVsMrp: string;
 }
 
 export interface QuotePdfData {
@@ -237,6 +250,8 @@ export interface QuotePdfData {
   };
   sections: QuotePdfSection[];
   grandTotal: string;
+  totalMrpSubtotal: string;
+  totalSavingsVsMrp: string;
   amountInWords: string;
   terms: { title: string; body: string }[];
   brand: {
@@ -333,21 +348,19 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
                 {!section.isLabourStyle ? (
                   <>
                     <View style={styles.totalsRow}>
-                      <Text style={styles.totalsLabelCell}>Subtotal</Text>
-                      <Text style={styles.totalsAmountCell}>{fmt(section.subtotal)}</Text>
+                      <Text style={styles.totalsLabelCell}>List price (ex-GST)</Text>
+                      <Text style={styles.totalsAmountCell}>{fmt(section.mrpSubtotal)}</Text>
                     </View>
-                    {!new Decimal(section.discountAmount).isZero() ? (
+                    {!new Decimal(section.totalDiscountVsMrp).isZero() ? (
                       <View style={styles.totalsRow}>
-                        <Text style={styles.totalsLabelCell}>
-                          Discount ({Number(section.discountPercent).toFixed(2)}%)
-                        </Text>
+                        <Text style={styles.totalsLabelCell}>Discount</Text>
                         <Text style={styles.totalsAmountCell}>
-                          {fmt(`-${section.discountAmount}`, true)}
+                          {fmt(`-${section.totalDiscountVsMrp}`, true)}
                         </Text>
                       </View>
                     ) : null}
                     <View style={styles.totalsRow}>
-                      <Text style={styles.totalsLabelCell}>Net</Text>
+                      <Text style={styles.totalsLabelCell}>Net before GST</Text>
                       <Text style={styles.totalsAmountCell}>{fmt(section.netAfterDiscount)}</Text>
                     </View>
                     {!new Decimal(section.gstAmount).isZero() ? (
@@ -379,6 +392,11 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
             <Text style={styles.grandLabel}>GRAND TOTAL</Text>
             <Text style={styles.grandAmount}>₹ {fmt(data.grandTotal)}</Text>
           </View>
+          {!new Decimal(data.totalSavingsVsMrp).isZero() ? (
+            <Text style={styles.savingsBar}>
+              You save ₹ {fmt(data.totalSavingsVsMrp)} vs list price
+            </Text>
+          ) : null}
           <Text style={styles.amountInWords}>{data.amountInWords}</Text>
         </View>
 
@@ -427,8 +445,12 @@ export function buildPdfDataFromQuote(input: {
     netAfterDiscount: string;
     gstAmount: string;
     total: string;
+    mrpSubtotal: string;
+    totalDiscountVsMrp: string;
   }>;
   grandTotal: string;
+  totalMrpSubtotal: string;
+  totalSavingsVsMrp: string;
   terms: { title: string; body: string }[];
   brand: QuotePdfData["brand"];
 }): QuotePdfData {

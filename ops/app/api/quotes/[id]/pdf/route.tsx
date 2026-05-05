@@ -74,6 +74,7 @@ export async function GET(
     lines: lines.map((l) => ({
       qty: l.quantity,
       unitPrice: l.unitPrice,
+      mrp: l.mrp ?? null,
     })),
   }));
   const totals = computeQuoteTotals(calcInput);
@@ -99,6 +100,8 @@ export async function GET(
       netAfterDiscount: t.netAfterDiscount.toFixed(2),
       gstAmount: t.gstAmount.toFixed(2),
       total: t.total.toFixed(2),
+      mrpSubtotal: t.mrpSubtotal.toFixed(2),
+      totalDiscountVsMrp: t.totalDiscountVsMrp.toFixed(2),
     };
   });
 
@@ -135,6 +138,8 @@ export async function GET(
     },
     sections: sectionsForPdf,
     grandTotal: totals.grandTotal.toFixed(2),
+    totalMrpSubtotal: totals.totalMrpSubtotal.toFixed(2),
+    totalSavingsVsMrp: totals.totalSavingsVsMrp.toFixed(2),
     terms: terms.map((t) => ({ title: t.titleSnapshot, body: t.bodySnapshot })),
     brand: {
       legalName: settings.legalName,
