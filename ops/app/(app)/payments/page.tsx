@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db/client";
 import {
   clients,
@@ -126,11 +127,40 @@ export default async function PaymentsPage() {
 
   return (
     <div className="space-y-6 p-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Payments</h1>
-        <p className="text-sm text-muted-foreground">
-          Every accepted project, what&apos;s collected, what&apos;s still due.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Payments</h1>
+          <p className="text-sm text-muted-foreground">
+            Every accepted project, what&apos;s collected, what&apos;s still
+            due.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            render={
+              <a
+                href="/api/exports/accepted-quotes"
+                target="_blank"
+                rel="noopener"
+              />
+            }
+          >
+            <Download className="h-4 w-4" />
+            Accepted (this month CSV)
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            render={
+              <a href="/api/exports/payments" target="_blank" rel="noopener" />
+            }
+          >
+            <Download className="h-4 w-4" />
+            Payments (this month CSV)
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">

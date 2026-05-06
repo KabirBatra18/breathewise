@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { quoteSends, quoteTierFinancials, quotes } from "@/db/schema";
 import { requireEmployeeOrAbove } from "@/lib/auth/server";
+import { audit } from "@/lib/audit/log";
 
 export type SendResult =
   | { ok: true; sendId: string; pdfUrl: string }
@@ -60,6 +61,18 @@ export async function sendRoughQuoteAction(
     .update(quoteTierFinancials)
     .set({ isFrozen: true })
     .where(eq(quoteTierFinancials.quoteId, quote.id));
+
+  await audit({
+    actorId: actor.id,
+    action: "QUOTE_SEND",
+    entityType: "quote",
+    entityId: quote.id,
+    metadata: {
+      sendId: send.id,
+      via: parsed.data.via,
+      quoteNumber: quote.quoteNumber,
+    },
+  });
 
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${quote.id}`);

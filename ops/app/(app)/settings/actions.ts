@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { companySettings } from "@/db/schema";
 import { requireOwner } from "@/lib/auth/server";
+import { audit } from "@/lib/audit/log";
 
 const schema = z.object({
   legalName: z.string().trim().min(1).max(200),
@@ -37,7 +38,7 @@ export type SaveSettingsResult = { ok: true } | { ok: false; error: string };
 export async function saveSettingsAction(
   input: z.input<typeof schema>,
 ): Promise<SaveSettingsResult> {
-  await requireOwner();
+  const actor = await requireOwner();
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
@@ -59,6 +60,18 @@ export async function saveSettingsAction(
       updatedAt: new Date(),
     })
     .where(eq(companySettings.id, 1));
+
+  await audit({
+    actorId: actor.id,
+    action: "SETTINGS_SAVE",
+    entityType: "settings",
+    entityId: null,
+    metadata: {
+      defaultRoughDiscountPercent: data.defaultRoughDiscountPercent,
+      defaultValidityDays: data.defaultValidityDays,
+      hasGstin: !!data.gstin,
+    },
+  });
 
   revalidatePath("/settings");
   // Affects PDF / quote builder defaults globally.

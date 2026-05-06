@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { termsClauses } from "@/db/schema";
 import { requireOwner } from "@/lib/auth/server";
+import { audit } from "@/lib/audit/log";
 
 const upsertSchema = z.object({
   id: z.string().uuid().optional(),
@@ -23,7 +24,7 @@ export type UpsertTermResult =
 export async function upsertTermAction(
   input: z.input<typeof upsertSchema>,
 ): Promise<UpsertTermResult> {
-  await requireOwner();
+  const actor = await requireOwner();
   const parsed = upsertSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
@@ -42,6 +43,13 @@ export async function upsertTermAction(
         updatedAt: new Date(),
       })
       .where(eq(termsClauses.id, data.id));
+    await audit({
+      actorId: actor.id,
+      action: "TERM_UPDATE",
+      entityType: "term",
+      entityId: data.id,
+      metadata: { title: data.title },
+    });
     revalidatePath("/terms");
     revalidatePath("/quotes/new");
     return { ok: true, id: data.id };
@@ -67,19 +75,32 @@ export async function upsertTermAction(
     })
     .returning({ id: termsClauses.id });
 
+  await audit({
+    actorId: actor.id,
+    action: "TERM_CREATE",
+    entityType: "term",
+    entityId: row.id,
+    metadata: { title: data.title },
+  });
   revalidatePath("/terms");
   revalidatePath("/quotes/new");
   return { ok: true, id: row.id };
 }
 
 export async function deleteTermAction(formData: FormData): Promise<void> {
-  await requireOwner();
+  const actor = await requireOwner();
   const id = z.string().uuid().parse(formData.get("id"));
   // Soft delete so existing quote snapshots don't lose their FK target.
   await db
     .update(termsClauses)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
     .where(eq(termsClauses.id, id));
+  await audit({
+    actorId: actor.id,
+    action: "TERM_DELETE",
+    entityType: "term",
+    entityId: id,
+  });
   revalidatePath("/terms");
   revalidatePath("/quotes/new");
 }

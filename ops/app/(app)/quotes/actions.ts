@@ -25,6 +25,7 @@ import {
   type SectionInput,
 } from "@/lib/pricing";
 import { defaultDescriptionFor } from "@/lib/products/descriptions";
+import { audit } from "@/lib/audit/log";
 
 const lineSchema = z.object({
   productId: z.string().uuid().nullable().optional(),
@@ -258,19 +259,38 @@ export async function saveRoughQuoteAction(
   // Touch totals for read in case caller wants to verify.
   void totals;
 
+  await audit({
+    actorId: actor.id,
+    action: data.id ? "QUOTE_UPDATE" : "QUOTE_CREATE",
+    entityType: "quote",
+    entityId: result.id,
+    metadata: {
+      quoteNumber: result.quoteNumber,
+      sectionsCount: data.sections.length,
+      grandTotal: financials.totalInvoiceValue.toFixed(2),
+    },
+  });
+
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${result.id}`);
   return { ok: true, id: result.id, quoteNumber: result.quoteNumber };
 }
 
 export async function deleteDraftQuoteAction(formData: FormData): Promise<void> {
-  await requireEmployeeOrAbove();
+  const actor = await requireEmployeeOrAbove();
   const id = z.string().uuid().parse(formData.get("id"));
   const existing = await db.query.quotes.findFirst({ where: eq(quotes.id, id) });
   if (!existing || existing.status !== "DRAFT") {
     throw new Error("Only DRAFT quotes can be deleted.");
   }
   await db.delete(quotes).where(eq(quotes.id, id));
+  await audit({
+    actorId: actor.id,
+    action: "QUOTE_DELETE",
+    entityType: "quote",
+    entityId: id,
+    metadata: { quoteNumber: existing.quoteNumber },
+  });
   revalidatePath("/quotes");
   redirect("/quotes");
 }
@@ -278,7 +298,7 @@ export async function deleteDraftQuoteAction(formData: FormData): Promise<void> 
 export async function markQuoteStatusAction(
   formData: FormData,
 ): Promise<void> {
-  await requireEmployeeOrAbove();
+  const actor = await requireEmployeeOrAbove();
   const id = z.string().uuid().parse(formData.get("id"));
   const status = z
     .enum(["ACCEPTED", "REJECTED", "CANCELLED"])
@@ -291,6 +311,12 @@ export async function markQuoteStatusAction(
       closedReason: status,
     })
     .where(eq(quotes.id, id));
+  await audit({
+    actorId: actor.id,
+    action: `QUOTE_${status}`,
+    entityType: "quote",
+    entityId: id,
+  });
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${id}`);
 }
@@ -314,7 +340,7 @@ export type AcceptResult = { ok: true } | { ok: false; error: string };
 export async function acceptQuoteAction(
   input: z.input<typeof acceptSchema>,
 ): Promise<AcceptResult> {
-  await requireEmployeeOrAbove();
+  const actor = await requireEmployeeOrAbove();
   const parsed = acceptSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -337,6 +363,17 @@ export async function acceptQuoteAction(
       acceptedNotes: acceptedNotes && acceptedNotes !== "" ? acceptedNotes : null,
     })
     .where(eq(quotes.id, id));
+
+  await audit({
+    actorId: actor.id,
+    action: "QUOTE_ACCEPT",
+    entityType: "quote",
+    entityId: id,
+    metadata: {
+      acceptedTotal: acceptedTotal || null,
+      hasNotes: !!acceptedNotes,
+    },
+  });
 
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${id}`);
@@ -454,6 +491,14 @@ export async function duplicateQuoteAction(formData: FormData): Promise<void> {
     return created.id;
   });
 
+  await audit({
+    actorId: actor.id,
+    action: "QUOTE_DUPLICATE",
+    entityType: "quote",
+    entityId: newId,
+    metadata: { sourceQuoteId: source.id, sourceQuoteNumber: source.quoteNumber },
+  });
+
   revalidatePath("/quotes");
   redirect(`/quotes/${newId}`);
 }
@@ -517,6 +562,14 @@ export async function createAddendumAction(formData: FormData): Promise<void> {
       })
       .returning({ id: quotes.id });
     return child.id;
+  });
+
+  await audit({
+    actorId: actor.id,
+    action: "QUOTE_ADDENDUM",
+    entityType: "quote",
+    entityId: childId,
+    metadata: { parentQuoteId: parent.id, parentQuoteNumber: parent.quoteNumber },
   });
 
   revalidatePath("/quotes");

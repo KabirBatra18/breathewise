@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { payments, quotes } from "@/db/schema";
 import { requireEmployeeOrAbove } from "@/lib/auth/server";
+import { audit } from "@/lib/audit/log";
 
 const PAYMENT_TYPES = [
   "ADVANCE",
@@ -89,6 +90,19 @@ export async function addPaymentAction(
       .where(eq(quotes.id, q.id));
   }
 
+  await audit({
+    actorId: actor.id,
+    action: "PAYMENT_ADD",
+    entityType: "payment",
+    entityId: row.id,
+    metadata: {
+      quoteId: data.quoteId,
+      type: data.paymentType,
+      amount: data.amount,
+      mode: data.paymentMode ?? null,
+    },
+  });
+
   revalidatePath("/payments");
   revalidatePath(`/quotes/${data.quoteId}`);
   revalidatePath("/dashboard");
@@ -96,10 +110,17 @@ export async function addPaymentAction(
 }
 
 export async function deletePaymentAction(formData: FormData): Promise<void> {
-  await requireEmployeeOrAbove();
+  const actor = await requireEmployeeOrAbove();
   const id = z.string().uuid().parse(formData.get("id"));
   const quoteId = z.string().uuid().parse(formData.get("quoteId"));
   await db.delete(payments).where(eq(payments.id, id));
+  await audit({
+    actorId: actor.id,
+    action: "PAYMENT_DELETE",
+    entityType: "payment",
+    entityId: id,
+    metadata: { quoteId },
+  });
   revalidatePath("/payments");
   revalidatePath(`/quotes/${quoteId}`);
   revalidatePath("/dashboard");

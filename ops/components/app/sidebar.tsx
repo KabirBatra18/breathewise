@@ -47,6 +47,12 @@ export function Sidebar({ role, name }: { role: Role; name: string }) {
         <p className="text-sm font-semibold">BreatheWise Ops</p>
         <p className="mt-2 truncate text-sm">{name}</p>
         <p className="text-xs text-muted-foreground">{role}</p>
+        <p className="mt-3 flex items-center gap-1 text-[10px] text-muted-foreground">
+          Search
+          <kbd className="rounded border bg-muted px-1 py-0.5 font-mono">⌘K</kbd>
+          <span className="text-muted-foreground/60">/</span>
+          <kbd className="rounded border bg-muted px-1 py-0.5 font-mono">Ctrl K</kbd>
+        </p>
       </div>
       <nav className="flex-1 space-y-0.5 p-2">
         {items.map((item) => {
