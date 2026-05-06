@@ -269,7 +269,7 @@ export const auditLog = pgTable("audit_log", {
 
 export const companySettings = pgTable("company_settings", {
   id: integer("id").primaryKey().default(1),
-  legalName: text("legal_name").notNull().default("Urban Tech Home Solutions Pvt Ltd"),
+  legalName: text("legal_name").notNull().default("Urban Tech Home Solutions"),
   brandName: text("brand_name").notNull().default("BreatheWise"),
   tagline: text("tagline").notNull().default("Ventilation & Air Quality Solutions"),
   address: text("address"),

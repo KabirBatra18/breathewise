@@ -33,11 +33,11 @@ const THEMES = {
     text: "#0f172a",
     muted: "#6b7280",
     border: "#cbd5e1",
-    accent: "#0369a1", // sky-700
-    accentSoft: "#e0f2fe", // sky-100
-    greyHeader: "#f1f5f9",
-    greyTotal: "#e0f2fe",
-    grandTotal: "#0369a1",
+    accent: "#1e3a8a", // blue-900 (navy)
+    accentSoft: "#dbeafe", // blue-100
+    greyHeader: "#eff6ff", // blue-50
+    greyTotal: "#dbeafe",
+    grandTotal: "#1e3a8a",
     grandTotalText: "#ffffff",
   },
   INVOICE: {
