@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Download, Plus } from "lucide-react";
+import { ArrowLeft, Copy, Download, Plus } from "lucide-react";
 import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
@@ -52,6 +52,7 @@ import { Decimal } from "@/lib/pricing/decimal";
 import { QuoteBuilder } from "@/components/quotes/quote-builder";
 import {
   createAddendumAction,
+  duplicateQuoteAction,
   markQuoteStatusAction,
 } from "../actions";
 import { QuoteSendActions } from "@/components/quotes/send-actions";
@@ -258,6 +259,13 @@ export default async function QuoteDetailPage({
               <Download className="h-4 w-4" />
               Download PDF
             </Button>
+            <form action={duplicateQuoteAction}>
+              <input type="hidden" name="id" value={quote.id} />
+              <Button type="submit" size="sm" variant="outline">
+                <Copy className="h-4 w-4" />
+                Duplicate
+              </Button>
+            </form>
             <Badge variant="secondary">Draft</Badge>
           </div>
         </div>
@@ -295,6 +303,17 @@ export default async function QuoteDetailPage({
   const showProjectChain = chain.length > 1;
   const projectContract = projectContractValue(projectRows);
 
+  // Read-time expiry: a SENT/NEGOTIATING quote whose validity has
+  // lapsed shows up with an "Expired" badge alongside the status. We
+  // don't auto-flip status in the DB — that's the user's call.
+  const issueDateMs = new Date(
+    `${quote.issueDate as unknown as string}T00:00:00`,
+  ).getTime();
+  const expiryMs = issueDateMs + quote.validityDays * 86400_000;
+  const isExpired =
+    (quote.status === "SENT" || quote.status === "NEGOTIATING") &&
+    Date.now() > expiryMs;
+
   return (
     <div className="space-y-6 p-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -314,10 +333,25 @@ export default async function QuoteDetailPage({
             Valid {quote.validityDays} days
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <form action={duplicateQuoteAction}>
+            <input type="hidden" name="id" value={quote.id} />
+            <Button type="submit" size="sm" variant="outline">
+              <Copy className="h-4 w-4" />
+              Duplicate
+            </Button>
+          </form>
           <Badge variant="default">
             {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
           </Badge>
+          {isExpired ? (
+            <Badge
+              className="border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+              variant="secondary"
+            >
+              Expired
+            </Badge>
+          ) : null}
         </div>
       </div>
 

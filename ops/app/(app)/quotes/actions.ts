@@ -346,6 +346,119 @@ export async function acceptQuoteAction(
 }
 
 /**
+ * Duplicates a quote — copies sections + lines into a fresh DRAFT
+ * quote with a new number. Same client by default; the user can swap
+ * the client on the new draft. Useful when quoting the same setup to
+ * a similar building (e.g. another 3BHK flat in the same tower).
+ *
+ * Skips: send history, payments, accepted_total, audit references.
+ */
+export async function duplicateQuoteAction(formData: FormData): Promise<void> {
+  const actor = await requireEmployeeOrAbove();
+  const sourceId = z.string().uuid().parse(formData.get("id"));
+
+  const source = await db.query.quotes.findFirst({
+    where: eq(quotes.id, sourceId),
+  });
+  if (!source) throw new Error("Source quote not found");
+
+  const sourceSections = await db
+    .select()
+    .from(quoteSections)
+    .where(eq(quoteSections.quoteId, source.id));
+  const sourceLines = await db
+    .select()
+    .from(quoteLineItems)
+    .where(
+      inArray(
+        quoteLineItems.quoteSectionId,
+        sourceSections.map((s) => s.id),
+      ),
+    );
+  const sourceTermsRows = await db
+    .select()
+    .from(quoteTerms)
+    .where(eq(quoteTerms.quoteId, source.id));
+
+  const newId = await db.transaction(async (tx) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const r = await tx.execute<{ next_quote_number: string }>(
+      sql`SELECT next_quote_number('BW', ${year}::int) AS next_quote_number`,
+    );
+    const quoteNumber = (r as unknown as { next_quote_number: string }[])[0]
+      ?.next_quote_number;
+    if (!quoteNumber) throw new Error("Could not allocate quote number");
+
+    const [created] = await tx
+      .insert(quotes)
+      .values({
+        quoteNumber,
+        clientId: source.clientId,
+        quoteType: "ROUGH",
+        status: "DRAFT",
+        roughDiscountPercent: source.roughDiscountPercent,
+        validityDays: source.validityDays,
+        issueDate: now.toISOString().slice(0, 10),
+        createdBy: actor.id,
+      })
+      .returning({ id: quotes.id });
+
+    // Copy sections and remap their IDs so we can rewire line items.
+    const sectionIdMap = new Map<string, string>();
+    for (const s of sourceSections) {
+      const [newSection] = await tx
+        .insert(quoteSections)
+        .values({
+          quoteId: created.id,
+          sectionLetter: s.sectionLetter,
+          title: s.title,
+          gstRate: s.gstRate,
+          sortOrder: s.sortOrder,
+          isLabourStyle: s.isLabourStyle,
+          appliesDiscount: s.appliesDiscount,
+        })
+        .returning({ id: quoteSections.id });
+      sectionIdMap.set(s.id, newSection.id);
+    }
+
+    if (sourceLines.length > 0) {
+      await tx.insert(quoteLineItems).values(
+        sourceLines.map((l) => ({
+          quoteSectionId: sectionIdMap.get(l.quoteSectionId)!,
+          productId: l.productId,
+          sno: l.sno,
+          description: l.description,
+          mrp: l.mrp,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          unit: l.unit,
+          sortOrder: l.sortOrder,
+          costPriceSnapshot: l.costPriceSnapshot,
+        })),
+      );
+    }
+
+    if (sourceTermsRows.length > 0) {
+      await tx.insert(quoteTerms).values(
+        sourceTermsRows.map((t) => ({
+          quoteId: created.id,
+          clauseId: t.clauseId,
+          titleSnapshot: t.titleSnapshot,
+          bodySnapshot: t.bodySnapshot,
+          sortOrder: t.sortOrder,
+        })),
+      );
+    }
+
+    return created.id;
+  });
+
+  revalidatePath("/quotes");
+  redirect(`/quotes/${newId}`);
+}
+
+/**
  * Spawns a fresh draft quote linked to an accepted parent. Same client,
  * empty sections, ready for the user to add the new equipment. The
  * parent_quote_id link makes both quotes show up as a "project" on the

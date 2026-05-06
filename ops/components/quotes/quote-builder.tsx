@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -155,6 +155,118 @@ export function QuoteBuilder({
   const [selectedTermIds, setSelectedTermIds] = useState<string[]>(
     initial?.selectedTermIds ?? termsClauses.filter((t) => t.isDefault).map((t) => t.id),
   );
+
+  // ── Autosave to localStorage ─────────────────────────────────
+  // Persists the entire builder state under a quote-id-keyed slot every
+  // ~1s after a change. On reopen we offer to restore the unsaved draft
+  // if anything is there. Cleared on successful Save.
+  const draftKey = `bw:quote-draft:${initial?.id ?? "new"}`;
+  const [restoreOffer, setRestoreOffer] = useState<
+    | {
+        savedAt: number;
+        state: {
+          clientId: string;
+          issueDate: string;
+          validityDays: number;
+          discountPercent: string;
+          sections: SectionState[];
+          selectedTermIds: string[];
+        };
+      }
+    | null
+  >(null);
+  const skipFirstAutosave = useRef(true);
+
+  // Look for a saved draft on mount.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        version?: number;
+        savedAt?: number;
+        state?: typeof restoreOffer extends { state: infer S } | null
+          ? S
+          : never;
+      };
+      if (parsed.version === 1 && parsed.savedAt && parsed.state) {
+        setRestoreOffer({
+          savedAt: parsed.savedAt,
+          state: parsed.state as NonNullable<typeof restoreOffer>["state"],
+        });
+      }
+    } catch {
+      // localStorage unavailable / parse failure → ignore.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save on change (debounced). Skip the very first effect run so the
+  // unchanged initial state doesn't immediately register as a draft.
+  useEffect(() => {
+    if (skipFirstAutosave.current) {
+      skipFirstAutosave.current = false;
+      return;
+    }
+    const t = window.setTimeout(() => {
+      try {
+        const payload = {
+          version: 1 as const,
+          savedAt: Date.now(),
+          state: {
+            clientId,
+            issueDate,
+            validityDays,
+            discountPercent,
+            sections,
+            selectedTermIds,
+          },
+        };
+        localStorage.setItem(draftKey, JSON.stringify(payload));
+      } catch {
+        // localStorage may be full or disabled — no-op.
+      }
+    }, 1000);
+    return () => window.clearTimeout(t);
+  }, [
+    clientId,
+    issueDate,
+    validityDays,
+    discountPercent,
+    sections,
+    selectedTermIds,
+    draftKey,
+  ]);
+
+  function applyRestore() {
+    if (!restoreOffer) return;
+    const s = restoreOffer.state;
+    setClientId(s.clientId);
+    setIssueDate(s.issueDate);
+    setValidityDays(s.validityDays);
+    setDiscountPercent(s.discountPercent);
+    setSections(s.sections);
+    setSelectedTermIds(s.selectedTermIds);
+    setRestoreOffer(null);
+    toast.success("Draft restored.");
+  }
+
+  function discardRestore() {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // ignore
+    }
+    setRestoreOffer(null);
+  }
+
+  function clearAutosave() {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // ignore
+    }
+  }
 
   const calcInput = useMemo<SectionInput[]>(
     () =>
@@ -310,6 +422,7 @@ export function QuoteBuilder({
         toast.error(res.error);
         return;
       }
+      clearAutosave();
       toast.success(`Saved ${res.quoteNumber}.`);
       router.push(`/quotes/${res.id}`);
     });
@@ -320,6 +433,36 @@ export function QuoteBuilder({
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-6">
+        {restoreOffer ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+            <div className="flex items-start gap-2">
+              <RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+              <div>
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  Unsaved draft from {minutesAgo(restoreOffer.savedAt)}
+                </p>
+                <p className="text-xs text-amber-800/80 dark:text-amber-200/80">
+                  Your last changes were auto-saved locally. Restore them or
+                  start fresh from what&apos;s on the server.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={discardRestore}
+                aria-label="Discard auto-saved draft"
+              >
+                <X className="h-3.5 w-3.5" />
+                Discard
+              </Button>
+              <Button size="sm" onClick={applyRestore}>
+                Restore
+              </Button>
+            </div>
+          </div>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>Header</CardTitle>
@@ -841,4 +984,17 @@ function LineRow({
 function numericOrZero(s: string): string {
   if (!s || isNaN(Number(s))) return "0";
   return s;
+}
+
+function minutesAgo(ts: number): string {
+  const diffMs = Date.now() - ts;
+  const min = Math.max(0, Math.round(diffMs / 60_000));
+  if (min < 1) return "just now";
+  if (min === 1) return "1 minute ago";
+  if (min < 60) return `${min} minutes ago`;
+  const hr = Math.round(min / 60);
+  if (hr === 1) return "1 hour ago";
+  if (hr < 24) return `${hr} hours ago`;
+  const days = Math.round(hr / 24);
+  return days === 1 ? "1 day ago" : `${days} days ago`;
 }

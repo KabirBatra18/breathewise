@@ -73,6 +73,7 @@ export default async function QuotesListPage({
       type: quotes.quoteType,
       status: quotes.status,
       issueDate: quotes.issueDate,
+      validityDays: quotes.validityDays,
       createdAt: quotes.createdAt,
       clientName: clients.name,
       total: quoteTierFinancials.totalInvoiceValue,
@@ -165,33 +166,51 @@ export default async function QuotesListPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => (
-                  <QuoteRow key={r.id} id={r.id}>
-                    <TableCell className="font-mono text-sm">
-                      {r.quoteNumber}
-                    </TableCell>
-                    <TableCell>{r.clientName ?? "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {r.type === "ROUGH" ? "Rough" : "Precise"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[r.status] ?? "secondary"}>
-                        {QUOTE_STATUS_LABELS[r.status] ?? r.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {r.total
-                        ? `₹${formatIndianNumber(new Decimal(r.total))}`
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {r.issueDate}
-                    </TableCell>
-                    <TableCell className="w-8 text-muted-foreground">
-                      <ChevronRight className="h-4 w-4" />
-                    </TableCell>
-                  </QuoteRow>
-                ))}
+                {rows.map((r) => {
+                  const issueMs = new Date(
+                    `${r.issueDate as unknown as string}T00:00:00`,
+                  ).getTime();
+                  const isExpired =
+                    (r.status === "SENT" || r.status === "NEGOTIATING") &&
+                    Date.now() > issueMs + r.validityDays * 86400_000;
+                  return (
+                    <QuoteRow key={r.id} id={r.id}>
+                      <TableCell className="font-mono text-sm">
+                        {r.quoteNumber}
+                      </TableCell>
+                      <TableCell>{r.clientName ?? "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {r.type === "ROUGH" ? "Rough" : "Precise"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Badge variant={STATUS_VARIANT[r.status] ?? "secondary"}>
+                            {QUOTE_STATUS_LABELS[r.status] ?? r.status}
+                          </Badge>
+                          {isExpired ? (
+                            <Badge
+                              className="border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                              variant="secondary"
+                            >
+                              Expired
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {r.total
+                          ? `₹${formatIndianNumber(new Decimal(r.total))}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {r.issueDate as unknown as string}
+                      </TableCell>
+                      <TableCell className="w-8 text-muted-foreground">
+                        <ChevronRight className="h-4 w-4" />
+                      </TableCell>
+                    </QuoteRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
