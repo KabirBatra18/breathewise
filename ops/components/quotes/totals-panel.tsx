@@ -124,17 +124,19 @@ export function TotalsPanel({
       {isOwner && financials ? (
         <Card className="border-dashed">
           <CardHeader>
-            <CardDescription>Owner only — not on PDF</CardDescription>
+            <CardDescription>
+              Owner only — not on PDF · goods only (labour excluded)
+            </CardDescription>
             <CardTitle>Margin</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm tabular-nums">
             <Row
-              label="Revenue (ex-GST)"
-              value={financials.revenuePostDiscount}
+              label="Goods revenue (ex-GST)"
+              value={financials.goodsRevenuePostDiscount}
               tone="muted"
             />
             <Row
-              label="Cost of goods"
+              label="Cost of goods (ex-GST)"
               value={financials.costOfGoods}
               tone="muted"
             />
@@ -151,6 +153,20 @@ export function TotalsPanel({
                 {financials.grossMarginPercent.toFixed(2)}%
               </span>
             </div>
+            {financials.labourTotal.gt(0) ? (
+              <>
+                <Separator className="my-2" />
+                <Row
+                  label="Labour (excluded from margin)"
+                  value={financials.labourTotal}
+                  tone="muted"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Treated as informational — install crew cost isn&apos;t
+                  modelled. Real net is goods margin minus labour overheads.
+                </p>
+              </>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}

@@ -3,14 +3,24 @@ import { computeLineCost } from "./line";
 import { computeSectionTotals, type SectionInput } from "./section";
 
 export interface Financials {
+  // Whole-quote totals (kept for the saved snapshot row in
+  // quote_tier_financials, where they represent the full invoice
+  // BW issues to the client).
   revenuePreDiscount: Decimal;
   discountAmount: Decimal;
   revenuePostDiscount: Decimal;
   gstAmount: Decimal;
   totalInvoiceValue: Decimal;
+  // Margin numbers are GOODS ONLY by design: labour sections have
+  // no Astberg product cost (we don't model BW's installation
+  // payroll), so summing them in would inflate margin %. We expose
+  // labourTotal separately so the UI can show it alongside without
+  // letting it leak into grossMargin.
   costOfGoods: Decimal;
   grossMargin: Decimal;
   grossMarginPercent: Decimal;
+  goodsRevenuePostDiscount: Decimal;
+  labourTotal: Decimal;
 }
 
 export function computeFinancials(sections: SectionInput[]): Financials {
@@ -32,16 +42,38 @@ export function computeFinancials(sections: SectionInput[]): Financials {
     sectionTotals.reduce((acc, s) => acc.plus(s.total), ZERO),
   );
 
+  // Goods-only revenue (ex-GST, post-discount). This is what we
+  // compare to costOfGoods. Labour is excluded.
+  const goodsRevenuePostDiscount = toMoney(
+    sections.reduce(
+      (acc, s, i) =>
+        s.isLabourStyle ? acc : acc.plus(sectionTotals[i].netAfterDiscount),
+      ZERO,
+    ),
+  );
+
+  // Cost is also goods-only — labour lines never have a costPriceSnapshot
+  // anyway, but be explicit so the intent is clear and stays right if a
+  // labour section accidentally has a productId attached.
   const costOfGoods = toMoney(
     sections
+      .filter((s) => !s.isLabourStyle)
       .flatMap((s) => s.lines)
       .reduce((acc, line) => acc.plus(computeLineCost(line)), ZERO),
   );
 
-  const grossMargin = revenuePostDiscount.minus(costOfGoods);
-  const grossMarginPercent = revenuePostDiscount.isZero()
+  const labourTotal = toMoney(
+    sections.reduce(
+      (acc, s, i) =>
+        s.isLabourStyle ? acc.plus(sectionTotals[i].total) : acc,
+      ZERO,
+    ),
+  );
+
+  const grossMargin = goodsRevenuePostDiscount.minus(costOfGoods);
+  const grossMarginPercent = goodsRevenuePostDiscount.isZero()
     ? ZERO
-    : toMoney(grossMargin.div(revenuePostDiscount).mul(100));
+    : toMoney(grossMargin.div(goodsRevenuePostDiscount).mul(100));
 
   return {
     revenuePreDiscount,
@@ -52,5 +84,7 @@ export function computeFinancials(sections: SectionInput[]): Financials {
     costOfGoods,
     grossMargin,
     grossMarginPercent,
+    goodsRevenuePostDiscount,
+    labourTotal,
   };
 }
