@@ -55,6 +55,9 @@ const saveSchema = z.object({
   discountPercent: z.string(),
   sections: z.array(sectionSchema).min(1),
   termsClauseIds: z.array(z.string().uuid()).default([]),
+  // Whether to render the "You save ₹X vs list price" bar on the PDF.
+  // Default false so tiny / cosmetic savings don't render as silly.
+  showSavingsOnPdf: z.boolean().default(false),
 });
 
 export type SaveQuoteInput = z.infer<typeof saveSchema>;
@@ -143,6 +146,7 @@ export async function saveRoughQuoteAction(
           roughDiscountPercent: data.discountPercent,
           validityDays: data.validityDays,
           issueDate: data.issueDate,
+          showSavingsOnPdf: data.showSavingsOnPdf,
         })
         .where(eq(quotes.id, quoteId));
 
@@ -160,6 +164,7 @@ export async function saveRoughQuoteAction(
           roughDiscountPercent: data.discountPercent,
           validityDays: data.validityDays,
           issueDate: data.issueDate,
+          showSavingsOnPdf: data.showSavingsOnPdf,
           createdBy: actor.id,
         })
         .returning({ id: quotes.id });

@@ -135,6 +135,7 @@ export function QuoteBuilder({
     discountPercent: string;
     sections: SectionState[];
     selectedTermIds: string[];
+    showSavingsOnPdf: boolean;
   };
 }) {
   const router = useRouter();
@@ -155,6 +156,13 @@ export function QuoteBuilder({
   const [selectedTermIds, setSelectedTermIds] = useState<string[]>(
     initial?.selectedTermIds ?? termsClauses.filter((t) => t.isDefault).map((t) => t.id),
   );
+  // Whether the "You save vs list price" bar renders on the PDF.
+  // Default off — small percentage savings (≤ a couple of percent)
+  // look silly on a client-facing document. Toggle on when the
+  // saving is meaningful enough to advertise.
+  const [showSavingsOnPdf, setShowSavingsOnPdf] = useState(
+    initial?.showSavingsOnPdf ?? false,
+  );
 
   // ── Autosave to localStorage ─────────────────────────────────
   // Persists the entire builder state under a quote-id-keyed slot every
@@ -171,6 +179,7 @@ export function QuoteBuilder({
           discountPercent: string;
           sections: SectionState[];
           selectedTermIds: string[];
+          showSavingsOnPdf?: boolean;
         };
       }
     | null
@@ -220,6 +229,7 @@ export function QuoteBuilder({
             discountPercent,
             sections,
             selectedTermIds,
+            showSavingsOnPdf,
           },
         };
         localStorage.setItem(draftKey, JSON.stringify(payload));
@@ -235,6 +245,7 @@ export function QuoteBuilder({
     discountPercent,
     sections,
     selectedTermIds,
+    showSavingsOnPdf,
     draftKey,
   ]);
 
@@ -247,6 +258,8 @@ export function QuoteBuilder({
     setDiscountPercent(s.discountPercent);
     setSections(s.sections);
     setSelectedTermIds(s.selectedTermIds);
+    if (typeof s.showSavingsOnPdf === "boolean")
+      setShowSavingsOnPdf(s.showSavingsOnPdf);
     setRestoreOffer(null);
     toast.success("Draft restored.");
   }
@@ -410,6 +423,7 @@ export function QuoteBuilder({
         })),
       })),
       termsClauseIds: selectedTermIds,
+      showSavingsOnPdf,
     };
   }
 
@@ -533,6 +547,24 @@ export function QuoteBuilder({
                 aren&apos;t giving the client an extra discount.
               </p>
             </div>
+            <label className="md:col-span-2 flex items-start gap-2 rounded-md border bg-muted/30 p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={showSavingsOnPdf}
+                onChange={(e) => setShowSavingsOnPdf(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-input"
+              />
+              <span className="space-y-0.5">
+                <span className="block font-medium">
+                  Show &ldquo;You save vs list price&rdquo; on the PDF
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Off by default — small savings (a couple of percent) read as
+                  silly on a client document. Turn on when the discount is
+                  meaningful enough to advertise.
+                </span>
+              </span>
+            </label>
           </CardContent>
         </Card>
 

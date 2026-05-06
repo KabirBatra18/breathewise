@@ -124,6 +124,7 @@ export const quotes = pgTable("quotes", {
   acceptedDiscountPercent: percent("accepted_discount_percent"),
   acceptedTotal: money("accepted_total"),
   acceptedNotes: text("accepted_notes"),
+  showSavingsOnPdf: boolean("show_savings_on_pdf").notNull().default(false),
   validityDays: integer("validity_days").notNull().default(15),
   issueDate: date("issue_date").notNull().defaultNow(),
   closedAt: timestamp("closed_at", { withTimezone: true }),

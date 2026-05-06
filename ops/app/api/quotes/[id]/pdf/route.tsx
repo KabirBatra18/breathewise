@@ -193,7 +193,12 @@ export async function GET(
     sections: sectionsForPdf,
     grandTotal: totals.grandTotal.toFixed(2),
     totalMrpSubtotal: totals.totalMrpSubtotal.toFixed(2),
-    totalSavingsVsMrp: totals.totalSavingsVsMrp.toFixed(2),
+    // Honour the per-quote toggle: only emit the savings figure to the
+    // PDF when the user opted in. Empty "0" makes the document treat
+    // it as zero and skip the bar.
+    totalSavingsVsMrp: quote.showSavingsOnPdf
+      ? totals.totalSavingsVsMrp.toFixed(2)
+      : "0",
     terms: terms.map((t) => ({ title: t.titleSnapshot, body: t.bodySnapshot })),
     brand: {
       legalName: settings.legalName,

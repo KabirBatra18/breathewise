@@ -224,6 +224,7 @@ export default async function QuoteDetailPage({
         })),
       })),
       selectedTermIds: snapshotTerms.map((t) => t.clauseId).filter((id): id is string => Boolean(id)),
+      showSavingsOnPdf: quote.showSavingsOnPdf,
     };
 
     return (

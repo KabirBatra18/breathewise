@@ -10,6 +10,7 @@ const MIGRATIONS = [
   "0001_seed_data.sql",
   "0002_products_subcategory.sql",
   "0003_quotes_accepted_total.sql",
+  "0004_quotes_show_savings_on_pdf.sql",
 ];
 
 async function main() {
