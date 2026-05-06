@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Download } from "lucide-react";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { ArrowLeft, Download, Plus } from "lucide-react";
+import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   clients,
   companySettings,
+  payments,
   productCosts,
   products,
   quoteLineItems,
@@ -16,6 +17,15 @@ import {
   quotes,
   termsClauses,
 } from "@/db/schema";
+import {
+  outstanding,
+  projectContractValue,
+  quoteContractValue,
+  totalReceived,
+  type ProjectQuoteRow,
+} from "@/lib/projects/totals";
+import { AcceptDialog } from "@/components/quotes/accept-dialog";
+import { PaymentLedger } from "@/components/quotes/payment-ledger";
 import { requireAuth } from "@/lib/auth/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,7 +50,10 @@ import { formatIndianNumber } from "@/lib/pricing/format";
 import { amountInWords } from "@/lib/pricing/words";
 import { Decimal } from "@/lib/pricing/decimal";
 import { QuoteBuilder } from "@/components/quotes/quote-builder";
-import { markQuoteStatusAction } from "../actions";
+import {
+  createAddendumAction,
+  markQuoteStatusAction,
+} from "../actions";
 import { QuoteSendActions } from "@/components/quotes/send-actions";
 
 export const metadata = { title: "Quote" };
@@ -58,30 +71,86 @@ export default async function QuoteDetailPage({
   });
   if (!quote) notFound();
 
-  const [client, sections, sends, financials, snapshotTerms] = await Promise.all([
-    db.query.clients.findFirst({ where: eq(clients.id, quote.clientId) }),
-    db
-      .select()
-      .from(quoteSections)
-      .where(eq(quoteSections.quoteId, quote.id))
-      .orderBy(asc(quoteSections.sortOrder)),
-    db
-      .select()
-      .from(quoteSends)
-      .where(eq(quoteSends.quoteId, quote.id))
-      .orderBy(desc(quoteSends.sentAt)),
-    isOwner
-      ? db
+  // The project chain is: the root quote + all addendums of the root.
+  // (Parent of a parent doesn't exist; we don't model multi-level chains.)
+  const rootQuoteId = quote.parentQuoteId ?? quote.id;
+
+  const [client, sections, sends, financials, snapshotTerms, chain, thisPayments] =
+    await Promise.all([
+      db.query.clients.findFirst({ where: eq(clients.id, quote.clientId) }),
+      db
+        .select()
+        .from(quoteSections)
+        .where(eq(quoteSections.quoteId, quote.id))
+        .orderBy(asc(quoteSections.sortOrder)),
+      db
+        .select()
+        .from(quoteSends)
+        .where(eq(quoteSends.quoteId, quote.id))
+        .orderBy(desc(quoteSends.sentAt)),
+      // Always fetched — used for the contract-value fallback in the
+      // payment ledger (not just owner-side margin).
+      db
+        .select()
+        .from(quoteTierFinancials)
+        .where(eq(quoteTierFinancials.quoteId, quote.id)),
+      db
+        .select()
+        .from(quoteTerms)
+        .where(eq(quoteTerms.quoteId, quote.id))
+        .orderBy(asc(quoteTerms.sortOrder)),
+      db
+        .select()
+        .from(quotes)
+        .where(
+          or(
+            eq(quotes.id, rootQuoteId),
+            eq(quotes.parentQuoteId, rootQuoteId),
+          ),
+        )
+        .orderBy(asc(quotes.createdAt)),
+      db
+        .select()
+        .from(payments)
+        .where(eq(payments.quoteId, quote.id))
+        .orderBy(desc(payments.receivedAt)),
+    ]);
+
+  // Tier financials per chain quote so the project-roll-up below can
+  // fall back when accepted_total wasn't captured.
+  const chainIds = chain.map((c) => c.id);
+  const chainFinancials =
+    chainIds.length > 0
+      ? await db
           .select()
           .from(quoteTierFinancials)
-          .where(eq(quoteTierFinancials.quoteId, quote.id))
-      : Promise.resolve([]),
-    db
-      .select()
-      .from(quoteTerms)
-      .where(eq(quoteTerms.quoteId, quote.id))
-      .orderBy(asc(quoteTerms.sortOrder)),
-  ]);
+          .where(
+            and(
+              inArray(quoteTierFinancials.quoteId, chainIds),
+              eq(quoteTierFinancials.tierLabel, "ROUGH"),
+            ),
+          )
+      : [];
+  const fallbackByQuoteId = new Map<string, string>();
+  for (const f of chainFinancials) {
+    fallbackByQuoteId.set(f.quoteId, f.totalInvoiceValue);
+  }
+
+  const projectRows: ProjectQuoteRow[] = chain.map((c) => ({
+    id: c.id,
+    status: c.status,
+    acceptedTotal: c.acceptedTotal,
+    fallbackTotal: fallbackByQuoteId.get(c.id) ?? null,
+  }));
+  const thisProjectRow = projectRows.find((r) => r.id === quote.id) ?? {
+    id: quote.id,
+    status: quote.status,
+    acceptedTotal: quote.acceptedTotal,
+    fallbackTotal: fallbackByQuoteId.get(quote.id) ?? null,
+  };
+  const thisContractValue = quoteContractValue(thisProjectRow);
+  const thisReceived = totalReceived(thisPayments);
+  const thisOutstanding = outstanding(thisContractValue, thisReceived);
 
   const lineRowsBySection = new Map<
     string,
@@ -219,6 +288,12 @@ export default async function QuoteDetailPage({
   const grandTotal = financials.find((f) => f.tierLabel === "ROUGH")?.totalInvoiceValue;
   const grossMargin = financials.find((f) => f.tierLabel === "ROUGH")?.grossMargin;
   const grossMarginPercent = financials.find((f) => f.tierLabel === "ROUGH")?.grossMarginPercent;
+  const isAcceptedOrAdvance =
+    quote.status === "ACCEPTED" || quote.status === "ADVANCE_PAID";
+  const canEditPayments = me.role === "OWNER" || me.role === "EMPLOYEE";
+  const isAddendum = quote.parentQuoteId != null;
+  const showProjectChain = chain.length > 1;
+  const projectContract = projectContractValue(projectRows);
 
   return (
     <div className="space-y-6 p-8">
@@ -375,6 +450,133 @@ export default async function QuoteDetailPage({
         </Card>
       ) : null}
 
+      {/* Project chain (only when this quote has linked addendums or is an addendum). */}
+      {showProjectChain ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Project</CardTitle>
+            <CardDescription>
+              {isAddendum
+                ? "This is an addendum to a parent quote."
+                : "This quote has linked addendums."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-lg border p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Project contract value
+                </p>
+                <p className="mt-1 text-xl font-semibold tabular-nums">
+                  ₹{formatIndianNumber(projectContract)}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Sum of accepted totals across the chain.
+                </p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Quotes in this project
+                </p>
+                <p className="mt-1 text-xl font-semibold tabular-nums">
+                  {chain.length}
+                </p>
+              </div>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Quote #</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Issued</TableHead>
+                  <TableHead className="text-right">Contract value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {chain.map((c) => {
+                  const row: ProjectQuoteRow = {
+                    id: c.id,
+                    status: c.status,
+                    acceptedTotal: c.acceptedTotal,
+                    fallbackTotal: fallbackByQuoteId.get(c.id) ?? null,
+                  };
+                  const v = quoteContractValue(row);
+                  const isThis = c.id === quote.id;
+                  const isRoot = c.id === rootQuoteId;
+                  return (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-mono text-sm">
+                        {isThis ? (
+                          <span className="font-semibold">
+                            {c.quoteNumber} (this)
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/quotes/${c.id}`}
+                            className="hover:underline"
+                          >
+                            {c.quoteNumber}
+                          </Link>
+                        )}
+                        {!isRoot ? (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            addendum
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {QUOTE_STATUS_LABELS[c.status] ?? c.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {c.issueDate as unknown as string}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {v.isZero() ? "—" : `₹${formatIndianNumber(v)}`}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* Payment ledger (visible whenever there's an accepted figure to
+          reconcile against, or when the quote is in an accepted state). */}
+      {(isAcceptedOrAdvance || thisContractValue.gt(0)) ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Payments for this quote</CardTitle>
+            <CardDescription>
+              Track advance, interim and final payments against the
+              accepted total. Each payment auto-reconciles the outstanding
+              balance.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PaymentLedger
+              quoteId={quote.id}
+              contractValue={thisContractValue.toFixed(2)}
+              totalReceived={thisReceived.toFixed(2)}
+              outstanding={thisOutstanding.toFixed(2)}
+              payments={thisPayments.map((p) => ({
+                id: p.id,
+                paymentType: p.paymentType,
+                amount: p.amount,
+                paymentMode: p.paymentMode,
+                referenceNumber: p.referenceNumber,
+                receivedAt: p.receivedAt.toISOString(),
+                notes: p.notes,
+              }))}
+              canEdit={canEditPayments}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Actions</CardTitle>
@@ -387,17 +589,18 @@ export default async function QuoteDetailPage({
               pdfUrl={`/api/quotes/${quote.id}/pdf`}
             />
           ) : null}
-          {(quote.status === "SENT" ||
-            quote.status === "NEGOTIATING") &&
+          {(quote.status === "SENT" || quote.status === "NEGOTIATING") &&
           (me.role === "OWNER" || me.role === "EMPLOYEE") ? (
             <div className="flex flex-wrap gap-2">
-              <form action={markQuoteStatusAction}>
-                <input type="hidden" name="id" value={quote.id} />
-                <input type="hidden" name="status" value="ACCEPTED" />
-                <Button type="submit" size="sm">
-                  Mark accepted
-                </Button>
-              </form>
+              <AcceptDialog
+                quoteId={quote.id}
+                defaultTotal={grandTotal ?? "0"}
+                trigger={
+                  <Button type="button" size="sm">
+                    Mark accepted
+                  </Button>
+                }
+              />
               <form action={markQuoteStatusAction}>
                 <input type="hidden" name="id" value={quote.id} />
                 <input type="hidden" name="status" value="REJECTED" />
@@ -406,6 +609,21 @@ export default async function QuoteDetailPage({
                 </Button>
               </form>
             </div>
+          ) : null}
+          {/* Addendum: only on live (sent or accepted) parents. The child
+              becomes a fresh DRAFT linked via parent_quote_id. */}
+          {(quote.status === "SENT" ||
+            quote.status === "NEGOTIATING" ||
+            isAcceptedOrAdvance) &&
+          (me.role === "OWNER" || me.role === "EMPLOYEE") &&
+          !isAddendum ? (
+            <form action={createAddendumAction}>
+              <input type="hidden" name="parentId" value={quote.id} />
+              <Button type="submit" size="sm" variant="outline">
+                <Plus className="h-4 w-4" />
+                Add equipment to this project
+              </Button>
+            </form>
           ) : null}
         </CardContent>
       </Card>

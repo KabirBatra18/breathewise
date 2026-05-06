@@ -6,6 +6,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import {
+  companySettings,
   products,
   productCosts,
   quoteLineItems,
@@ -292,6 +293,122 @@ export async function markQuoteStatusAction(
     .where(eq(quotes.id, id));
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${id}`);
+}
+
+const acceptSchema = z.object({
+  id: z.string().uuid(),
+  // GST-inclusive final negotiated total. Empty / null falls back to the
+  // ROUGH-tier total from quote_tier_financials at read time.
+  acceptedTotal: z
+    .string()
+    .trim()
+    .refine((s) => s === "" || /^\d+(\.\d{1,2})?$/.test(s), {
+      message: "Final total must be a positive number",
+    })
+    .optional(),
+  acceptedNotes: z.string().trim().max(2000).optional(),
+});
+
+export type AcceptResult = { ok: true } | { ok: false; error: string };
+
+export async function acceptQuoteAction(
+  input: z.input<typeof acceptSchema>,
+): Promise<AcceptResult> {
+  await requireEmployeeOrAbove();
+  const parsed = acceptSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { id, acceptedTotal, acceptedNotes } = parsed.data;
+
+  const q = await db.query.quotes.findFirst({ where: eq(quotes.id, id) });
+  if (!q) return { ok: false, error: "Quote not found" };
+  if (q.status === "ACCEPTED" || q.status === "ADVANCE_PAID") {
+    return { ok: false, error: "Quote is already accepted." };
+  }
+
+  await db
+    .update(quotes)
+    .set({
+      status: "ACCEPTED",
+      closedAt: new Date(),
+      closedReason: "ACCEPTED",
+      acceptedTotal: acceptedTotal && acceptedTotal !== "" ? acceptedTotal : null,
+      acceptedNotes: acceptedNotes && acceptedNotes !== "" ? acceptedNotes : null,
+    })
+    .where(eq(quotes.id, id));
+
+  revalidatePath("/quotes");
+  revalidatePath(`/quotes/${id}`);
+  revalidatePath("/payments");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/**
+ * Spawns a fresh draft quote linked to an accepted parent. Same client,
+ * empty sections, ready for the user to add the new equipment. The
+ * parent_quote_id link makes both quotes show up as a "project" on the
+ * detail page and roll up into one outstanding balance.
+ *
+ * Redirects to the new draft on success — used as a form action so the
+ * user lands directly on the addendum's edit page.
+ */
+export async function createAddendumAction(formData: FormData): Promise<void> {
+  const actor = await requireEmployeeOrAbove();
+  const parentId = z.string().uuid().parse(formData.get("parentId"));
+
+  const parent = await db.query.quotes.findFirst({
+    where: eq(quotes.id, parentId),
+  });
+  if (!parent) throw new Error("Parent quote not found");
+  if (
+    parent.status !== "ACCEPTED" &&
+    parent.status !== "ADVANCE_PAID" &&
+    parent.status !== "SENT" &&
+    parent.status !== "NEGOTIATING"
+  ) {
+    throw new Error(
+      "Addendums can only be added to live (sent or accepted) projects.",
+    );
+  }
+
+  const settings = await db.query.companySettings.findFirst({
+    where: eq(companySettings.id, 1),
+  });
+  const validityDays = settings?.defaultValidityDays ?? 15;
+  const discountPercent = settings?.defaultRoughDiscountPercent ?? "5.00";
+
+  const childId = await db.transaction(async (tx) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const r = await tx.execute<{ next_quote_number: string }>(
+      sql`SELECT next_quote_number('BW', ${year}::int) AS next_quote_number`,
+    );
+    const quoteNumber = (r as unknown as { next_quote_number: string }[])[0]
+      ?.next_quote_number;
+    if (!quoteNumber) throw new Error("Could not allocate quote number");
+
+    const [child] = await tx
+      .insert(quotes)
+      .values({
+        quoteNumber,
+        clientId: parent.clientId,
+        quoteType: "ROUGH",
+        parentQuoteId: parent.id,
+        status: "DRAFT",
+        roughDiscountPercent: discountPercent,
+        validityDays,
+        issueDate: new Date().toISOString().slice(0, 10),
+        createdBy: actor.id,
+      })
+      .returning({ id: quotes.id });
+    return child.id;
+  });
+
+  revalidatePath("/quotes");
+  revalidatePath(`/quotes/${parentId}`);
+  redirect(`/quotes/${childId}`);
 }
 
 // Used by the client-side combobox to fetch product detail when a user

@@ -122,6 +122,8 @@ export const quotes = pgTable("quotes", {
   roughDiscountPercent: percent("rough_discount_percent"),
   acceptedTierLabel: text("accepted_tier_label"),
   acceptedDiscountPercent: percent("accepted_discount_percent"),
+  acceptedTotal: money("accepted_total"),
+  acceptedNotes: text("accepted_notes"),
   validityDays: integer("validity_days").notNull().default(15),
   issueDate: date("issue_date").notNull().defaultNow(),
   closedAt: timestamp("closed_at", { withTimezone: true }),
