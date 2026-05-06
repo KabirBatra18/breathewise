@@ -1,3 +1,4 @@
+import * as React from "react";
 import {
   Document,
   Page,
@@ -22,8 +23,13 @@ const COL = {
 // Two visual themes so a Proforma quote and a final Tax Invoice are
 // instantly distinguishable when printed side-by-side. PI = BW sky-blue
 // (preliminary, quoted). Invoice = emerald (settled, deliverable).
+//
+// IMPORTANT: keys must match QuoteDocumentKind exactly ("PI" | "INVOICE").
+// A previous lower-case version meant THEMES[documentKind] was undefined
+// and the PDF endpoint 500'd on every request — every Download PDF
+// click was broken until this was fixed.
 const THEMES = {
-  pi: {
+  PI: {
     text: "#0f172a",
     muted: "#6b7280",
     border: "#cbd5e1",
@@ -34,7 +40,7 @@ const THEMES = {
     grandTotal: "#0369a1",
     grandTotalText: "#ffffff",
   },
-  invoice: {
+  INVOICE: {
     text: "#0f172a",
     muted: "#6b7280",
     border: "#cbd5e1",
@@ -50,7 +56,7 @@ const THEMES = {
 type ThemeKey = keyof typeof THEMES;
 
 // Backwards-compat alias for existing references in this file.
-const colors = THEMES.pi;
+const colors = THEMES.PI;
 
 const styles = StyleSheet.create({
   page: {
