@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, MessageCircle, Send } from "lucide-react";
+import { Download, FileCheck, MessageCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   buildWhatsappMessage,
@@ -45,13 +45,31 @@ export function QuoteSendActions({
   }
 
   const canSend = status === "DRAFT" || status === "SENT" || status === "NEGOTIATING";
+  // Once a quote is accepted (or has its first advance), the project is
+  // live — the user can issue a Tax Invoice / Final Bill against it.
+  const canIssueInvoice = status === "ACCEPTED" || status === "ADVANCE_PAID";
 
   return (
     <div className="flex flex-wrap gap-2">
       <Button render={<a href={pdfUrl} target="_blank" rel="noopener" />}>
         <Download className="h-4 w-4" />
-        Download PDF
+        Proforma (PDF)
       </Button>
+      {canIssueInvoice ? (
+        <Button
+          variant="default"
+          render={
+            <a
+              href={`${pdfUrl}?doc=invoice`}
+              target="_blank"
+              rel="noopener"
+            />
+          }
+        >
+          <FileCheck className="h-4 w-4" />
+          Tax invoice (PDF)
+        </Button>
+      ) : null}
       {canSend ? (
         <Button onClick={handleSend} disabled={pending} variant="secondary">
           <Send className="h-4 w-4" />

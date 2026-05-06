@@ -6,6 +6,7 @@ import { db } from "@/lib/db/client";
 import {
   clients,
   companySettings,
+  payments,
   quoteLineItems,
   quoteSections,
   quoteTerms,
@@ -14,19 +15,26 @@ import {
 import { requireAuth } from "@/lib/auth/server";
 import {
   computeQuoteTotals,
+  Decimal,
+  ZERO,
+  toMoney,
   type SectionInput,
 } from "@/lib/pricing";
 import {
   QuotePdfDocument,
   buildPdfDataFromQuote,
+  type QuoteDocumentKind,
   type QuotePdfLine,
 } from "@/components/pdf/QuotePdfDocument";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ) {
   await requireAuth();
+  const url = new URL(req.url);
+  const docParam = url.searchParams.get("doc");
+  const documentKind: QuoteDocumentKind = docParam === "invoice" ? "INVOICE" : "PI";
 
   const quote = await db.query.quotes.findFirst({
     where: eq(quotes.id, params.id),
@@ -115,12 +123,58 @@ export async function GET(
   })();
 
   const documentLabel =
-    quote.quoteType === "ROUGH" ? "QUOTATION — TENTATIVE" : "QUOTATION — FINAL";
+    documentKind === "INVOICE"
+      ? "TAX INVOICE / FINAL BILL"
+      : quote.quoteType === "ROUGH"
+        ? "PROFORMA INVOICE — TENTATIVE"
+        : "PROFORMA INVOICE";
+
+  // Payment status only matters for the Tax Invoice variant. We sum
+  // all recorded payments against this quote (refunds subtract), then
+  // classify against the GST-incl grand total.
+  let paymentStatus: undefined | {
+    received: string;
+    outstanding: string;
+    label: "PAID" | "PARTIAL" | "DUE";
+  };
+  if (documentKind === "INVOICE") {
+    const paymentRows = await db
+      .select({
+        amount: payments.amount,
+        paymentType: payments.paymentType,
+      })
+      .from(payments)
+      .where(eq(payments.quoteId, quote.id));
+    let received = ZERO;
+    for (const p of paymentRows) {
+      const amt = new Decimal(p.amount);
+      received =
+        p.paymentType === "REFUND" ? received.minus(amt) : received.plus(amt);
+    }
+    received = toMoney(received);
+    const contract = quote.acceptedTotal
+      ? new Decimal(quote.acceptedTotal)
+      : totals.grandTotal;
+    const due = toMoney(contract.minus(received));
+    const outstanding = due.isNegative() ? ZERO : due;
+    const label: "PAID" | "PARTIAL" | "DUE" = outstanding.isZero()
+      ? "PAID"
+      : received.gt(0)
+        ? "PARTIAL"
+        : "DUE";
+    paymentStatus = {
+      received: received.toFixed(2),
+      outstanding: outstanding.toFixed(2),
+      label,
+    };
+  }
 
   const data = buildPdfDataFromQuote({
     quoteNumber: quote.quoteNumber,
     tierLabel: "ROUGH",
     documentLabel,
+    documentKind,
+    paymentStatus,
     issueDate: issueDateFormatted,
     validityDays: quote.validityDays,
     discountPercent,

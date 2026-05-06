@@ -641,8 +641,17 @@ function SectionCard({
   onRemoveLine: (lineIdx: number) => void;
 }) {
   const sectionType = deriveSectionType(section);
+  // Coloured top border + subtle body tint give each section its own
+  // visual identity — Goods sky, Labour amber, Custom slate — so the
+  // user can tell at a glance which is which without reading the type.
+  const sectionTone =
+    sectionType === "GOODS"
+      ? "border-t-sky-500"
+      : sectionType === "LABOUR"
+        ? "border-t-amber-500"
+        : "border-t-slate-400";
   return (
-    <Card>
+    <Card className={`border-t-4 ${sectionTone}`}>
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 space-y-2">
@@ -738,7 +747,7 @@ function SectionCard({
           ) : null}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 rounded-b-xl bg-muted/30 p-4">
         {section.lines.map((line, lIdx) => (
           <LineRow
             key={line.id}
@@ -797,7 +806,7 @@ function LineRow({
   }
 
   return (
-    <div className="grid gap-2 rounded-lg border p-3 md:grid-cols-[1fr_140px_120px_60px_28px]">
+    <div className="grid gap-2 rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow md:grid-cols-[1fr_140px_120px_60px_28px]">
       <div className="space-y-2 md:col-span-5">
         {isLabourSection ? null : (
           <ProductPicker

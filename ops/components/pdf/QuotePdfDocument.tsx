@@ -19,14 +19,38 @@ const COL = {
   amount: "17.8%", // 32/180
 };
 
-const colors = {
-  text: "#000",
-  muted: "#6b7280",
-  border: "#000",
-  greyHeader: "#e6e6e6",
-  greyTotal: "#e6e6e6",
-  grandTotal: "#cccccc",
-};
+// Two visual themes so a Proforma quote and a final Tax Invoice are
+// instantly distinguishable when printed side-by-side. PI = BW sky-blue
+// (preliminary, quoted). Invoice = emerald (settled, deliverable).
+const THEMES = {
+  pi: {
+    text: "#0f172a",
+    muted: "#6b7280",
+    border: "#cbd5e1",
+    accent: "#0369a1", // sky-700
+    accentSoft: "#e0f2fe", // sky-100
+    greyHeader: "#f1f5f9",
+    greyTotal: "#e0f2fe",
+    grandTotal: "#0369a1",
+    grandTotalText: "#ffffff",
+  },
+  invoice: {
+    text: "#0f172a",
+    muted: "#6b7280",
+    border: "#cbd5e1",
+    accent: "#047857", // emerald-700
+    accentSoft: "#d1fae5", // emerald-100
+    greyHeader: "#f0fdf4",
+    greyTotal: "#d1fae5",
+    grandTotal: "#047857",
+    grandTotalText: "#ffffff",
+  },
+} as const;
+
+type ThemeKey = keyof typeof THEMES;
+
+// Backwards-compat alias for existing references in this file.
+const colors = THEMES.pi;
 
 const styles = StyleSheet.create({
   page: {
@@ -234,10 +258,19 @@ export interface QuotePdfSection {
   totalDiscountVsMrp: string;
 }
 
+export type QuoteDocumentKind = "PI" | "INVOICE";
+
 export interface QuotePdfData {
   quoteNumber: string;
   tierLabel: string;
-  documentLabel: string; // e.g. "QUOTATION — TENTATIVE"
+  documentLabel: string; // e.g. "PROFORMA INVOICE" / "TAX INVOICE"
+  documentKind?: QuoteDocumentKind; // defaults to PI; drives colour theme
+  // Payment status snapshot, only meaningful for INVOICE variant.
+  paymentStatus?: {
+    received: string; // GST-incl money
+    outstanding: string;
+    label: "PAID" | "PARTIAL" | "DUE";
+  };
   issueDate: string; // formatted, e.g. "23 April 2026"
   validityDays: number;
   client: {
@@ -277,6 +310,8 @@ function trimZeroes(qty: string): string {
 }
 
 export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
+  const theme = THEMES[(data.documentKind ?? "PI") as ThemeKey];
+  const isInvoice = (data.documentKind ?? "PI") === "INVOICE";
   return (
     <Document
       title={`${data.quoteNumber} — ${data.documentLabel}`}
@@ -284,13 +319,37 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
     >
       <Page size="A4" style={styles.page}>
         <View>
-          <Text style={styles.brand}>{data.brand.brandName.toUpperCase()}</Text>
+          <Text style={[styles.brand, { color: theme.accent }]}>
+            {data.brand.brandName.toUpperCase()}
+          </Text>
           <Text style={styles.brandLine2}>by {data.brand.legalName}</Text>
           <Text style={styles.brandLine2}>{data.brand.tagline}</Text>
         </View>
-        <View style={styles.ruleAfterBrand} />
+        <View
+          style={[
+            styles.ruleAfterBrand,
+            { borderBottomColor: theme.accent, borderBottomWidth: 1.5 },
+          ]}
+        />
 
-        <Text style={styles.docLabel}>{data.documentLabel}</Text>
+        <View
+          style={{
+            backgroundColor: theme.accentSoft,
+            borderWidth: 0.5,
+            borderColor: theme.accent,
+            paddingVertical: 6,
+            marginBottom: 10,
+          }}
+        >
+          <Text
+            style={[
+              styles.docLabel,
+              { color: theme.accent, marginTop: 0, marginBottom: 0 },
+            ]}
+          >
+            {data.documentLabel}
+          </Text>
+        </View>
 
         <View style={styles.metaRow}>
           <View style={styles.metaCol}>
@@ -319,10 +378,17 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
           const isLast = i === data.sections.length - 1;
           return (
             <View key={section.letter} wrap={!isLast}>
-              <Text style={styles.sectionHeader}>
+              <Text
+                style={[
+                  styles.sectionHeader,
+                  { color: theme.accent },
+                ]}
+              >
                 Section {section.letter} — {section.title}
               </Text>
-              <View style={styles.table}>
+              <View
+                style={[styles.table, { borderColor: theme.border }]}
+              >
                 <View style={styles.rowHeader}>
                   <Text style={[styles.cell, styles.cellHeader, styles.centerAlign, { width: COL.sno }]}>SNo</Text>
                   <Text style={[styles.cell, styles.cellHeader, { width: COL.description }]}>Description</Text>
@@ -378,10 +444,22 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
                 ) : null}
 
                 <View style={styles.totalsRow}>
-                  <Text style={[styles.totalsLabelCell, styles.totalLabelGrey]}>
+                  <Text
+                    style={[
+                      styles.totalsLabelCell,
+                      styles.totalLabelGrey,
+                      { backgroundColor: theme.greyTotal, color: theme.accent },
+                    ]}
+                  >
                     Section {section.letter} TOTAL
                   </Text>
-                  <Text style={[styles.totalsAmountCell, styles.totalAmountGrey]}>
+                  <Text
+                    style={[
+                      styles.totalsAmountCell,
+                      styles.totalAmountGrey,
+                      { backgroundColor: theme.greyTotal, color: theme.accent },
+                    ]}
+                  >
                     {fmt(section.total)}
                   </Text>
                 </View>
@@ -391,16 +469,126 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
         })}
 
         <View wrap={false}>
-          <View style={styles.grandTotalBar}>
-            <Text style={styles.grandLabel}>GRAND TOTAL</Text>
-            <Text style={styles.grandAmount}>₹ {fmt(data.grandTotal)}</Text>
+          <View
+            style={[
+              styles.grandTotalBar,
+              {
+                backgroundColor: theme.grandTotal,
+                borderColor: theme.accent,
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <Text style={[styles.grandLabel, { color: theme.grandTotalText }]}>
+              GRAND TOTAL
+            </Text>
+            <Text style={[styles.grandAmount, { color: theme.grandTotalText }]}>
+              ₹ {fmt(data.grandTotal)}
+            </Text>
           </View>
           {!new Decimal(data.totalSavingsVsMrp).isZero() ? (
-            <Text style={styles.savingsBar}>
+            <Text
+              style={[
+                styles.savingsBar,
+                {
+                  backgroundColor: theme.accentSoft,
+                  borderColor: theme.accent,
+                  color: theme.accent,
+                },
+              ]}
+            >
               You save ₹ {fmt(data.totalSavingsVsMrp)} vs list price
             </Text>
           ) : null}
           <Text style={styles.amountInWords}>{data.amountInWords}</Text>
+
+          {/* Tax-invoice-only blocks: payment status + signature line. */}
+          {isInvoice && data.paymentStatus ? (
+            <View
+              style={{
+                marginTop: 8,
+                marginBottom: 6,
+                paddingVertical: 6,
+                paddingHorizontal: 8,
+                backgroundColor:
+                  data.paymentStatus.label === "PAID"
+                    ? "#d1fae5"
+                    : data.paymentStatus.label === "PARTIAL"
+                      ? "#fef3c7"
+                      : "#fee2e2",
+                borderWidth: 0.5,
+                borderColor:
+                  data.paymentStatus.label === "PAID"
+                    ? "#047857"
+                    : data.paymentStatus.label === "PARTIAL"
+                      ? "#b45309"
+                      : "#b91c1c",
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: "Helvetica-Bold",
+                  fontSize: 11,
+                  color:
+                    data.paymentStatus.label === "PAID"
+                      ? "#047857"
+                      : data.paymentStatus.label === "PARTIAL"
+                        ? "#b45309"
+                        : "#b91c1c",
+                }}
+              >
+                {data.paymentStatus.label === "PAID"
+                  ? "PAID IN FULL"
+                  : data.paymentStatus.label === "PARTIAL"
+                    ? "PARTIALLY PAID"
+                    : "PAYMENT DUE"}
+              </Text>
+              <Text style={{ fontSize: 9, marginTop: 2 }}>
+                Received ₹ {fmt(data.paymentStatus.received)} ·
+                {" "}
+                Outstanding ₹ {fmt(data.paymentStatus.outstanding)}
+              </Text>
+            </View>
+          ) : null}
+          {isInvoice ? (
+            <View
+              style={{
+                marginTop: 24,
+                flexDirection: "row",
+                justifyContent: "space-between",
+              }}
+            >
+              <View style={{ width: "40%" }}>
+                <View
+                  style={{
+                    borderTopWidth: 0.5,
+                    borderTopColor: colors.text,
+                    paddingTop: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 8, color: colors.muted }}>
+                    Authorised signatory
+                  </Text>
+                  <Text style={{ fontSize: 8, color: colors.muted }}>
+                    {data.brand.legalName}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ width: "40%" }}>
+                <View
+                  style={{
+                    borderTopWidth: 0.5,
+                    borderTopColor: colors.text,
+                    paddingTop: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 8, color: colors.muted }}>
+                    Customer signature & date
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         {data.terms.length > 0 ? (
@@ -456,10 +644,14 @@ export function buildPdfDataFromQuote(input: {
   totalSavingsVsMrp: string;
   terms: { title: string; body: string }[];
   brand: QuotePdfData["brand"];
+  documentKind?: QuoteDocumentKind;
+  paymentStatus?: QuotePdfData["paymentStatus"];
 }): QuotePdfData {
   return {
     ...input,
     sections: input.sections.map((s) => ({ ...s, discountPercent: input.discountPercent })),
     amountInWords: amountInWords(new Decimal(input.grandTotal)),
+    documentKind: input.documentKind,
+    paymentStatus: input.paymentStatus,
   };
 }
