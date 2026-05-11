@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { format } from "date-fns";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   clients,
   companySettings,
   payments,
+  products,
   quoteLineItems,
   quoteSections,
   quoteTerms,
@@ -73,6 +74,26 @@ export async function GET(
     })),
   );
 
+  // Resolve SKU per line so the PDF can show the Astberg model number
+  // bold above each description ("AEE-150", "ARD-150-100", …).
+  const lineProductIds = Array.from(
+    new Set(
+      sectionLines
+        .flatMap(({ lines }) => lines.map((l) => l.productId))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const skuById = new Map<string, string>();
+  if (lineProductIds.length > 0) {
+    const rows = await db
+      .select({ id: products.id, sku: products.sku })
+      .from(products)
+      .where(inArray(products.id, lineProductIds));
+    for (const r of rows) {
+      if (r.sku) skuById.set(r.id, r.sku);
+    }
+  }
+
   const discountPercent = quote.roughDiscountPercent ?? "0.00";
   const calcInput: SectionInput[] = sectionLines.map(({ section, lines }) => ({
     discountPercent,
@@ -91,6 +112,7 @@ export async function GET(
     const t = totals.sections[idx];
     const pdfLines: QuotePdfLine[] = lines.map((l) => ({
       sno: l.sno,
+      sku: l.productId ? (skuById.get(l.productId) ?? null) : null,
       description: l.description,
       quantity: l.quantity,
       unit: l.unit,

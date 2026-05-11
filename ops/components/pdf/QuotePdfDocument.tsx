@@ -241,6 +241,10 @@ const styles = StyleSheet.create({
 
 export interface QuotePdfLine {
   sno: number;
+  // Astberg model number / SKU, rendered bold above the description so
+  // the client knows it's a "6 inch reducer" not a generic "reducer".
+  // Null for labour and custom lines that have no product attached.
+  sku?: string | null;
   description: string;
   quantity: string;
   unit: string;
@@ -408,7 +412,20 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
                   return (
                     <View key={line.sno} style={styles.row} wrap={false}>
                       <Text style={[styles.cell, styles.centerAlign, { width: COL.sno }]}>{line.sno}</Text>
-                      <Text style={[styles.cell, { width: COL.description }]}>{line.description}</Text>
+                      <Text style={[styles.cell, { width: COL.description }]}>
+                        {line.sku ? (
+                          <Text
+                            style={{
+                              fontFamily: "Helvetica-Bold",
+                              color: theme.accent,
+                            }}
+                          >
+                            {line.sku}
+                            {"\n"}
+                          </Text>
+                        ) : null}
+                        {line.description}
+                      </Text>
                       <Text style={[styles.cell, styles.rightAlign, { width: COL.qty }]}>{trimZeroes(line.quantity)}</Text>
                       <Text style={[styles.cell, styles.centerAlign, { width: COL.unit }]}>{line.unit}</Text>
                       <Text style={[styles.cell, styles.rightAlign, { width: COL.unitPrice }]}>{fmt(line.unitPrice)}</Text>

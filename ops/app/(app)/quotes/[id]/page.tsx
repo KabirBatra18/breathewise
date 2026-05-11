@@ -166,6 +166,27 @@ export default async function QuoteDetailPage({
     lineRowsBySection.set(s.id, lines);
   }
 
+  // SKU lookup — used by the read-only view to render the model
+  // number (e.g. "AEE-150", "ARD-150-100") next to each line.
+  const allLineProductIds = Array.from(
+    new Set(
+      [...lineRowsBySection.values()]
+        .flat()
+        .map((l) => l.productId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const skuByProductId = new Map<string, string>();
+  if (allLineProductIds.length > 0) {
+    const rows = await db
+      .select({ id: products.id, sku: products.sku })
+      .from(products)
+      .where(inArray(products.id, allLineProductIds));
+    for (const r of rows) {
+      if (r.sku) skuByProductId.set(r.id, r.sku);
+    }
+  }
+
   if (quote.status === "DRAFT" && (me.role === "OWNER" || me.role === "EMPLOYEE")) {
     const [allClients, allProducts, allTerms, settings] = await Promise.all([
       db
@@ -402,11 +423,20 @@ export default async function QuoteDetailPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lines.map((l) => (
+                  {lines.map((l) => {
+                    const sku = l.productId
+                      ? skuByProductId.get(l.productId) ?? null
+                      : null;
+                    return (
                     <TableRow key={l.id}>
                       <TableCell>{l.sno}</TableCell>
                       <TableCell className="whitespace-pre-wrap text-sm">
-                        {l.description}
+                        {sku ? (
+                          <div className="font-mono text-[11px] font-semibold text-foreground">
+                            {sku}
+                          </div>
+                        ) : null}
+                        <div>{l.description}</div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {Number(l.quantity)}
@@ -421,7 +451,8 @@ export default async function QuoteDetailPage({
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
