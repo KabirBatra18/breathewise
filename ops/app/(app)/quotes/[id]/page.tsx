@@ -48,7 +48,7 @@ import {
 import { QUOTE_STATUS_LABELS } from "@/lib/constants";
 import { formatIndianNumber } from "@/lib/pricing/format";
 import { amountInWords } from "@/lib/pricing/words";
-import { Decimal } from "@/lib/pricing/decimal";
+import { Decimal, toMoney } from "@/lib/pricing/decimal";
 import { QuoteBuilder } from "@/components/quotes/quote-builder";
 import {
   createAddendumAction,
@@ -181,6 +181,9 @@ export default async function QuoteDetailPage({
           category: products.category,
           subcategory: products.subcategory,
           mrp: products.mrp,
+          // Used below to backfill dpRate / mrpRate snapshots on existing
+          // lines so the DP / MRP toggle stays visible when editing a draft.
+          defaultUnitPrice: products.defaultUnitPrice,
         })
         .from(products)
         .where(and(isNull(products.deletedAt), eq(products.isActive, true)))
@@ -207,21 +210,43 @@ export default async function QuoteDetailPage({
         gstRate: s.gstRate,
         isLabourStyle: s.isLabourStyle,
         appliesDiscount: s.appliesDiscount,
-        lines: (lineRowsBySection.get(s.id) ?? []).map((l) => ({
-          id: l.id,
-          productId: l.productId,
-          description: l.description,
-          mrp: l.mrp ?? "",
-          quantity: l.quantity,
-          unitPrice: l.unitPrice,
-          unit: l.unit,
-          costPriceSnapshot: isOwner ? l.costPriceSnapshot : null,
-          // dpRate/mrpRate are picker snapshots; we don't persist them.
-          // The toggle stays hidden until the user re-picks the product.
-          dpRate: "",
-          mrpRate: "",
-          priceMode: "DP" as const,
-        })),
+        lines: (lineRowsBySection.get(s.id) ?? []).map((l) => {
+          // Backfill the picker's rate snapshots so the Astberg DP /
+          // MRP toggle is visible on every editable line — not just
+          // ones the user re-picks. We look up the line's product to
+          // recompute the rates, then infer which mode the current
+          // unitPrice matches.
+          const p = l.productId
+            ? allProducts.find((x) => x.id === l.productId)
+            : null;
+          const dpRate = p?.defaultUnitPrice ?? "";
+          const mrpRate = p?.mrp
+            ? toMoney(new Decimal(p.mrp).div(new Decimal("1.18"))).toFixed(2)
+            : "";
+          // priceMode inference: whichever rate the saved unitPrice
+          // is closest to (within 1 paisa). Defaults to DP if both
+          // empty or unitPrice is a manual override.
+          let priceMode: "DP" | "MRP" = "DP";
+          if (mrpRate && dpRate) {
+            const u = Number(l.unitPrice);
+            const dDp = Math.abs(u - Number(dpRate));
+            const dMrp = Math.abs(u - Number(mrpRate));
+            if (dMrp < dDp) priceMode = "MRP";
+          }
+          return {
+            id: l.id,
+            productId: l.productId,
+            description: l.description,
+            mrp: l.mrp ?? "",
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            unit: l.unit,
+            costPriceSnapshot: isOwner ? l.costPriceSnapshot : null,
+            dpRate,
+            mrpRate,
+            priceMode,
+          };
+        }),
       })),
       selectedTermIds: snapshotTerms.map((t) => t.clauseId).filter((id): id is string => Boolean(id)),
       showSavingsOnPdf: quote.showSavingsOnPdf,
