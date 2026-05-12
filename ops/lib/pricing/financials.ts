@@ -1,6 +1,7 @@
 import { Decimal, toMoney, ZERO } from "./decimal";
 import { computeLineCost } from "./line";
 import { computeSectionTotals, type SectionInput } from "./section";
+import { computeQuoteTotalsForTarget } from "./quote";
 
 export interface Financials {
   // Whole-quote totals (kept for the saved snapshot row in
@@ -23,8 +24,22 @@ export interface Financials {
   labourTotal: Decimal;
 }
 
-export function computeFinancials(sections: SectionInput[]): Financials {
-  const sectionTotals = sections.map(computeSectionTotals);
+/**
+ * Compute the financials snapshot.
+ *
+ * When `discountTargetSaving` is provided (new model), the section
+ * totals are taken from `computeQuoteTotalsForTarget` so the saved
+ * snapshot reflects the post-target reality. When null, falls back to
+ * legacy per-section discountPercent.
+ */
+export function computeFinancials(
+  sections: SectionInput[],
+  discountTargetSaving?: Decimal | null,
+): Financials {
+  const sectionTotals =
+    discountTargetSaving != null
+      ? computeQuoteTotalsForTarget(sections, discountTargetSaving).sections
+      : sections.map(computeSectionTotals);
 
   const revenuePreDiscount = toMoney(
     sectionTotals.reduce((acc, s) => acc.plus(s.subtotal), ZERO),

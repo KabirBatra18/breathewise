@@ -4,7 +4,12 @@ export { computeLineAmount, computeLineCost } from "./line";
 export type { LineInput } from "./line";
 export { computeSectionTotals } from "./section";
 export type { SectionInput, SectionTotals } from "./section";
-export { computeGrandTotal, computeQuoteTotals } from "./quote";
+export {
+  autoSavingFromLines,
+  computeGrandTotal,
+  computeQuoteTotals,
+  computeQuoteTotalsForTarget,
+} from "./quote";
 export type { QuoteTotals } from "./quote";
 export { computePreciseTiers } from "./precise_tiers";
 export type { PreciseTier, PreciseTierInput, Role } from "./precise_tiers";

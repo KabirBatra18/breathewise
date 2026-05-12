@@ -16,6 +16,7 @@ import {
 import { requireAuth } from "@/lib/auth/server";
 import {
   computeQuoteTotals,
+  computeQuoteTotalsForTarget,
   Decimal,
   ZERO,
   toMoney,
@@ -94,9 +95,14 @@ export async function GET(
     }
   }
 
-  const discountPercent = quote.roughDiscountPercent ?? "0.00";
+  const legacyDiscountPercent = quote.roughDiscountPercent ?? "0.00";
+  const useNewModel = quote.discountTargetSaving != null;
+  // When the quote is on the new model, the section-level discountPercent
+  // must be 0 — the saving is delivered by computeQuoteTotalsForTarget.
+  // Legacy quotes keep their per-section blanket %.
+  const effectivePctForSections = useNewModel ? "0" : legacyDiscountPercent;
   const calcInput: SectionInput[] = sectionLines.map(({ section, lines }) => ({
-    discountPercent,
+    discountPercent: effectivePctForSections,
     gstRate: section.gstRate,
     isLabourStyle: section.isLabourStyle,
     appliesDiscount: section.appliesDiscount,
@@ -106,7 +112,16 @@ export async function GET(
       mrp: l.mrp ?? null,
     })),
   }));
-  const totals = computeQuoteTotals(calcInput);
+  const totals = useNewModel
+    ? computeQuoteTotalsForTarget(
+        calcInput,
+        new Decimal(quote.discountTargetSaving!),
+      )
+    : computeQuoteTotals(calcInput);
+  // discountPercent retained for downstream callers (buildPdfDataFromQuote
+  // takes a discountPercent; we still pass the legacy value for display
+  // metadata even though the engine ignored it in the new path).
+  const discountPercent = legacyDiscountPercent;
 
   const sectionsForPdf = sectionLines.map(({ section, lines }, idx) => {
     const t = totals.sections[idx];

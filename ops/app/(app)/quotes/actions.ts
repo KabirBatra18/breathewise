@@ -20,6 +20,7 @@ import { requireAuth, requireEmployeeOrAbove } from "@/lib/auth/server";
 import {
   Decimal,
   computeQuoteTotals,
+  computeQuoteTotalsForTarget,
   computeFinancials,
   toMoney,
   type SectionInput,
@@ -58,6 +59,18 @@ const saveSchema = z.object({
   // Whether to render the "You save ₹X vs list price" bar on the PDF.
   // Default false so tiny / cosmetic savings don't render as silly.
   showSavingsOnPdf: z.boolean().default(false),
+  // New-model lever: target total saving from MRP, ₹. Null = auto
+  // (use the saving line modes naturally produce). When set the
+  // engine uses computeQuoteTotalsForTarget and the section-level
+  // discountPercent is ignored.
+  discountTargetSaving: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v == null || v === "" ? null : v))
+    .refine((v) => v == null || /^\d+(\.\d{1,2})?$/.test(v), {
+      message: "Discount target must be a positive number",
+    }),
 });
 
 export type SaveQuoteInput = z.infer<typeof saveSchema>;
@@ -109,8 +122,11 @@ export async function saveRoughQuoteAction(
     for (const row of rows) costMap.set(row.productId, row.costPrice);
   }
 
+  // New-model writes: section discountPercent is 0 (target applied
+  // by the new engine entry point). Legacy writes carry the % through.
+  const isNewModel = data.discountTargetSaving != null;
   const sectionsForCalc: SectionInput[] = data.sections.map((s) => ({
-    discountPercent: data.discountPercent,
+    discountPercent: isNewModel ? "0" : data.discountPercent,
     gstRate: s.gstRate,
     isLabourStyle: s.isLabourStyle,
     appliesDiscount: s.appliesDiscount,
@@ -118,11 +134,17 @@ export async function saveRoughQuoteAction(
       qty: l.quantity,
       unitPrice: l.unitPrice,
       costPriceSnapshot: l.productId ? costMap.get(l.productId) ?? null : null,
+      mrp: l.mrp ?? null,
     })),
   }));
 
-  const totals = computeQuoteTotals(sectionsForCalc);
-  const financials = computeFinancials(sectionsForCalc);
+  const targetDec = isNewModel
+    ? new Decimal(data.discountTargetSaving!)
+    : null;
+  const totals = isNewModel
+    ? computeQuoteTotalsForTarget(sectionsForCalc, targetDec)
+    : computeQuoteTotals(sectionsForCalc);
+  const financials = computeFinancials(sectionsForCalc, targetDec);
 
   const result = await db.transaction(async (tx) => {
     let quoteId = data.id;
@@ -137,13 +159,17 @@ export async function saveRoughQuoteAction(
         throw new Error("Only DRAFT quotes can be edited.");
       }
       quoteNumber = existing.quoteNumber;
+      // New-model writes: target persisted, discountPercent zeroed so
+      // the two never compound. Legacy writes still carry their %.
+      const isNewModel = data.discountTargetSaving != null;
       await tx
         .update(quotes)
         .set({
           clientId: data.clientId,
           quoteType: "ROUGH",
           status: "DRAFT",
-          roughDiscountPercent: data.discountPercent,
+          roughDiscountPercent: isNewModel ? "0" : data.discountPercent,
+          discountTargetSaving: isNewModel ? data.discountTargetSaving! : null,
           validityDays: data.validityDays,
           issueDate: data.issueDate,
           showSavingsOnPdf: data.showSavingsOnPdf,
@@ -154,6 +180,7 @@ export async function saveRoughQuoteAction(
       await tx.delete(quoteTerms).where(eq(quoteTerms.quoteId, quoteId));
     } else {
       quoteNumber = await nextQuoteNumber();
+      const isNewModel = data.discountTargetSaving != null;
       const [row] = await tx
         .insert(quotes)
         .values({
@@ -161,7 +188,8 @@ export async function saveRoughQuoteAction(
           clientId: data.clientId,
           quoteType: "ROUGH",
           status: "DRAFT",
-          roughDiscountPercent: data.discountPercent,
+          roughDiscountPercent: isNewModel ? "0" : data.discountPercent,
+          discountTargetSaving: isNewModel ? data.discountTargetSaving! : null,
           validityDays: data.validityDays,
           issueDate: data.issueDate,
           showSavingsOnPdf: data.showSavingsOnPdf,

@@ -125,6 +125,10 @@ export const quotes = pgTable("quotes", {
   acceptedTotal: money("accepted_total"),
   acceptedNotes: text("accepted_notes"),
   showSavingsOnPdf: boolean("show_savings_on_pdf").notNull().default(false),
+  // New-model discount lever: total saving from MRP in rupees. NULL =
+  // legacy path (uses roughDiscountPercent). Set => engine uses
+  // computeQuoteTotalsForTarget.
+  discountTargetSaving: money("discount_target_saving"),
   validityDays: integer("validity_days").notNull().default(15),
   issueDate: date("issue_date").notNull().defaultNow(),
   closedAt: timestamp("closed_at", { withTimezone: true }),

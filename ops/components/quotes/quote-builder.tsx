@@ -30,6 +30,7 @@ import {
   computeFinancials,
   computeLineAmount,
   computeQuoteTotals,
+  computeQuoteTotalsForTarget,
   formatIndianNumber,
   type SectionInput,
 } from "@/lib/pricing";
@@ -133,6 +134,10 @@ export function QuoteBuilder({
     issueDate: string;
     validityDays: number;
     discountPercent: string;
+    /** Null for new model in auto mode; a string "₹X" when user has
+        overridden. New-model quotes load this from the DB column
+        discount_target_saving. */
+    discountTargetSaving: string | null;
     sections: SectionState[];
     selectedTermIds: string[];
     showSavingsOnPdf: boolean;
@@ -150,6 +155,18 @@ export function QuoteBuilder({
   const [discountPercent, setDiscountPercent] = useState(
     initial?.discountPercent ?? defaultDiscount,
   );
+  // New-model lever: target total saving from MRP, in ₹. Null = auto
+  // (use the saving that line modes naturally produce). When set, the
+  // engine clamps to autoSaving as floor and allocates any delta as
+  // pre-GST discount across goods sections.
+  // For brand-new quotes we start in "auto" mode (null). For existing
+  // quotes already on the new model we load the persisted value. For
+  // legacy quotes (those still on discountPercent > 0) we ALSO start
+  // in auto mode — the equivalent target will be derived on first
+  // save (transparent migration via the save action).
+  const [discountTargetSaving, setDiscountTargetSaving] = useState<
+    string | null
+  >(initial?.discountTargetSaving ?? null);
   const [sections, setSections] = useState<SectionState[]>(
     initial?.sections ?? [newSection(0), newSection(1), newSection(2)],
   );
@@ -281,13 +298,21 @@ export function QuoteBuilder({
     }
   }
 
+  // Are we on the new model? Yes if the quote has a target saving set
+  // (either persisted or just typed in the new ₹ field). For new
+  // quotes we default to the new model with target = null (auto).
+  const isNewModel = discountTargetSaving !== null || !initial;
+  // When the quote is on the new model, the section-level
+  // discountPercent must be 0 (target is delivered via the new engine
+  // entry point). Legacy quotes keep their per-section blanket.
+  const effectiveSectionDiscountPct = isNewModel
+    ? "0"
+    : numericOrZero(discountPercent);
+
   const calcInput = useMemo<SectionInput[]>(
     () =>
       sections.map((s) => ({
-        // Empty input fields must be coerced to "0" before they reach
-        // the pricing engine — `new Decimal("")` throws and crashes
-        // the whole quote builder otherwise.
-        discountPercent: numericOrZero(discountPercent),
+        discountPercent: effectiveSectionDiscountPct,
         gstRate: numericOrZero(s.gstRate),
         isLabourStyle: s.isLabourStyle,
         appliesDiscount: s.appliesDiscount,
@@ -295,16 +320,34 @@ export function QuoteBuilder({
           qty: numericOrZero(l.quantity),
           unitPrice: numericOrZero(l.unitPrice),
           costPriceSnapshot: isOwner ? l.costPriceSnapshot : null,
-          // Pass per-line MRP through so the totals panel can show
-          // a list-price-anchored discount that includes both the
-          // implicit Astberg DP markdown and the blanket discount.
           mrp: l.mrp ? l.mrp : null,
         })),
       })),
-    [sections, discountPercent, isOwner],
+    [sections, effectiveSectionDiscountPct, isOwner],
   );
 
-  const totals = useMemo(() => computeQuoteTotals(calcInput), [calcInput]);
+  const totals = useMemo(
+    () =>
+      isNewModel
+        ? computeQuoteTotalsForTarget(
+            calcInput,
+            discountTargetSaving !== null && discountTargetSaving !== ""
+              ? new Decimal(numericOrZero(discountTargetSaving))
+              : null,
+          )
+        : computeQuoteTotals(calcInput),
+    [calcInput, isNewModel, discountTargetSaving],
+  );
+  // What the lines naturally produce in savings (target = null).
+  // Used as both the default value for the input AND the floor.
+  const autoSaving = useMemo(
+    () => computeQuoteTotalsForTarget(calcInput, null).totalSavingsVsMrp,
+    [calcInput],
+  );
+  const hasGoods = useMemo(
+    () => calcInput.some((s) => !s.isLabourStyle),
+    [calcInput],
+  );
   const financials = useMemo(
     () => (isOwner ? computeFinancials(calcInput) : null),
     [calcInput, isOwner],
@@ -424,6 +467,12 @@ export function QuoteBuilder({
       })),
       termsClauseIds: selectedTermIds,
       showSavingsOnPdf,
+      // Send null when in auto mode; otherwise the user's typed value.
+      // Empty string = same as null (auto).
+      discountTargetSaving:
+        discountTargetSaving == null || discountTargetSaving === ""
+          ? null
+          : numericOrZero(discountTargetSaving),
     };
   }
 
@@ -528,23 +577,74 @@ export function QuoteBuilder({
                 onChange={(e) => setValidityDays(Number(e.target.value))}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="discountPercent">Extra discount %</Label>
-              <Input
-                id="discountPercent"
-                type="number"
-                step="0.01"
-                min={0}
-                max={100}
-                value={discountPercent}
-                onChange={(e) => setDiscountPercent(e.target.value)}
-              />
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="discountTargetSaving">
+                Total discount from MRP (₹)
+              </Label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    ₹
+                  </span>
+                  <Input
+                    id="discountTargetSaving"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    disabled={!hasGoods}
+                    value={
+                      discountTargetSaving !== null
+                        ? discountTargetSaving
+                        : autoSaving.toFixed(2)
+                    }
+                    onChange={(e) => setDiscountTargetSaving(e.target.value)}
+                    onBlur={(e) => {
+                      // Floor at autoSaving — we never undercut what
+                      // the line modes naturally give.
+                      const raw = e.target.value;
+                      if (raw === "" || raw == null) {
+                        setDiscountTargetSaving(null);
+                        return;
+                      }
+                      const v = new Decimal(numericOrZero(raw));
+                      if (v.lt(autoSaving)) {
+                        setDiscountTargetSaving(autoSaving.toFixed(2));
+                      } else {
+                        setDiscountTargetSaving(v.toFixed(2));
+                      }
+                    }}
+                    className="pl-7"
+                  />
+                </div>
+                {discountTargetSaving !== null ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDiscountTargetSaving(null)}
+                    title="Reset to auto-computed savings"
+                  >
+                    Reset to auto
+                  </Button>
+                ) : null}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Concession on top of the Astberg DP / MRP line rate. Applied to
-                each section&apos;s subtotal before GST, only on sections of
-                type <em>Goods</em> (or <em>Custom</em> with &ldquo;apply
-                discount&rdquo; on). Eats into your margin — leave at 0 if you
-                aren&apos;t giving the client an extra discount.
+                {hasGoods ? (
+                  <>
+                    Auto-fills with ₹{formatIndianNumber(autoSaving)} based on
+                    your DP / MRP line modes. Type a higher number to give the
+                    client a bigger concession — the extra discount gets
+                    allocated pre-GST across goods sections so the math stays
+                    invoice-correct. Can&apos;t go below the auto value: if
+                    you want a smaller saving, switch lines from DP to MRP
+                    mode instead.
+                  </>
+                ) : (
+                  <>
+                    No goods sections yet — there&apos;s no MRP to discount
+                    from. Add a goods section first.
+                  </>
+                )}
               </p>
             </div>
             <label className="md:col-span-2 flex items-start gap-2 rounded-md border bg-muted/30 p-3 text-sm">
