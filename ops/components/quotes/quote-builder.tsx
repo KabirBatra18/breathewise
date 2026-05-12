@@ -348,9 +348,21 @@ export function QuoteBuilder({
     () => calcInput.some((s) => !s.isLabourStyle),
     [calcInput],
   );
+  // Margin must reflect the user's effective discount lever. For
+  // new-model quotes we pass the same target the totals engine uses so
+  // goodsRevenuePostDiscount accounts for any pre-GST delta. (Without
+  // this, raising the discount lever leaves the margin number unchanged
+  // — overstating goods revenue.)
+  const targetForFinancials = useMemo<Decimal | null>(() => {
+    if (!isNewModel) return null;
+    if (discountTargetSaving !== null && discountTargetSaving !== "") {
+      return new Decimal(numericOrZero(discountTargetSaving));
+    }
+    return autoSaving;
+  }, [isNewModel, discountTargetSaving, autoSaving]);
   const financials = useMemo(
-    () => (isOwner ? computeFinancials(calcInput) : null),
-    [calcInput, isOwner],
+    () => (isOwner ? computeFinancials(calcInput, targetForFinancials) : null),
+    [calcInput, isOwner, targetForFinancials],
   );
 
   function patchSection(idx: number, patch: Partial<SectionState>) {
@@ -467,12 +479,18 @@ export function QuoteBuilder({
       })),
       termsClauseIds: selectedTermIds,
       showSavingsOnPdf,
-      // Send null when in auto mode; otherwise the user's typed value.
-      // Empty string = same as null (auto).
+      // Critical: when the UI is on the new model we MUST send a
+      // non-null target, otherwise the server falls back to the legacy
+      // path with `discountPercent` and the saved totals diverge from
+      // what was on screen. For new quotes (no `initial`) we're always
+      // on the new model; for legacy quotes we stay on legacy unless
+      // the user has touched the lever.
       discountTargetSaving:
-        discountTargetSaving == null || discountTargetSaving === ""
-          ? null
-          : numericOrZero(discountTargetSaving),
+        discountTargetSaving != null && discountTargetSaving !== ""
+          ? numericOrZero(discountTargetSaving)
+          : isNewModel
+            ? autoSaving.toFixed(2)
+            : null,
     };
   }
 

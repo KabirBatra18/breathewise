@@ -143,4 +143,30 @@ describe("computeQuoteTotalsForTarget — migration equivalence", () => {
     );
     expect(targeted.grandTotal.toFixed(2)).toBe(auto.grandTotal.toFixed(2));
   });
+
+  test("appliesDiscount=false section is excluded from delta allocation", () => {
+    // Two goods sections, one opts out of discount. Target delta must
+    // land entirely on the opted-in section so the opted-out one keeps
+    // its untouched total.
+    const optedIn: SectionInput = {
+      ...ZERO_A,
+      appliesDiscount: true,
+    };
+    const optedOut: SectionInput = {
+      ...ZERO_B,
+      appliesDiscount: false,
+    };
+    const auto = computeQuoteTotals([optedIn, optedOut]);
+    const target = auto.totalSavingsVsMrp.plus(new Decimal("3000.00"));
+    const targeted = computeQuoteTotalsForTarget([optedIn, optedOut], target);
+
+    // Opted-out section total unchanged.
+    expect(targeted.sections[1].total.toFixed(2)).toBe(
+      auto.sections[1].total.toFixed(2),
+    );
+    // Opted-in section absorbed the full ₹3000 delta (within rounding).
+    const optedInDrop = auto.sections[0].total.minus(targeted.sections[0].total);
+    const diff = optedInDrop.minus(new Decimal("3000")).abs();
+    expect(diff.lte(new Decimal("0.05"))).toBe(true);
+  });
 });

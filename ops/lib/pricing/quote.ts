@@ -85,6 +85,9 @@ export function computeQuoteTotalsForTarget(
   if (target == null) return autoTotals;
 
   // Auto saving across goods only — labour contributes 0 by design.
+  // Sections marked appliesDiscount=false still count: they can have
+  // a natural DP→MRP markdown from their lines that the client sees
+  // as "saving" even though the section opts out of *blanket* discount.
   const autoSavingGoods = autoTotals.sections.reduce((acc, s, i) => {
     if (sections[i].isLabourStyle) return acc;
     return acc.plus(s.totalDiscountVsMrp);
@@ -95,13 +98,18 @@ export function computeQuoteTotalsForTarget(
   const delta = effectiveTarget.minus(autoSavingGoods);
   if (delta.isZero()) return autoTotals;
 
-  const goodsSubtotalSum = autoTotals.sections.reduce((acc, s, i) => {
+  // Delta is allocated ONLY across sections that opt into discounts.
+  // Labour + appliesDiscount=false sections are excluded so the user's
+  // "no discount on this section" choice is respected — matches the
+  // legacy blanket-% behaviour (which also skipped those sections).
+  const allocableSubtotalSum = autoTotals.sections.reduce((acc, s, i) => {
     if (sections[i].isLabourStyle) return acc;
+    if (sections[i].appliesDiscount === false) return acc;
     return acc.plus(s.subtotal);
   }, ZERO);
 
-  if (goodsSubtotalSum.isZero()) {
-    // No goods to allocate against → target is meaningless. Return auto.
+  if (allocableSubtotalSum.isZero()) {
+    // Nothing to allocate against → target is meaningless. Return auto.
     return autoTotals;
   }
 
@@ -112,8 +120,9 @@ export function computeQuoteTotalsForTarget(
     (s, idx) => {
       const input = sections[idx];
       if (input.isLabourStyle) return s;
+      if (input.appliesDiscount === false) return s;
       // delta share on grand total (GST-incl) proportional to subtotal.
-      const deltaShare = delta.mul(s.subtotal).div(goodsSubtotalSum);
+      const deltaShare = delta.mul(s.subtotal).div(allocableSubtotalSum);
       const gstFactor = ONE.plus(new Decimal(input.gstRate).div(100));
       // Pre-GST equivalent: this is the amount we add to discountAmount.
       const preGstAdjustment = toMoney(deltaShare.div(gstFactor));
