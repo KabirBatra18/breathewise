@@ -468,6 +468,11 @@ export async function duplicateQuoteAction(formData: FormData): Promise<void> {
         quoteType: "ROUGH",
         status: "DRAFT",
         roughDiscountPercent: source.roughDiscountPercent,
+        // Carry the new-model lever and PDF preference across. Without
+        // this a duplicated new-model quote silently reverts to legacy
+        // mode with 0% discount, dropping the user's discount target.
+        discountTargetSaving: source.discountTargetSaving,
+        showSavingsOnPdf: source.showSavingsOnPdf,
         validityDays: source.validityDays,
         issueDate: now.toISOString().slice(0, 10),
         createdBy: actor.id,
