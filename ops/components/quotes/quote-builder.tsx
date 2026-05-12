@@ -27,6 +27,7 @@ import { TotalsPanel } from "./totals-panel";
 import { saveRoughQuoteAction, type SaveQuoteInput } from "@/app/(app)/quotes/actions";
 import {
   Decimal,
+  ZERO,
   computeFinancials,
   computeLineAmount,
   computeQuoteTotals,
@@ -155,18 +156,46 @@ export function QuoteBuilder({
   const [discountPercent, setDiscountPercent] = useState(
     initial?.discountPercent ?? defaultDiscount,
   );
-  // New-model lever: target total saving from MRP, in ₹. Null = auto
-  // (use the saving that line modes naturally produce). When set, the
-  // engine clamps to autoSaving as floor and allocates any delta as
-  // pre-GST discount across goods sections.
-  // For brand-new quotes we start in "auto" mode (null). For existing
-  // quotes already on the new model we load the persisted value. For
-  // legacy quotes (those still on discountPercent > 0) we ALSO start
-  // in auto mode — the equivalent target will be derived on first
-  // save (transparent migration via the save action).
-  const [discountTargetSaving, setDiscountTargetSaving] = useState<
-    string | null
-  >(initial?.discountTargetSaving ?? null);
+  // The discount field is "live total" semantics: what the user sees
+  // = autoSaving (line-mode driven) + discountExtra (user's manual add).
+  // Toggling DP→MRP changes autoSaving → the displayed value AND the
+  // grand total move together. The extra is what we *actually* store
+  // (the absolute target written to the DB is autoSaving + extra at
+  // save time). ZERO = no manual addition.
+  const [discountExtra, setDiscountExtra] = useState<Decimal>(() => {
+    // Recover extra from a saved absolute target. We re-derive
+    // autoSaving from the initial sections (with 0% blanket, since the
+    // new model uses 0%) and subtract.
+    if (!initial?.discountTargetSaving) return ZERO;
+    const initCalcNew: SectionInput[] = initial.sections.map((s) => ({
+      discountPercent: "0",
+      gstRate: s.gstRate,
+      isLabourStyle: s.isLabourStyle,
+      appliesDiscount: s.appliesDiscount,
+      lines: s.lines.map((l) => ({
+        qty: l.quantity,
+        unitPrice: l.unitPrice,
+        mrp: l.mrp ? l.mrp : null,
+      })),
+    }));
+    const initAuto = computeQuoteTotalsForTarget(initCalcNew, null)
+      .totalSavingsVsMrp;
+    const extra = new Decimal(initial.discountTargetSaving).minus(initAuto);
+    return extra.gt(0) ? extra : ZERO;
+  });
+  // Tracks whether the user has typed in the discount field. For new
+  // quotes and quotes-already-on-the-new-model, this stays implicit
+  // (isNewModel derives from initial state). For LEGACY quotes
+  // (initial.discountTargetSaving == null but discountPercent > 0),
+  // we keep the legacy %-blanket engine until the user touches the
+  // field — then we migrate.
+  const [hasOverridden, setHasOverridden] = useState<boolean>(false);
+  // Raw input buffer for the discount field so keystrokes don't get
+  // clobbered by the derived display (which snaps to autoSaving +
+  // extra each render). Reset to null on blur.
+  const [discountRawInput, setDiscountRawInput] = useState<string | null>(
+    null,
+  );
   const [sections, setSections] = useState<SectionState[]>(
     initial?.sections ?? [newSection(0), newSection(1), newSection(2)],
   );
@@ -298,17 +327,21 @@ export function QuoteBuilder({
     }
   }
 
-  // Are we on the new model? Yes if the quote has a target saving set
-  // (either persisted or just typed in the new ₹ field). For new
-  // quotes we default to the new model with target = null (auto).
-  const isNewModel = discountTargetSaving !== null || !initial;
-  // When the quote is on the new model, the section-level
-  // discountPercent must be 0 (target is delivered via the new engine
-  // entry point). Legacy quotes keep their per-section blanket.
+  // Are we on the new model?
+  //   - Brand new quote (no `initial`)            → yes
+  //   - Quote saved with target_saving set        → yes
+  //   - Legacy quote where user has overridden    → yes (migrates on save)
+  //   - Legacy quote, untouched                   → no (preserve legacy %)
+  const isNewModel =
+    !initial || initial.discountTargetSaving != null || hasOverridden;
   const effectiveSectionDiscountPct = isNewModel
     ? "0"
     : numericOrZero(discountPercent);
 
+  // Two calc inputs so we can show the legacy display while still
+  // knowing what the new-mode auto would be (needed to compute extra
+  // correctly when the user types on a legacy quote and the engine
+  // switches modes underneath).
   const calcInput = useMemo<SectionInput[]>(
     () =>
       sections.map((s) => ({
@@ -325,44 +358,71 @@ export function QuoteBuilder({
       })),
     [sections, effectiveSectionDiscountPct, isOwner],
   );
+  const calcInputNew = useMemo<SectionInput[]>(
+    () =>
+      sections.map((s) => ({
+        discountPercent: "0",
+        gstRate: numericOrZero(s.gstRate),
+        isLabourStyle: s.isLabourStyle,
+        appliesDiscount: s.appliesDiscount,
+        lines: s.lines.map((l) => ({
+          qty: numericOrZero(l.quantity),
+          unitPrice: numericOrZero(l.unitPrice),
+          costPriceSnapshot: isOwner ? l.costPriceSnapshot : null,
+          mrp: l.mrp ? l.mrp : null,
+        })),
+      })),
+    [sections, isOwner],
+  );
+  // autoSavingNew = what the lines give with 0% blanket. This is the
+  // "auto" baseline for the new model's offset semantics. autoSaving
+  // (current-mode) is what the customer sees as natural saving and
+  // drives the display when in legacy mode.
+  const autoSavingNew = useMemo(
+    () => computeQuoteTotalsForTarget(calcInputNew, null).totalSavingsVsMrp,
+    [calcInputNew],
+  );
+  const autoSaving = useMemo(
+    () => computeQuoteTotalsForTarget(calcInput, null).totalSavingsVsMrp,
+    [calcInput],
+  );
+
+  // Engine target when in new mode: autoSavingNew + extra. The engine
+  // re-derives its own autoSaving from sections — passing the absolute
+  // target means delta = extra (independent of internal rounding).
+  const engineTarget = useMemo(
+    () => (isNewModel ? autoSavingNew.plus(discountExtra) : null),
+    [isNewModel, autoSavingNew, discountExtra],
+  );
+
+  // What the user sees in the "Total saving from MRP" field. Live —
+  // moves when DP/MRP toggles change autoSaving. When in legacy mode,
+  // shows the legacy.saving (with %-blanket included).
+  const displayedDiscount = useMemo(
+    () => (isNewModel ? autoSavingNew.plus(discountExtra) : autoSaving),
+    [isNewModel, autoSavingNew, discountExtra, autoSaving],
+  );
 
   const totals = useMemo(
     () =>
       isNewModel
-        ? computeQuoteTotalsForTarget(
-            calcInput,
-            discountTargetSaving !== null && discountTargetSaving !== ""
-              ? new Decimal(numericOrZero(discountTargetSaving))
-              : null,
-          )
+        ? computeQuoteTotalsForTarget(calcInputNew, engineTarget)
         : computeQuoteTotals(calcInput),
-    [calcInput, isNewModel, discountTargetSaving],
-  );
-  // What the lines naturally produce in savings (target = null).
-  // Used as both the default value for the input AND the floor.
-  const autoSaving = useMemo(
-    () => computeQuoteTotalsForTarget(calcInput, null).totalSavingsVsMrp,
-    [calcInput],
+    [calcInput, calcInputNew, isNewModel, engineTarget],
   );
   const hasGoods = useMemo(
     () => calcInput.some((s) => !s.isLabourStyle),
     [calcInput],
   );
-  // Margin must reflect the user's effective discount lever. For
-  // new-model quotes we pass the same target the totals engine uses so
-  // goodsRevenuePostDiscount accounts for any pre-GST delta. (Without
-  // this, raising the discount lever leaves the margin number unchanged
-  // — overstating goods revenue.)
-  const targetForFinancials = useMemo<Decimal | null>(() => {
-    if (!isNewModel) return null;
-    if (discountTargetSaving !== null && discountTargetSaving !== "") {
-      return new Decimal(numericOrZero(discountTargetSaving));
-    }
-    return autoSaving;
-  }, [isNewModel, discountTargetSaving, autoSaving]);
   const financials = useMemo(
-    () => (isOwner ? computeFinancials(calcInput, targetForFinancials) : null),
-    [calcInput, isOwner, targetForFinancials],
+    () =>
+      isOwner
+        ? computeFinancials(
+            isNewModel ? calcInputNew : calcInput,
+            isNewModel ? engineTarget : null,
+          )
+        : null,
+    [calcInput, calcInputNew, isOwner, isNewModel, engineTarget],
   );
 
   function patchSection(idx: number, patch: Partial<SectionState>) {
@@ -479,18 +539,14 @@ export function QuoteBuilder({
       })),
       termsClauseIds: selectedTermIds,
       showSavingsOnPdf,
-      // Critical: when the UI is on the new model we MUST send a
-      // non-null target, otherwise the server falls back to the legacy
-      // path with `discountPercent` and the saved totals diverge from
-      // what was on screen. For new quotes (no `initial`) we're always
-      // on the new model; for legacy quotes we stay on legacy unless
-      // the user has touched the lever.
-      discountTargetSaving:
-        discountTargetSaving != null && discountTargetSaving !== ""
-          ? numericOrZero(discountTargetSaving)
-          : isNewModel
-            ? autoSaving.toFixed(2)
-            : null,
+      // Server contract is the ABSOLUTE target saving from MRP. With
+      // offset semantics in the UI we send autoSavingNew + extra so
+      // the server's engine reproduces the displayed grand total
+      // exactly. Legacy mode (user hasn't touched a legacy quote)
+      // sends null so the server stays on the %-blanket path.
+      discountTargetSaving: isNewModel
+        ? autoSavingNew.plus(discountExtra).toFixed(2)
+        : null,
     };
   }
 
@@ -610,36 +666,49 @@ export function QuoteBuilder({
                     step="0.01"
                     min={0}
                     disabled={!hasGoods}
+                    // While the user is mid-type we show their raw
+                    // keystrokes; otherwise we show the derived live
+                    // total (autoSavingNew + extra in new mode, or the
+                    // legacy auto saving in legacy mode).
                     value={
-                      discountTargetSaving !== null
-                        ? discountTargetSaving
-                        : autoSaving.toFixed(2)
+                      discountRawInput !== null
+                        ? discountRawInput
+                        : displayedDiscount.toFixed(2)
                     }
-                    onChange={(e) => setDiscountTargetSaving(e.target.value)}
-                    onBlur={(e) => {
-                      // Floor at autoSaving — we never undercut what
-                      // the line modes naturally give.
+                    onChange={(e) => {
                       const raw = e.target.value;
-                      if (raw === "" || raw == null) {
-                        setDiscountTargetSaving(null);
+                      setDiscountRawInput(raw);
+                      setHasOverridden(true);
+                      // Commit live so totals + grand total update on
+                      // every keystroke. extra is the offset above the
+                      // new-mode auto saving.
+                      if (raw === "") {
+                        setDiscountExtra(ZERO);
                         return;
                       }
                       const v = new Decimal(numericOrZero(raw));
-                      if (v.lt(autoSaving)) {
-                        setDiscountTargetSaving(autoSaving.toFixed(2));
-                      } else {
-                        setDiscountTargetSaving(v.toFixed(2));
-                      }
+                      const newExtra = v.minus(autoSavingNew);
+                      setDiscountExtra(newExtra.gt(0) ? newExtra : ZERO);
+                    }}
+                    onBlur={() => {
+                      // Release the raw input so the field re-binds to
+                      // the derived display (which will reflect the
+                      // committed extra, clamped to >= autoSavingNew).
+                      setDiscountRawInput(null);
                     }}
                     className="pl-7"
                   />
                 </div>
-                {discountTargetSaving !== null ? (
+                {hasOverridden || discountExtra.gt(0) ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setDiscountTargetSaving(null)}
+                    onClick={() => {
+                      setDiscountExtra(ZERO);
+                      setHasOverridden(false);
+                      setDiscountRawInput(null);
+                    }}
                     title="Reset to auto-computed savings"
                   >
                     Reset to auto
@@ -649,13 +718,18 @@ export function QuoteBuilder({
               <p className="text-xs text-muted-foreground">
                 {hasGoods ? (
                   <>
-                    Auto-fills with ₹{formatIndianNumber(autoSaving)} based on
-                    your DP / MRP line modes. Type a higher number to give the
-                    client a bigger concession — the extra discount gets
-                    allocated pre-GST across goods sections so the math stays
-                    invoice-correct. Can&apos;t go below the auto value: if
-                    you want a smaller saving, switch lines from DP to MRP
-                    mode instead.
+                    Lives at ₹{formatIndianNumber(autoSavingNew)} from your
+                    current DP / MRP line modes
+                    {discountExtra.gt(0) ? (
+                      <>
+                        {" "}
+                        + ₹{formatIndianNumber(discountExtra)} extra you added
+                      </>
+                    ) : null}
+                    . Toggling a line between DP and MRP shifts the auto
+                    portion live — the grand total moves with it. Type a
+                    higher number to give a bigger concession; the engine
+                    allocates the extra pre-GST across goods sections.
                   </>
                 ) : (
                   <>
