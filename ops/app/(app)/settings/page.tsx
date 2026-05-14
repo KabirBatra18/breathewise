@@ -47,6 +47,13 @@ export default async function SettingsPage() {
               phone: s?.phone ?? "",
               email: s?.email ?? "",
               gstin: s?.gstin ?? "",
+              state: s?.state ?? "",
+              stateCode: s?.stateCode ?? "",
+              pan: s?.pan ?? "",
+              bankName: s?.bankName ?? "",
+              bankAccount: s?.bankAccount ?? "",
+              bankIfsc: s?.bankIfsc ?? "",
+              bankBranch: s?.bankBranch ?? "",
               defaultRoughDiscountPercent:
                 s?.defaultRoughDiscountPercent ?? "5.00",
               defaultValidityDays: s?.defaultValidityDays ?? 15,

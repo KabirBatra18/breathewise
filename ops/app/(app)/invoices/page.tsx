@@ -1,0 +1,224 @@
+import Link from "next/link";
+import { desc, eq } from "drizzle-orm";
+import { Download } from "lucide-react";
+import { db } from "@/lib/db/client";
+import { clients, invoices, quotes } from "@/db/schema";
+import { requireAuth } from "@/lib/auth/server";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Decimal, ZERO, toMoney } from "@/lib/pricing/decimal";
+import { formatIndianNumber } from "@/lib/pricing/format";
+
+export const metadata = { title: "Invoices" };
+
+export default async function InvoicesListPage() {
+  await requireAuth();
+
+  const rows = await db
+    .select({
+      id: invoices.id,
+      invoiceNumber: invoices.invoiceNumber,
+      issueDate: invoices.issueDate,
+      totalInvoiceValue: invoices.totalInvoiceValue,
+      totalTaxableValue: invoices.totalTaxableValue,
+      totalCgst: invoices.totalCgst,
+      totalSgst: invoices.totalSgst,
+      totalIgst: invoices.totalIgst,
+      isInterState: invoices.isInterState,
+      reverseCharge: invoices.reverseCharge,
+      placeOfSupply: invoices.placeOfSupply,
+      quoteNumber: quotes.quoteNumber,
+      quoteId: quotes.id,
+      clientName: clients.name,
+      clientCompany: clients.companyName,
+    })
+    .from(invoices)
+    .leftJoin(quotes, eq(quotes.id, invoices.quoteId))
+    .leftJoin(clients, eq(clients.id, invoices.clientId))
+    .orderBy(desc(invoices.issueDate), desc(invoices.createdAt));
+
+  // Aggregate tiles
+  const totalBilled = toMoney(
+    rows.reduce((a, r) => a.plus(new Decimal(r.totalInvoiceValue)), ZERO),
+  );
+  const totalTaxable = toMoney(
+    rows.reduce((a, r) => a.plus(new Decimal(r.totalTaxableValue)), ZERO),
+  );
+  const totalGst = toMoney(
+    rows.reduce(
+      (a, r) =>
+        a
+          .plus(new Decimal(r.totalCgst))
+          .plus(new Decimal(r.totalSgst))
+          .plus(new Decimal(r.totalIgst)),
+      ZERO,
+    ),
+  );
+
+  return (
+    <div className="space-y-6 p-8">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Tax invoices
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            GST-compliant invoices raised from accepted quotes. Each invoice
+            is frozen at issue — line items and tax break-up don&apos;t move
+            when the source quote is edited.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Tile label="Invoices raised" rawText={`${rows.length}`} />
+        <Tile label="Total billed (₹)" value={totalBilled} />
+        <Tile label="GST collected (₹)" value={totalGst} />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardDescription>
+            {rows.length === 0
+              ? "No invoices yet"
+              : `${rows.length} invoice${rows.length === 1 ? "" : "s"} · Σ taxable ₹${formatIndianNumber(totalTaxable)}`}
+          </CardDescription>
+          <CardTitle>Invoice register</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {rows.length === 0 ? (
+            <p className="rounded-lg border-2 border-dashed p-12 text-center text-sm text-muted-foreground">
+              No tax invoices yet. Open an accepted quote and click{" "}
+              <strong>Convert to Tax Invoice</strong> to raise one.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Issued</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Source quote</TableHead>
+                  <TableHead>Place of supply</TableHead>
+                  <TableHead className="text-right">Taxable</TableHead>
+                  <TableHead className="text-right">GST</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="w-8" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => {
+                  const gst = toMoney(
+                    new Decimal(r.totalCgst)
+                      .plus(new Decimal(r.totalSgst))
+                      .plus(new Decimal(r.totalIgst)),
+                  );
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono text-sm">
+                        <Link
+                          href={`/invoices/${r.id}`}
+                          className="hover:underline"
+                        >
+                          {r.invoiceNumber}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {r.issueDate as unknown as string}
+                      </TableCell>
+                      <TableCell>
+                        {[r.clientName, r.clientCompany]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {r.quoteId ? (
+                          <Link
+                            href={`/quotes/${r.quoteId}`}
+                            className="hover:underline"
+                          >
+                            {r.quoteNumber}
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {r.placeOfSupply}{" "}
+                        <Badge variant="secondary">
+                          {r.isInterState ? "IGST" : "CGST+SGST"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {formatIndianNumber(new Decimal(r.totalTaxableValue))}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-amber-700 dark:text-amber-400">
+                        {formatIndianNumber(gst)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-semibold">
+                        ₹
+                        {formatIndianNumber(new Decimal(r.totalInvoiceValue))}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          render={
+                            <a
+                              href={`/api/invoices/${r.id}/pdf`}
+                              target="_blank"
+                              rel="noopener"
+                            />
+                          }
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          PDF
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Tile({
+  label,
+  value,
+  rawText,
+}: {
+  label: string;
+  value?: Decimal;
+  rawText?: string;
+}) {
+  return (
+    <div className="rounded-lg border p-4">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-xl font-semibold tabular-nums">
+        {value !== undefined ? `₹${formatIndianNumber(value)}` : rawText}
+      </p>
+    </div>
+  );
+}

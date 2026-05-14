@@ -18,6 +18,14 @@ export interface SettingsFormValues {
   phone: string;
   email: string;
   gstin: string;
+  // Tax-invoice fields
+  state: string;
+  stateCode: string;
+  pan: string;
+  bankName: string;
+  bankAccount: string;
+  bankIfsc: string;
+  bankBranch: string;
   defaultRoughDiscountPercent: string;
   defaultValidityDays: number;
   quoteNumberPrefix: string;
@@ -45,6 +53,13 @@ export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
         phone: v.phone || null,
         email: v.email || null,
         gstin: v.gstin || null,
+        state: v.state || null,
+        stateCode: v.stateCode || null,
+        pan: v.pan || null,
+        bankName: v.bankName || null,
+        bankAccount: v.bankAccount || null,
+        bankIfsc: v.bankIfsc || null,
+        bankBranch: v.bankBranch || null,
         defaultRoughDiscountPercent: v.defaultRoughDiscountPercent,
         defaultValidityDays: v.defaultValidityDays,
         quoteNumberPrefix: v.quoteNumberPrefix,
@@ -114,6 +129,80 @@ export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
               />
             </Field>
           </div>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3">
+        <h2 className="text-base font-medium">Tax-invoice details</h2>
+        <p className="text-xs text-muted-foreground">
+          Required on every GST tax invoice (Rule 46). Bank details print on
+          the invoice payment block so the customer can pay you directly.
+        </p>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field
+            label="Supplier state"
+            hint="The state where your GSTIN is registered."
+          >
+            <Input
+              value={v.state}
+              onChange={(e) => patch("state", e.target.value)}
+              placeholder="Delhi"
+            />
+          </Field>
+          <Field
+            label="State code"
+            hint="2-digit GST state code. Delhi=07, Haryana=06, UP=09 …"
+          >
+            <Input
+              value={v.stateCode}
+              onChange={(e) =>
+                patch("stateCode", e.target.value.replace(/[^0-9]/g, ""))
+              }
+              placeholder="07"
+              maxLength={2}
+            />
+          </Field>
+          <Field label="PAN" hint="Customary on Indian invoices.">
+            <Input
+              value={v.pan}
+              onChange={(e) => patch("pan", e.target.value.toUpperCase())}
+              placeholder="ABCDE1234F"
+              maxLength={10}
+            />
+          </Field>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Bank name">
+            <Input
+              value={v.bankName}
+              onChange={(e) => patch("bankName", e.target.value)}
+              placeholder="HDFC Bank"
+            />
+          </Field>
+          <Field label="Account number">
+            <Input
+              value={v.bankAccount}
+              onChange={(e) => patch("bankAccount", e.target.value)}
+              placeholder="50100XXXXXXXX"
+            />
+          </Field>
+          <Field label="IFSC code">
+            <Input
+              value={v.bankIfsc}
+              onChange={(e) => patch("bankIfsc", e.target.value.toUpperCase())}
+              placeholder="HDFC0001234"
+              maxLength={11}
+            />
+          </Field>
+          <Field label="Branch">
+            <Input
+              value={v.bankBranch}
+              onChange={(e) => patch("bankBranch", e.target.value)}
+              placeholder="Connaught Place"
+            />
+          </Field>
         </div>
       </section>
 

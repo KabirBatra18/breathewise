@@ -6,6 +6,7 @@ import { db } from "@/lib/db/client";
 import {
   clients,
   companySettings,
+  invoices,
   payments,
   productCosts,
   products,
@@ -25,6 +26,7 @@ import {
   type ProjectQuoteRow,
 } from "@/lib/projects/totals";
 import { AcceptDialog } from "@/components/quotes/accept-dialog";
+import { ConvertToInvoiceDialog } from "@/components/invoices/convert-dialog";
 import { PaymentLedger } from "@/components/quotes/payment-ledger";
 import { requireAuth } from "@/lib/auth/server";
 import { Badge } from "@/components/ui/badge";
@@ -76,8 +78,16 @@ export default async function QuoteDetailPage({
   // (Parent of a parent doesn't exist; we don't model multi-level chains.)
   const rootQuoteId = quote.parentQuoteId ?? quote.id;
 
-  const [client, sections, sends, financials, snapshotTerms, chain, thisPayments] =
-    await Promise.all([
+  const [
+    client,
+    sections,
+    sends,
+    financials,
+    snapshotTerms,
+    chain,
+    thisPayments,
+    existingInvoices,
+  ] = await Promise.all([
       db.query.clients.findFirst({ where: eq(clients.id, quote.clientId) }),
       db
         .select()
@@ -115,6 +125,16 @@ export default async function QuoteDetailPage({
         .from(payments)
         .where(eq(payments.quoteId, quote.id))
         .orderBy(desc(payments.receivedAt)),
+      db
+        .select({
+          id: invoices.id,
+          invoiceNumber: invoices.invoiceNumber,
+          issueDate: invoices.issueDate,
+          totalInvoiceValue: invoices.totalInvoiceValue,
+        })
+        .from(invoices)
+        .where(eq(invoices.quoteId, quote.id))
+        .orderBy(desc(invoices.createdAt)),
     ]);
 
   // Tier financials per chain quote so the project-roll-up below can
@@ -717,8 +737,86 @@ export default async function QuoteDetailPage({
               </Button>
             </form>
           ) : null}
+          {/* Convert to Tax Invoice — available only on ACCEPTED /
+              ADVANCE_PAID. The dialog handles labour-inclusion and
+              reverse-charge toggles. PI generator is untouched. */}
+          {isAcceptedOrAdvance &&
+          (me.role === "OWNER" || me.role === "EMPLOYEE") ? (
+            <ConvertToInvoiceDialog
+              quoteId={quote.id}
+              quoteNumber={quote.quoteNumber}
+              buyerHasLabour={sections.some((s) => s.isLabourStyle)}
+              buyerState={client?.state ?? null}
+              trigger={
+                <Button type="button" size="sm" variant="default">
+                  Convert to Tax Invoice
+                </Button>
+              }
+            />
+          ) : null}
         </CardContent>
       </Card>
+
+      {existingInvoices.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tax invoices raised from this quote</CardTitle>
+            <CardDescription>
+              Each invoice is a frozen legal document. You can raise more
+              than one — for example, separate invoices for goods and
+              installation, or partial deliveries.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Issued</TableHead>
+                  <TableHead className="text-right">Total (₹)</TableHead>
+                  <TableHead className="w-8" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {existingInvoices.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="font-mono text-sm">
+                      <Link
+                        href={`/invoices/${inv.id}`}
+                        className="hover:underline"
+                      >
+                        {inv.invoiceNumber}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {inv.issueDate as unknown as string}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      ₹{formatIndianNumber(new Decimal(inv.totalInvoiceValue))}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        render={
+                          <a
+                            href={`/api/invoices/${inv.id}/pdf`}
+                            target="_blank"
+                            rel="noopener"
+                          />
+                        }
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        PDF
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

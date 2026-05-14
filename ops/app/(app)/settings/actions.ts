@@ -26,6 +26,35 @@ const schema = z.object({
         /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v),
       "GSTIN must be 15 chars in the standard Indian format.",
     ),
+  // Tax-invoice fields (added in 0006).
+  state: z.string().trim().max(80).nullable(),
+  stateCode: z
+    .string()
+    .trim()
+    .nullable()
+    .refine(
+      (v) => v == null || v === "" || /^[0-9]{2}$/.test(v),
+      "State code is 2 digits (e.g. 07 for Delhi).",
+    ),
+  pan: z
+    .string()
+    .trim()
+    .nullable()
+    .refine(
+      (v) => v == null || v === "" || /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v),
+      "PAN must be 10 chars in the standard format (e.g. ABCDE1234F).",
+    ),
+  bankName: z.string().trim().max(120).nullable(),
+  bankAccount: z.string().trim().max(40).nullable(),
+  bankIfsc: z
+    .string()
+    .trim()
+    .nullable()
+    .refine(
+      (v) => v == null || v === "" || /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v),
+      "IFSC must be 11 chars (e.g. HDFC0001234).",
+    ),
+  bankBranch: z.string().trim().max(120).nullable(),
   defaultRoughDiscountPercent: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, "Discount % must be 0–100"),
@@ -54,6 +83,13 @@ export async function saveSettingsAction(
       phone: data.phone || null,
       email: data.email || null,
       gstin: data.gstin || null,
+      state: data.state || null,
+      stateCode: data.stateCode || null,
+      pan: data.pan || null,
+      bankName: data.bankName || null,
+      bankAccount: data.bankAccount || null,
+      bankIfsc: data.bankIfsc || null,
+      bankBranch: data.bankBranch || null,
       defaultRoughDiscountPercent: data.defaultRoughDiscountPercent,
       defaultValidityDays: data.defaultValidityDays,
       quoteNumberPrefix: data.quoteNumberPrefix,
