@@ -12,6 +12,7 @@ const MIGRATIONS = [
   "0003_quotes_accepted_total.sql",
   "0004_quotes_show_savings_on_pdf.sql",
   "0005_quotes_discount_target_saving.sql",
+  "0006_invoice_compliance.sql",
 ];
 
 async function main() {

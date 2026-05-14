@@ -15,6 +15,14 @@ export { computePreciseTiers } from "./precise_tiers";
 export type { PreciseTier, PreciseTierInput, Role } from "./precise_tiers";
 export { computeFinancials } from "./financials";
 export type { Financials } from "./financials";
+export { buildInvoiceFromQuote } from "./invoice";
+export type {
+  InvoiceBuildInput,
+  InvoiceBuildSection,
+  InvoiceBuildLine,
+  InvoiceBuilt,
+  InvoiceBuiltLine,
+} from "./invoice";
 export { formatIndianNumber, formatRupees } from "./format";
 export type { FormatOptions } from "./format";
 export { amountInWords } from "./words";

@@ -60,6 +60,11 @@ export const products = pgTable("products", {
   mrp: money("mrp"),
   defaultUnitPrice: money("default_unit_price").notNull(),
   defaultGstRate: percent("default_gst_rate").notNull().default("18.00"),
+  // HSN / SAC code — Rule 46(g) of CGST Rules makes it mandatory on
+  // tax invoices. We default everything to 8414 (fans/blowers) via
+  // the 0006 migration and let the user refine the dozen non-fan
+  // entries (filters → 8421, ERVs → 8415) in the catalog UI.
+  hsnCode: text("hsn_code"),
   unit: text("unit").notNull().default("pcs"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -100,6 +105,10 @@ export const clients = pgTable("clients", {
   addressLine2: text("address_line_2"),
   city: text("city"),
   state: text("state"),
+  // GST state code (e.g. "07" for Delhi). Rule 46(g) needs this on
+  // every tax invoice to determine place of supply. 0006 backfills
+  // from the free-text `state` column for the standard 36 states/UTs.
+  stateCode: text("state_code"),
   pincode: text("pincode"),
   gstin: text("gstin"),
   notes: text("notes"),
@@ -260,6 +269,88 @@ export const quoteTerms = pgTable("quote_terms", {
   sortOrder: integer("sort_order").notNull(),
 });
 
+// ============================================================
+// Tax invoices — frozen, GST-compliant documents born from quotes.
+// Rule 46 / Section 31 of CGST: every column here maps to a
+// mandatory field on a tax invoice.
+// ============================================================
+export const invoices = pgTable("invoices", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  quoteId: uuid("quote_id")
+    .notNull()
+    .references(() => quotes.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  issueDate: date("issue_date").notNull().defaultNow(),
+  // Supply geography frozen at issue
+  supplierState: text("supplier_state").notNull(),
+  supplierStateCode: text("supplier_state_code").notNull(),
+  placeOfSupply: text("place_of_supply").notNull(),
+  placeOfSupplyCode: text("place_of_supply_code").notNull(),
+  isInterState: boolean("is_inter_state").notNull(),
+  reverseCharge: boolean("reverse_charge").notNull().default(false),
+  includeLabour: boolean("include_labour").notNull().default(false),
+  // Frozen supplier snapshot
+  supplierLegalName: text("supplier_legal_name").notNull(),
+  supplierAddress: text("supplier_address"),
+  supplierGstin: text("supplier_gstin"),
+  supplierPan: text("supplier_pan"),
+  supplierPhone: text("supplier_phone"),
+  supplierEmail: text("supplier_email"),
+  // Frozen buyer snapshot
+  buyerName: text("buyer_name").notNull(),
+  buyerCompany: text("buyer_company"),
+  buyerAddress: text("buyer_address"),
+  buyerGstin: text("buyer_gstin"),
+  buyerPhone: text("buyer_phone"),
+  buyerEmail: text("buyer_email"),
+  buyerState: text("buyer_state"),
+  buyerStateCode: text("buyer_state_code"),
+  // Bank snapshot
+  bankName: text("bank_name"),
+  bankAccount: text("bank_account"),
+  bankIfsc: text("bank_ifsc"),
+  bankBranch: text("bank_branch"),
+  // Totals
+  totalTaxableValue: money("total_taxable_value").notNull(),
+  totalCgst: money("total_cgst").notNull().default("0"),
+  totalSgst: money("total_sgst").notNull().default("0"),
+  totalIgst: money("total_igst").notNull().default("0"),
+  totalInvoiceValue: money("total_invoice_value").notNull(),
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const invoiceLines = pgTable("invoice_lines", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoices.id, { onDelete: "cascade" }),
+  sno: integer("sno").notNull(),
+  sectionLetter: text("section_letter"),
+  sectionTitle: text("section_title"),
+  isLabourStyle: boolean("is_labour_style").notNull().default(false),
+  skuSnapshot: text("sku_snapshot"),
+  description: text("description").notNull(),
+  hsnCode: text("hsn_code"),
+  quantity: money("quantity").notNull(),
+  unit: text("unit").notNull(),
+  unitPrice: money("unit_price").notNull(),
+  gstRate: percent("gst_rate").notNull(),
+  taxableValue: money("taxable_value").notNull(),
+  cgstRate: percent("cgst_rate").notNull().default("0"),
+  cgstAmount: money("cgst_amount").notNull().default("0"),
+  sgstRate: percent("sgst_rate").notNull().default("0"),
+  sgstAmount: money("sgst_amount").notNull().default("0"),
+  igstRate: percent("igst_rate").notNull().default("0"),
+  igstAmount: money("igst_amount").notNull().default("0"),
+  lineTotal: money("line_total").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+});
+
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   actorId: uuid("actor_id").references(() => users.id),
@@ -282,6 +373,18 @@ export const companySettings = pgTable("company_settings", {
   email: text("email"),
   gstin: text("gstin"),
   logoUrl: text("logo_url"),
+  // Supplier state + GST state code. Set in 0006 to Delhi / 07.
+  // Needed on every tax invoice to decide intra-state (CGST + SGST)
+  // vs inter-state (IGST) based on the buyer's state.
+  state: text("state"),
+  stateCode: text("state_code"),
+  pan: text("pan"),
+  // Bank details printed on the tax invoice's payment block. Optional
+  // on PI (we don't render them there).
+  bankName: text("bank_name"),
+  bankAccount: text("bank_account"),
+  bankIfsc: text("bank_ifsc"),
+  bankBranch: text("bank_branch"),
   defaultRoughDiscountPercent: percent("default_rough_discount_percent").notNull().default("5.00"),
   defaultPreciseTiers: percent("default_precise_tiers").array().notNull().default(sql`ARRAY[5.00, 10.00, 15.00]::numeric(5,2)[]`),
   defaultValidityDays: integer("default_validity_days").notNull().default(15),
