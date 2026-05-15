@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { InvoiceStatusBadge } from "@/components/ui/status-badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -95,6 +105,16 @@ export function InvoiceEditor({
   const router = useRouter();
   const [lines, setLines] = useState<EditorLine[]>(initialLines);
   const [pending, startTransition] = useTransition();
+  // Single AlertDialog instance, driven by state. Each destructive
+  // action sets pendingConfirm with its own title/handler — much nicer
+  // than three separate AlertDialog components or native confirm().
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string;
+    description: string;
+    actionLabel: string;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
   const [issueDate, setIssueDate] = useState(invoice.issueDate);
   const [reverseCharge, setReverseCharge] = useState(invoice.reverseCharge);
   const [notes, setNotes] = useState(invoice.notes ?? "");
@@ -164,14 +184,24 @@ export function InvoiceEditor({
   }
 
   function removeLine(lineId: string) {
-    if (!confirm("Remove this line from the invoice?")) return;
-    setLines((curr) => curr.filter((l) => l.id !== lineId));
-    startTransition(async () => {
-      const res = await deleteInvoiceLineAction({ lineId });
-      if (!res.ok) {
-        toast.error(res.error);
-        router.refresh();
-      }
+    const line = lines.find((l) => l.id === lineId);
+    setPendingConfirm({
+      title: "Remove this line?",
+      description: line?.description
+        ? `"${line.description.slice(0, 80)}${line.description.length > 80 ? "…" : ""}" will be deleted from this draft. You can re-add it later if needed.`
+        : "This line will be deleted from this draft.",
+      actionLabel: "Remove line",
+      destructive: true,
+      onConfirm: () => {
+        setLines((curr) => curr.filter((l) => l.id !== lineId));
+        startTransition(async () => {
+          const res = await deleteInvoiceLineAction({ lineId });
+          if (!res.ok) {
+            toast.error(res.error);
+            router.refresh();
+          }
+        });
+      },
     });
   }
 
@@ -221,45 +251,79 @@ export function InvoiceEditor({
       toast.error("Add at least one line before finalizing.");
       return;
     }
-    if (
-      !confirm(
-        "Finalize this invoice? It will get a permanent invoice number and become a legal document — you won't be able to edit it after this.",
-      )
-    ) {
-      return;
-    }
-    startTransition(async () => {
-      const res = await finalizeInvoiceAction({ invoiceId: invoice.id });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(`Invoice ${res.invoiceNumber} finalized.`);
-      router.push(`/invoices/${invoice.id}`);
+    setPendingConfirm({
+      title: "Finalize this invoice?",
+      description:
+        "An invoice number will be allocated (e.g. BW/INV/2627/0001) and the document becomes legally binding. After this you can't edit any line, total or party. The PDF will unlock for download.",
+      actionLabel: "Finalize & issue",
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await finalizeInvoiceAction({ invoiceId: invoice.id });
+          if (!res.ok) {
+            toast.error(res.error);
+            return;
+          }
+          toast.success(`Invoice ${res.invoiceNumber} finalized.`);
+          router.push(`/invoices/${invoice.id}`);
+        });
+      },
     });
   }
 
   function discard() {
-    if (
-      !confirm(
-        "Discard this draft invoice entirely? This cannot be undone. The source quote stays untouched.",
-      )
-    ) {
-      return;
-    }
-    startTransition(async () => {
-      const res = await deleteDraftInvoiceAction({ invoiceId: invoice.id });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Draft discarded.");
-      router.push("/invoices");
+    setPendingConfirm({
+      title: "Discard this draft?",
+      description:
+        "This deletes the draft invoice entirely. The source quote is untouched — you can always spawn a fresh draft from it.",
+      actionLabel: "Discard draft",
+      destructive: true,
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await deleteDraftInvoiceAction({ invoiceId: invoice.id });
+          if (!res.ok) {
+            toast.error(res.error);
+            return;
+          }
+          toast.success("Draft discarded.");
+          router.push("/invoices");
+        });
+      },
     });
   }
 
   return (
     <div className="space-y-6">
+      {/* Single AlertDialog driven by pendingConfirm — destructive
+          actions (remove line, discard draft, finalize) flow through
+          this instead of native confirm(). */}
+      <AlertDialog
+        open={!!pendingConfirm}
+        onOpenChange={(o) => {
+          if (!o) setPendingConfirm(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingConfirm?.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingConfirm?.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant={pendingConfirm?.destructive ? "destructive" : "default"}
+              onClick={() => {
+                pendingConfirm?.onConfirm();
+                setPendingConfirm(null);
+              }}
+            >
+              {pendingConfirm?.actionLabel ?? "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Meta card ──────────────────────────────────────────── */}
       <Card>
         <CardHeader>

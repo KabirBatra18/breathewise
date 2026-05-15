@@ -96,11 +96,16 @@ export default async function QuotesListPage({
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="space-y-3 pt-6">
+          {/* Search bar (form GET keeps things server-rendered). */}
           <form
             method="get"
-            className="grid gap-3 sm:grid-cols-[1fr_200px_auto]"
+            className="grid gap-3 sm:grid-cols-[1fr_auto]"
           >
+            {/* preserve current status filter when searching */}
+            {statusFilter ? (
+              <input type="hidden" name="status" value={statusFilter} />
+            ) : null}
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -110,22 +115,24 @@ export default async function QuotesListPage({
                 className="pl-8"
               />
             </div>
-            <select
-              name="status"
-              defaultValue={statusFilter ?? "all"}
-              className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
-            >
-              <option value="all">All statuses</option>
-              {Object.entries(QUOTE_STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
             <Button type="submit" variant="secondary">
-              Apply
+              Search
             </Button>
           </form>
+
+          {/* Status filter pills — one click each, preserve current
+              search query via &q=. The 'All' pill clears the filter.
+              No client component needed: pills are just links. */}
+          <div className="flex flex-wrap gap-1.5 text-xs">
+            <FilterPill label="All" href={buildHref({ q, status: null })} active={!statusFilter} />
+            <FilterPill label="Draft" href={buildHref({ q, status: "DRAFT" })} active={statusFilter === "DRAFT"} />
+            <FilterPill label="Sent" href={buildHref({ q, status: "SENT" })} active={statusFilter === "SENT"} />
+            <FilterPill label="Negotiating" href={buildHref({ q, status: "NEGOTIATING" })} active={statusFilter === "NEGOTIATING"} />
+            <FilterPill label="Accepted" href={buildHref({ q, status: "ACCEPTED" })} active={statusFilter === "ACCEPTED"} />
+            <FilterPill label="Advance paid" href={buildHref({ q, status: "ADVANCE_PAID" })} active={statusFilter === "ADVANCE_PAID"} />
+            <FilterPill label="Rejected" href={buildHref({ q, status: "REJECTED" })} active={statusFilter === "REJECTED"} />
+            <FilterPill label="Expired" href={buildHref({ q, status: "EXPIRED" })} active={statusFilter === "EXPIRED"} />
+          </div>
         </CardContent>
       </Card>
 
@@ -205,5 +212,44 @@ export default async function QuotesListPage({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Build a /quotes URL with the right query params; null values omitted. */
+function buildHref({
+  q,
+  status,
+}: {
+  q: string | undefined;
+  status: string | null;
+}): string {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (status) params.set("status", status);
+  const qs = params.toString();
+  return qs ? `/quotes?${qs}` : "/quotes";
+}
+
+function FilterPill({
+  label,
+  href,
+  active,
+}: {
+  label: string;
+  href: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={
+        "inline-flex items-center rounded-full border px-3 py-1 transition-colors " +
+        (active
+          ? "border-foreground bg-foreground text-background"
+          : "border-input hover:bg-muted")
+      }
+    >
+      {label}
+    </Link>
   );
 }

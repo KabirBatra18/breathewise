@@ -736,73 +736,120 @@ export default async function QuoteDetailPage({
         </Card>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {me.role === "OWNER" || me.role === "EMPLOYEE" ? (
-            <QuoteSendActions
-              quoteId={quote.id}
-              status={quote.status}
-              pdfUrl={`/api/quotes/${quote.id}/pdf`}
-            />
-          ) : null}
-          {(quote.status === "SENT" || quote.status === "NEGOTIATING") &&
-          (me.role === "OWNER" || me.role === "EMPLOYEE") ? (
-            <div className="flex flex-wrap gap-2">
-              <AcceptDialog
+      {/* ── Actions, grouped by intent ─────────────────────────────
+          Three cards instead of one:
+            Share   — get the PI in front of the customer
+            Status  — move the quote through its lifecycle
+            Project — addendums + tax-invoicing
+          One eye-scan tells the user which card to look at. */}
+      {(me.role === "OWNER" || me.role === "EMPLOYEE") ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Share with client</CardTitle>
+              <CardDescription>
+                Download or send the Proforma PDF.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <QuoteSendActions
                 quoteId={quote.id}
-                defaultTotal={grandTotal ?? "0"}
-                trigger={
-                  <Button type="button" size="sm">
-                    Mark accepted
-                  </Button>
-                }
+                status={quote.status}
+                pdfUrl={`/api/quotes/${quote.id}/pdf`}
               />
-              <form action={markQuoteStatusAction}>
-                <input type="hidden" name="id" value={quote.id} />
-                <input type="hidden" name="status" value="REJECTED" />
-                <Button type="submit" size="sm" variant="destructive">
-                  Mark rejected
-                </Button>
-              </form>
-            </div>
+            </CardContent>
+          </Card>
+
+          {(quote.status === "SENT" || quote.status === "NEGOTIATING") ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Move the deal forward</CardTitle>
+                <CardDescription>
+                  Close the loop with the customer&apos;s decision.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  <AcceptDialog
+                    quoteId={quote.id}
+                    defaultTotal={grandTotal ?? "0"}
+                    trigger={
+                      <Button type="button" size="sm">
+                        Mark accepted
+                      </Button>
+                    }
+                  />
+                  <form action={markQuoteStatusAction}>
+                    <input type="hidden" name="id" value={quote.id} />
+                    <input type="hidden" name="status" value="REJECTED" />
+                    <Button type="submit" size="sm" variant="destructive">
+                      Mark rejected
+                    </Button>
+                  </form>
+                </div>
+              </CardContent>
+            </Card>
           ) : null}
-          {/* Addendum: only on live (sent or accepted) parents. The child
-              becomes a fresh DRAFT linked via parent_quote_id. */}
-          {(quote.status === "SENT" ||
-            quote.status === "NEGOTIATING" ||
-            isAcceptedOrAdvance) &&
-          (me.role === "OWNER" || me.role === "EMPLOYEE") &&
-          !isAddendum ? (
-            <form action={createAddendumAction}>
-              <input type="hidden" name="parentId" value={quote.id} />
-              <Button type="submit" size="sm" variant="outline">
-                <Plus className="h-4 w-4" />
-                Add equipment to this project
-              </Button>
-            </form>
+
+          {isAcceptedOrAdvance ? (
+            <Card className="md:col-span-2 border-emerald-300/60 dark:border-emerald-800/60">
+              <CardHeader>
+                <CardTitle className="text-base">Bill the customer</CardTitle>
+                <CardDescription>
+                  Now that the quote is accepted, generate a GST-compliant
+                  tax invoice. Lands you in the editor where you can adjust
+                  line items to match the actual installation.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  <ConvertToInvoiceDialog
+                    quoteId={quote.id}
+                    quoteNumber={quote.quoteNumber}
+                    buyerHasLabour={sections.some((s) => s.isLabourStyle)}
+                    buyerState={client?.state ?? null}
+                    trigger={
+                      <Button type="button" size="sm">
+                        Convert to Tax Invoice
+                      </Button>
+                    }
+                  />
+                  {!isAddendum ? (
+                    <form action={createAddendumAction}>
+                      <input type="hidden" name="parentId" value={quote.id} />
+                      <Button type="submit" size="sm" variant="outline">
+                        <Plus className="h-4 w-4" />
+                        Add equipment (addendum)
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (quote.status === "SENT" ||
+              quote.status === "NEGOTIATING") &&
+            !isAddendum ? (
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-base">Project</CardTitle>
+                <CardDescription>
+                  Need to add equipment after sending? Spawn a linked
+                  addendum.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form action={createAddendumAction}>
+                  <input type="hidden" name="parentId" value={quote.id} />
+                  <Button type="submit" size="sm" variant="outline">
+                    <Plus className="h-4 w-4" />
+                    Add equipment (addendum)
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
           ) : null}
-          {/* Convert to Tax Invoice — available only on ACCEPTED /
-              ADVANCE_PAID. The dialog handles labour-inclusion and
-              reverse-charge toggles. PI generator is untouched. */}
-          {isAcceptedOrAdvance &&
-          (me.role === "OWNER" || me.role === "EMPLOYEE") ? (
-            <ConvertToInvoiceDialog
-              quoteId={quote.id}
-              quoteNumber={quote.quoteNumber}
-              buyerHasLabour={sections.some((s) => s.isLabourStyle)}
-              buyerState={client?.state ?? null}
-              trigger={
-                <Button type="button" size="sm" variant="default">
-                  Convert to Tax Invoice
-                </Button>
-              }
-            />
-          ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      ) : null}
 
       {existingInvoices.length > 0 ? (
         <Card>
