@@ -613,13 +613,22 @@ export default async function QuoteDetailPage({
       {/* Project chain (only when this quote has linked addendums or is an addendum). */}
       {showProjectChain ? (
         <Card>
-          <CardHeader>
-            <CardTitle>Project</CardTitle>
-            <CardDescription>
-              {isAddendum
-                ? "This is an addendum to a parent quote."
-                : "This quote has linked addendums."}
-            </CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
+            <div>
+              <CardTitle>Project</CardTitle>
+              <CardDescription>
+                {isAddendum
+                  ? "This is an addendum to a parent quote."
+                  : "This quote has linked addendums."}
+              </CardDescription>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              render={<Link href={`/projects/${rootQuoteId}`} />}
+            >
+              Open project view
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid gap-2 sm:grid-cols-2">
