@@ -31,6 +31,18 @@ export async function GET(
   if (!inv) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  // DRAFT invoices are not legal documents. Refuse to render a PDF
+  // for them so a stray download link can't accidentally hand a
+  // customer something that looks official without a number.
+  if (inv.status === "DRAFT" || !inv.invoiceNumber) {
+    return NextResponse.json(
+      {
+        error:
+          "This invoice is still a DRAFT. Open it in the editor and click Finalize to assign an invoice number, then download the PDF.",
+      },
+      { status: 409 },
+    );
+  }
 
   const lines = await db
     .select()

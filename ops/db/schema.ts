@@ -276,7 +276,12 @@ export const quoteTerms = pgTable("quote_terms", {
 // ============================================================
 export const invoices = pgTable("invoices", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  invoiceNumber: text("invoice_number").notNull().unique(),
+  // DRAFT invoices have no number until Finalize. NULL during DRAFT,
+  // sequential BW/INV/2627/NNNN once ISSUED. The unique index allows
+  // many NULLs (Postgres semantics) so multiple drafts coexist.
+  invoiceNumber: text("invoice_number").unique(),
+  // Lifecycle: DRAFT (editable) or ISSUED (frozen legal document).
+  status: text("status").notNull().default("ISSUED"),
   quoteId: uuid("quote_id")
     .notNull()
     .references(() => quotes.id),
@@ -332,6 +337,9 @@ export const invoices = pgTable("invoices", {
   notes: text("notes"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  // Auto-touched by the trg_invoices_updated_at DB trigger so the
+  // drafts list can sort by recency.
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const invoiceLines = pgTable("invoice_lines", {

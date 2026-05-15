@@ -77,9 +77,11 @@ export function ConvertToInvoiceDialog({
         toast.error(res.error);
         return;
       }
-      toast.success(`Invoice ${res.invoiceNumber} created.`);
+      toast.success(
+        "Draft invoice created — edit lines, then click Finalize to issue.",
+      );
       setOpen(false);
-      router.push(`/invoices/${res.invoiceId}`);
+      router.push(`/invoices/${res.invoiceId}/edit`);
     });
   }
 

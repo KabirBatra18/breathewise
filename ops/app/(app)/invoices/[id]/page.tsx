@@ -51,6 +51,7 @@ export default async function InvoiceDetailPage({
     .from(quotes)
     .where(eq(quotes.id, inv.quoteId));
   const src = srcRows[0];
+  const isDraft = inv.status === "DRAFT";
 
   return (
     <div className="space-y-6 p-8">
@@ -64,31 +65,54 @@ export default async function InvoiceDetailPage({
             Back to invoices
           </Link>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight font-mono">
-            {inv.invoiceNumber}
+            {inv.invoiceNumber ?? "Untitled DRAFT"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Issued {inv.issueDate as unknown as string} · Place of supply{" "}
-            {inv.placeOfSupply} ({inv.placeOfSupplyCode}) ·{" "}
-            <Badge variant="secondary">
-              {inv.isInterState ? "Inter-state (IGST)" : "Intra-state (CGST + SGST)"}
-            </Badge>
+            {isDraft ? (
+              <>
+                <Badge
+                  variant="secondary"
+                  className="border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                >
+                  DRAFT
+                </Badge>
+                {" "}— editable, no legal status yet
+              </>
+            ) : (
+              <>
+                Issued {inv.issueDate as unknown as string} · Place of supply{" "}
+                {inv.placeOfSupply} ({inv.placeOfSupplyCode}) ·{" "}
+                <Badge variant="secondary">
+                  {inv.isInterState ? "Inter-state (IGST)" : "Intra-state (CGST + SGST)"}
+                </Badge>
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            render={
-              <a
-                href={`/api/invoices/${inv.id}/pdf`}
-                target="_blank"
-                rel="noopener"
-              />
-            }
-          >
-            <Download className="h-4 w-4" />
-            Download PDF
-          </Button>
+          {isDraft ? (
+            <Button
+              size="sm"
+              render={<Link href={`/invoices/${inv.id}/edit`} />}
+            >
+              Edit draft
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              render={
+                <a
+                  href={`/api/invoices/${inv.id}/pdf`}
+                  target="_blank"
+                  rel="noopener"
+                />
+              }
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+            </Button>
+          )}
           {src ? (
             <Button
               size="sm"

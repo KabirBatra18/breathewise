@@ -263,3 +263,123 @@ export function buildInvoiceFromQuote(input: InvoiceBuildInput): InvoiceBuilt {
     grandTotalRounded,
   };
 }
+
+// =============================================================
+// DRAFT-invoice editing helpers
+// =============================================================
+// `buildInvoiceFromQuote` (above) is used at conversion time —
+// translates a quote's PI-engine output into invoice form. Once the
+// invoice exists in DRAFT, the user adds / edits / removes lines
+// directly and the helpers below recompute per-line tax + invoice
+// totals from the raw user inputs. The math matches the quote engine
+// at the per-line level (qty × unitPrice = taxable, no section-level
+// discount allocation) because at DRAFT-edit time there is no longer
+// a quote-target to allocate against — the user is hand-curating
+// each line's price.
+
+export interface InvoiceLineTax {
+  taxableValue: Decimal;
+  cgstRate: Decimal;
+  cgstAmount: Decimal;
+  sgstRate: Decimal;
+  sgstAmount: Decimal;
+  igstRate: Decimal;
+  igstAmount: Decimal;
+  lineTotal: Decimal;
+}
+
+/**
+ * Compute taxable value + per-line tax breakdown from raw qty / unit
+ * price / GST rate / intra-vs-inter-state. Used when the user edits
+ * a DRAFT invoice line. Pure function, no IO.
+ */
+export function computeInvoiceLineTax(
+  qty: Decimal,
+  unitPrice: Decimal,
+  gstRate: Decimal,
+  isInterState: boolean,
+): InvoiceLineTax {
+  const taxableValue = toMoney(qty.mul(unitPrice));
+  let cgstRate = ZERO;
+  let cgstAmount = ZERO;
+  let sgstRate = ZERO;
+  let sgstAmount = ZERO;
+  let igstRate = ZERO;
+  let igstAmount = ZERO;
+  if (isInterState) {
+    igstRate = gstRate;
+    igstAmount = toMoney(taxableValue.mul(gstRate).div(100));
+  } else {
+    cgstRate = gstRate.div(2);
+    sgstRate = gstRate.div(2);
+    cgstAmount = toMoney(taxableValue.mul(cgstRate).div(100));
+    sgstAmount = toMoney(taxableValue.mul(sgstRate).div(100));
+  }
+  const lineTotal = toMoney(
+    taxableValue.plus(cgstAmount).plus(sgstAmount).plus(igstAmount),
+  );
+  return {
+    taxableValue,
+    cgstRate,
+    cgstAmount,
+    sgstRate,
+    sgstAmount,
+    igstRate,
+    igstAmount,
+    lineTotal,
+  };
+}
+
+export interface InvoiceTotals {
+  totalTaxableValue: Decimal;
+  totalCgst: Decimal;
+  totalSgst: Decimal;
+  totalIgst: Decimal;
+  totalInvoiceValue: Decimal;
+  roundOff: Decimal;
+  grandTotalRounded: Decimal;
+}
+
+/**
+ * Sum across an already-computed set of invoice lines + apply the
+ * whole-rupee round-off. Used at Finalize and on every DRAFT edit
+ * to keep the totals row in sync with the lines.
+ */
+export function recomputeInvoiceTotalsFromLines(
+  lines: ReadonlyArray<{
+    taxableValue: Decimal;
+    cgstAmount: Decimal;
+    sgstAmount: Decimal;
+    igstAmount: Decimal;
+  }>,
+): InvoiceTotals {
+  const totalTaxableValue = toMoney(
+    lines.reduce((acc, l) => acc.plus(l.taxableValue), ZERO),
+  );
+  const totalCgst = toMoney(
+    lines.reduce((acc, l) => acc.plus(l.cgstAmount), ZERO),
+  );
+  const totalSgst = toMoney(
+    lines.reduce((acc, l) => acc.plus(l.sgstAmount), ZERO),
+  );
+  const totalIgst = toMoney(
+    lines.reduce((acc, l) => acc.plus(l.igstAmount), ZERO),
+  );
+  const totalInvoiceValue = toMoney(
+    totalTaxableValue.plus(totalCgst).plus(totalSgst).plus(totalIgst),
+  );
+  const grandTotalRounded = totalInvoiceValue.toDecimalPlaces(
+    0,
+    Decimal.ROUND_HALF_UP,
+  );
+  const roundOff = toMoney(grandTotalRounded.minus(totalInvoiceValue));
+  return {
+    totalTaxableValue,
+    totalCgst,
+    totalSgst,
+    totalIgst,
+    totalInvoiceValue,
+    roundOff,
+    grandTotalRounded,
+  };
+}

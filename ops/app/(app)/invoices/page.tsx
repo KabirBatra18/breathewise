@@ -33,7 +33,9 @@ export default async function InvoicesListPage() {
     .select({
       id: invoices.id,
       invoiceNumber: invoices.invoiceNumber,
+      status: invoices.status,
       issueDate: invoices.issueDate,
+      updatedAt: invoices.updatedAt,
       totalInvoiceValue: invoices.totalInvoiceValue,
       totalTaxableValue: invoices.totalTaxableValue,
       totalCgst: invoices.totalCgst,
@@ -52,15 +54,18 @@ export default async function InvoicesListPage() {
     .leftJoin(clients, eq(clients.id, invoices.clientId))
     .orderBy(desc(invoices.issueDate), desc(invoices.createdAt));
 
-  // Aggregate tiles
+  const drafts = rows.filter((r) => r.status === "DRAFT");
+  const issued = rows.filter((r) => r.status === "ISSUED");
+
+  // Aggregate tiles (issued only — drafts aren't real revenue yet)
   const totalBilled = toMoney(
-    rows.reduce((a, r) => a.plus(new Decimal(r.totalInvoiceValue)), ZERO),
+    issued.reduce((a, r) => a.plus(new Decimal(r.totalInvoiceValue)), ZERO),
   );
   const totalTaxable = toMoney(
-    rows.reduce((a, r) => a.plus(new Decimal(r.totalTaxableValue)), ZERO),
+    issued.reduce((a, r) => a.plus(new Decimal(r.totalTaxableValue)), ZERO),
   );
   const totalGst = toMoney(
-    rows.reduce(
+    issued.reduce(
       (a, r) =>
         a
           .plus(new Decimal(r.totalCgst))
@@ -85,26 +90,95 @@ export default async function InvoicesListPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <Tile label="Invoices raised" rawText={`${rows.length}`} />
+      <div className="grid gap-3 md:grid-cols-4">
+        <Tile label="Issued invoices" rawText={`${issued.length}`} />
+        <Tile label="Drafts" rawText={`${drafts.length}`} />
         <Tile label="Total billed (₹)" value={totalBilled} />
         <Tile label="GST collected (₹)" value={totalGst} />
       </div>
 
+      {drafts.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardDescription>
+              Editable. Numbers get allocated only when you finalize, so deleted
+              drafts leave no gaps in the issued sequence.
+            </CardDescription>
+            <CardTitle>
+              Drafts ({drafts.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>From quote</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Last edited</TableHead>
+                  <TableHead className="text-right">Current total (₹)</TableHead>
+                  <TableHead className="w-24" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {drafts.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-mono text-xs">
+                      {r.quoteId ? (
+                        <Link
+                          href={`/quotes/${r.quoteId}`}
+                          className="hover:underline"
+                        >
+                          {r.quoteNumber}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {[r.clientName, r.clientCompany]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {r.updatedAt
+                        ? new Date(r.updatedAt).toISOString().slice(0, 10)
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      ₹
+                      {formatIndianNumber(new Decimal(r.totalInvoiceValue))}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        render={<Link href={`/invoices/${r.id}/edit`} />}
+                      >
+                        Open editor
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardDescription>
-            {rows.length === 0
-              ? "No invoices yet"
-              : `${rows.length} invoice${rows.length === 1 ? "" : "s"} · Σ taxable ₹${formatIndianNumber(totalTaxable)}`}
+            {issued.length === 0
+              ? "No invoices issued yet"
+              : `${issued.length} issued invoice${issued.length === 1 ? "" : "s"} · Σ taxable ₹${formatIndianNumber(totalTaxable)}`}
           </CardDescription>
-          <CardTitle>Invoice register</CardTitle>
+          <CardTitle>Issued invoices</CardTitle>
         </CardHeader>
         <CardContent>
-          {rows.length === 0 ? (
+          {issued.length === 0 ? (
             <p className="rounded-lg border-2 border-dashed p-12 text-center text-sm text-muted-foreground">
-              No tax invoices yet. Open an accepted quote and click{" "}
-              <strong>Convert to Tax Invoice</strong> to raise one.
+              No issued invoices yet. Open an accepted quote, click{" "}
+              <strong>Convert to Tax Invoice</strong> to spawn a draft, edit
+              the lines, then click Finalize.
             </p>
           ) : (
             <Table>
@@ -122,7 +196,7 @@ export default async function InvoicesListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => {
+                {issued.map((r) => {
                   const gst = toMoney(
                     new Decimal(r.totalCgst)
                       .plus(new Decimal(r.totalSgst))

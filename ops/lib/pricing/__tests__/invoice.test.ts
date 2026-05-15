@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { buildInvoiceFromQuote } from "../invoice";
+import {
+  buildInvoiceFromQuote,
+  computeInvoiceLineTax,
+  recomputeInvoiceTotalsFromLines,
+} from "../invoice";
 import type { InvoiceBuildInput } from "../invoice";
 import { Decimal } from "../decimal";
 
@@ -307,5 +311,117 @@ describe("buildInvoiceFromQuote — empty / labour-only edge cases", () => {
     expect(out.totalCgst.toFixed(2)).toBe("0.00");
     expect(out.totalSgst.toFixed(2)).toBe("0.00");
     expect(out.totalIgst.toFixed(2)).toBe("0.00");
+  });
+});
+
+// =============================================================
+// DRAFT-edit helpers
+// =============================================================
+describe("computeInvoiceLineTax", () => {
+  test("intra-state: CGST=SGST=half rate; sum identity holds", () => {
+    const t = computeInvoiceLineTax(
+      new Decimal("2"),
+      new Decimal("8690"),
+      new Decimal("18"),
+      false,
+    );
+    expect(t.taxableValue.toFixed(2)).toBe("17380.00");
+    expect(t.cgstRate.toFixed(2)).toBe("9.00");
+    expect(t.sgstRate.toFixed(2)).toBe("9.00");
+    expect(t.cgstAmount.toFixed(2)).toBe("1564.20");
+    expect(t.sgstAmount.toFixed(2)).toBe("1564.20");
+    expect(t.igstAmount.toFixed(2)).toBe("0.00");
+    expect(t.lineTotal.toFixed(2)).toBe("20508.40");
+  });
+
+  test("inter-state: IGST=full rate; CGST and SGST = 0", () => {
+    const t = computeInvoiceLineTax(
+      new Decimal("1"),
+      new Decimal("10000"),
+      new Decimal("18"),
+      true,
+    );
+    expect(t.taxableValue.toFixed(2)).toBe("10000.00");
+    expect(t.cgstAmount.toFixed(2)).toBe("0.00");
+    expect(t.sgstAmount.toFixed(2)).toBe("0.00");
+    expect(t.igstRate.toFixed(2)).toBe("18.00");
+    expect(t.igstAmount.toFixed(2)).toBe("1800.00");
+    expect(t.lineTotal.toFixed(2)).toBe("11800.00");
+  });
+
+  test("zero gst rate (labour) → no tax", () => {
+    const t = computeInvoiceLineTax(
+      new Decimal("1"),
+      new Decimal("15000"),
+      new Decimal("0"),
+      false,
+    );
+    expect(t.taxableValue.toFixed(2)).toBe("15000.00");
+    expect(t.cgstAmount.toFixed(2)).toBe("0.00");
+    expect(t.sgstAmount.toFixed(2)).toBe("0.00");
+    expect(t.igstAmount.toFixed(2)).toBe("0.00");
+    expect(t.lineTotal.toFixed(2)).toBe("15000.00");
+  });
+
+  test("fractional qty + price: rounding to paisa", () => {
+    const t = computeInvoiceLineTax(
+      new Decimal("1.5"),
+      new Decimal("100.33"),
+      new Decimal("18"),
+      false,
+    );
+    // 1.5 × 100.33 = 150.495 → ₹150.50 (HALF_UP)
+    expect(t.taxableValue.toFixed(2)).toBe("150.50");
+  });
+});
+
+describe("recomputeInvoiceTotalsFromLines", () => {
+  const dec = (v: string) => new Decimal(v);
+
+  test("sums match Σ per-line + round-off lands on whole rupee", () => {
+    const lines = [
+      {
+        taxableValue: dec("8690.00"),
+        cgstAmount: dec("782.10"),
+        sgstAmount: dec("782.10"),
+        igstAmount: dec("0.00"),
+      },
+      {
+        taxableValue: dec("11600.00"),
+        cgstAmount: dec("1044.00"),
+        sgstAmount: dec("1044.00"),
+        igstAmount: dec("0.00"),
+      },
+    ];
+    const t = recomputeInvoiceTotalsFromLines(lines);
+    expect(t.totalTaxableValue.toFixed(2)).toBe("20290.00");
+    expect(t.totalCgst.toFixed(2)).toBe("1826.10");
+    expect(t.totalSgst.toFixed(2)).toBe("1826.10");
+    expect(t.totalInvoiceValue.toFixed(2)).toBe("23942.20");
+    // 23942.20 → 23942 (round down)
+    expect(t.grandTotalRounded.toFixed(2)).toBe("23942.00");
+    expect(t.roundOff.toFixed(2)).toBe("-0.20");
+  });
+
+  test("empty lines → all zeros", () => {
+    const t = recomputeInvoiceTotalsFromLines([]);
+    expect(t.totalTaxableValue.toFixed(2)).toBe("0.00");
+    expect(t.totalInvoiceValue.toFixed(2)).toBe("0.00");
+    expect(t.grandTotalRounded.toFixed(2)).toBe("0.00");
+    expect(t.roundOff.toFixed(2)).toBe("0.00");
+  });
+
+  test("identity: grandTotalRounded = totalInvoiceValue + roundOff", () => {
+    const lines = [
+      {
+        taxableValue: dec("12345.67"),
+        cgstAmount: dec("1111.11"),
+        sgstAmount: dec("1111.11"),
+        igstAmount: dec("0.00"),
+      },
+    ];
+    const t = recomputeInvoiceTotalsFromLines(lines);
+    const reconstructed = t.totalInvoiceValue.plus(t.roundOff);
+    expect(reconstructed.toFixed(2)).toBe(t.grandTotalRounded.toFixed(2));
   });
 });

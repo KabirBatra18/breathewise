@@ -17,19 +17,27 @@ import {
 } from "@/db/schema";
 import { requireEmployeeOrAbove } from "@/lib/auth/server";
 import {
+  Decimal,
   buildInvoiceFromQuote,
+  computeInvoiceLineTax,
+  recomputeInvoiceTotalsFromLines,
   type InvoiceBuildSection,
 } from "@/lib/pricing";
 import { deriveStateCode } from "@/lib/gst/state-codes";
 import { audit } from "@/lib/audit/log";
 
 /**
- * Convert a quote to a frozen tax invoice. The original quote is left
- * untouched — this only INSERTS into invoices + invoice_lines.
+ * Tax-invoice lifecycle:
+ *   1. convertQuoteToInvoiceAction — spawns a DRAFT invoice from an
+ *      accepted quote. No invoice number yet, fully editable.
+ *   2. add/update/deleteInvoiceLineAction — line-level editing on a
+ *      DRAFT. Each call recomputes the line's tax + invoice totals.
+ *   3. finalizeInvoiceAction — DRAFT → ISSUED. Allocates the next
+ *      BW/INV/2627/NNNN, freezes the row. Cannot be undone.
+ *   4. deleteDraftInvoiceAction — discards a DRAFT entirely.
  *
- * Only ACCEPTED / ADVANCE_PAID quotes can convert. The user picks at
- * call time whether to include labour sections and whether reverse
- * charge applies.
+ * Issued invoices are legally immutable (Rule 46). Every mutating
+ * action below guards against status='ISSUED' and rejects edits.
  */
 
 const convertSchema = z.object({
@@ -49,7 +57,7 @@ const convertSchema = z.object({
 });
 
 export type ConvertResult =
-  | { ok: true; invoiceId: string; invoiceNumber: string }
+  | { ok: true; invoiceId: string }
   | { ok: false; error: string };
 
 /**
@@ -203,21 +211,14 @@ export async function convertQuoteToInvoiceAction(
     };
   }
 
-  // 4. Issue date + FY → invoice number.
+  // 4. Issue date. Invoice number is NOT allocated yet — that only
+  //    happens at Finalize, so abandoned drafts don't leave gaps in
+  //    the sequential BW/INV/2627/NNNN series.
   const issueDateStr =
     data.issueDate ?? new Date().toISOString().slice(0, 10);
-  const issueDate = new Date(`${issueDateStr}T00:00:00Z`);
-  const fyStart = fyStartYear(issueDate);
-  const prefix = settings.quoteNumberPrefix ?? "BW";
 
   // 5. Insert invoice + lines in a single transaction.
   const result = await db.transaction(async (tx) => {
-    const numRows = (await tx.execute(
-      sql`SELECT next_invoice_number(${prefix}, ${fyStart}::int) AS n`,
-    )) as unknown as { n: string }[];
-    const invoiceNumber = numRows[0]?.n;
-    if (!invoiceNumber) throw new Error("Could not allocate invoice number");
-
     const buyerAddress = [
       buyer.addressLine1,
       buyer.addressLine2,
@@ -229,7 +230,8 @@ export async function convertQuoteToInvoiceAction(
     const [created] = await tx
       .insert(invoices)
       .values({
-        invoiceNumber,
+        invoiceNumber: null,
+        status: "DRAFT",
         quoteId: quote.id,
         clientId: buyer.id,
         issueDate: issueDateStr,
@@ -300,20 +302,18 @@ export async function convertQuoteToInvoiceAction(
       });
     }
 
-    return { invoiceId: created.id, invoiceNumber };
+    return { invoiceId: created.id };
   });
 
   await audit({
     actorId: actor.id,
-    action: "INVOICE_CREATE",
+    action: "INVOICE_DRAFT_CREATE",
     entityType: "invoice",
     entityId: result.invoiceId,
     metadata: {
-      invoiceNumber: result.invoiceNumber,
       quoteId: quote.id,
       quoteNumber: quote.quoteNumber,
-      total: built.grandTotalRounded.toFixed(2),
-      roundOff: built.roundOff.toFixed(2),
+      preBuiltTotal: built.grandTotalRounded.toFixed(2),
       isInterState,
       includeLabour: data.includeLabour,
       shipTo: deliveryStateTrimmed,
@@ -322,9 +322,480 @@ export async function convertQuoteToInvoiceAction(
 
   revalidatePath("/invoices");
   revalidatePath(`/quotes/${quote.id}`);
-  return {
-    ok: true,
-    invoiceId: result.invoiceId,
-    invoiceNumber: result.invoiceNumber,
-  };
+  return { ok: true, invoiceId: result.invoiceId };
+}
+
+// =============================================================
+// DRAFT-edit actions — line CRUD + invoice-level updates
+// =============================================================
+
+type InvoiceRow = typeof invoices.$inferSelect;
+type LoadResult =
+  | { ok: true; invoice: InvoiceRow }
+  | { ok: false; error: string };
+
+/**
+ * Refuse if the invoice is ISSUED (legally immutable). Returns the
+ * invoice row so callers can read the latest place-of-supply etc.
+ */
+async function loadDraftInvoiceOrError(
+  invoiceId: string,
+): Promise<LoadResult> {
+  const rows = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
+  const inv = rows[0];
+  if (!inv) return { ok: false, error: "Invoice not found" };
+  if (inv.status === "ISSUED") {
+    return {
+      ok: false,
+      error: "Invoice is ISSUED — already a legal document, cannot be edited.",
+    };
+  }
+  return { ok: true, invoice: inv };
+}
+
+/**
+ * Re-aggregate the invoice header totals from the current set of
+ * lines. Called by every line-CRUD action so the totals row in the DB
+ * stays in sync with the lines. Touches updated_at via the trigger.
+ */
+async function recomputeAndPersistTotals(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  invoiceId: string,
+) {
+  const linesNow = await tx
+    .select({
+      taxableValue: invoiceLines.taxableValue,
+      cgstAmount: invoiceLines.cgstAmount,
+      sgstAmount: invoiceLines.sgstAmount,
+      igstAmount: invoiceLines.igstAmount,
+    })
+    .from(invoiceLines)
+    .where(eq(invoiceLines.invoiceId, invoiceId));
+
+  const totals = recomputeInvoiceTotalsFromLines(
+    linesNow.map((l) => ({
+      taxableValue: new Decimal(l.taxableValue),
+      cgstAmount: new Decimal(l.cgstAmount),
+      sgstAmount: new Decimal(l.sgstAmount),
+      igstAmount: new Decimal(l.igstAmount),
+    })),
+  );
+  await tx
+    .update(invoices)
+    .set({
+      totalTaxableValue: totals.totalTaxableValue.toFixed(2),
+      totalCgst: totals.totalCgst.toFixed(2),
+      totalSgst: totals.totalSgst.toFixed(2),
+      totalIgst: totals.totalIgst.toFixed(2),
+      totalInvoiceValue: totals.grandTotalRounded.toFixed(2),
+      roundOff: totals.roundOff.toFixed(2),
+    })
+    .where(eq(invoices.id, invoiceId));
+}
+
+// ── Add a new line to a DRAFT ──────────────────────────────────
+const addLineSchema = z.object({
+  invoiceId: z.string().uuid(),
+  description: z.string().trim().min(1).max(2000),
+  hsnCode: z.string().trim().max(20).optional().nullable(),
+  quantity: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, "Quantity must be a positive number"),
+  unit: z.string().trim().min(1).max(20).default("pcs"),
+  unitPrice: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, "Unit price must be a positive number"),
+  gstRate: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, "GST rate must be a number")
+    .default("18"),
+  sectionLetter: z.string().trim().max(2).optional().nullable(),
+  sectionTitle: z.string().trim().max(200).optional().nullable(),
+  isLabourStyle: z.boolean().default(false),
+});
+
+export type LineResult = { ok: true } | { ok: false; error: string };
+
+export async function addInvoiceLineAction(
+  input: z.input<typeof addLineSchema>,
+): Promise<LineResult> {
+  await requireEmployeeOrAbove();
+  const parsed = addLineSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid line" };
+  }
+  const data = parsed.data;
+
+  const check = await loadDraftInvoiceOrError(data.invoiceId);
+  if (!check.ok) return { ok: false, error: check.error };
+  const inv = check.invoice;
+
+  const tax = computeInvoiceLineTax(
+    new Decimal(data.quantity),
+    new Decimal(data.unitPrice),
+    new Decimal(data.gstRate),
+    inv.isInterState,
+  );
+
+  await db.transaction(async (tx) => {
+    // Append at the end of the current sort order.
+    const maxRows = (await tx.execute(
+      sql`SELECT COALESCE(MAX(sort_order), -1) AS m FROM invoice_lines WHERE invoice_id = ${data.invoiceId}::uuid`,
+    )) as unknown as { m: number }[];
+    const nextSort = (maxRows[0]?.m ?? -1) + 1;
+    const maxSnoRows = (await tx.execute(
+      sql`SELECT COALESCE(MAX(sno), 0) AS m FROM invoice_lines WHERE invoice_id = ${data.invoiceId}::uuid`,
+    )) as unknown as { m: number }[];
+    const nextSno = (maxSnoRows[0]?.m ?? 0) + 1;
+
+    await tx.insert(invoiceLines).values({
+      invoiceId: data.invoiceId,
+      sno: nextSno,
+      sectionLetter: data.sectionLetter ?? null,
+      sectionTitle: data.sectionTitle ?? null,
+      isLabourStyle: data.isLabourStyle,
+      skuSnapshot: null,
+      description: data.description,
+      hsnCode: data.hsnCode ?? null,
+      quantity: new Decimal(data.quantity).toFixed(2),
+      unit: data.unit,
+      unitPrice: new Decimal(data.unitPrice).toFixed(2),
+      gstRate: new Decimal(data.gstRate).toFixed(2),
+      taxableValue: tax.taxableValue.toFixed(2),
+      cgstRate: tax.cgstRate.toFixed(2),
+      cgstAmount: tax.cgstAmount.toFixed(2),
+      sgstRate: tax.sgstRate.toFixed(2),
+      sgstAmount: tax.sgstAmount.toFixed(2),
+      igstRate: tax.igstRate.toFixed(2),
+      igstAmount: tax.igstAmount.toFixed(2),
+      lineTotal: tax.lineTotal.toFixed(2),
+      sortOrder: nextSort,
+    });
+    await recomputeAndPersistTotals(tx, data.invoiceId);
+  });
+
+  revalidatePath(`/invoices/${data.invoiceId}/edit`);
+  revalidatePath(`/invoices/${data.invoiceId}`);
+  return { ok: true };
+}
+
+// ── Update an existing line ────────────────────────────────────
+const updateLineSchema = z.object({
+  lineId: z.string().uuid(),
+  description: z.string().trim().min(1).max(2000).optional(),
+  hsnCode: z.string().trim().max(20).optional().nullable(),
+  quantity: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/)
+    .optional(),
+  unit: z.string().trim().min(1).max(20).optional(),
+  unitPrice: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/)
+    .optional(),
+  gstRate: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/)
+    .optional(),
+  isLabourStyle: z.boolean().optional(),
+});
+
+export async function updateInvoiceLineAction(
+  input: z.input<typeof updateLineSchema>,
+): Promise<LineResult> {
+  await requireEmployeeOrAbove();
+  const parsed = updateLineSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid update" };
+  }
+  const data = parsed.data;
+
+  const lineRows = await db
+    .select()
+    .from(invoiceLines)
+    .where(eq(invoiceLines.id, data.lineId));
+  const line = lineRows[0];
+  if (!line) return { ok: false, error: "Line not found" };
+
+  const check = await loadDraftInvoiceOrError(line.invoiceId);
+  if (!check.ok) return { ok: false, error: check.error };
+  const inv = check.invoice;
+
+  // Merge updates with existing values, then recompute tax.
+  const qty = new Decimal(data.quantity ?? line.quantity);
+  const unitPrice = new Decimal(data.unitPrice ?? line.unitPrice);
+  const gstRate = new Decimal(data.gstRate ?? line.gstRate);
+  const tax = computeInvoiceLineTax(qty, unitPrice, gstRate, inv.isInterState);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(invoiceLines)
+      .set({
+        description: data.description ?? line.description,
+        hsnCode: data.hsnCode === undefined ? line.hsnCode : data.hsnCode,
+        quantity: qty.toFixed(2),
+        unit: data.unit ?? line.unit,
+        unitPrice: unitPrice.toFixed(2),
+        gstRate: gstRate.toFixed(2),
+        taxableValue: tax.taxableValue.toFixed(2),
+        cgstRate: tax.cgstRate.toFixed(2),
+        cgstAmount: tax.cgstAmount.toFixed(2),
+        sgstRate: tax.sgstRate.toFixed(2),
+        sgstAmount: tax.sgstAmount.toFixed(2),
+        igstRate: tax.igstRate.toFixed(2),
+        igstAmount: tax.igstAmount.toFixed(2),
+        lineTotal: tax.lineTotal.toFixed(2),
+        isLabourStyle:
+          data.isLabourStyle === undefined
+            ? line.isLabourStyle
+            : data.isLabourStyle,
+      })
+      .where(eq(invoiceLines.id, data.lineId));
+    await recomputeAndPersistTotals(tx, line.invoiceId);
+  });
+
+  revalidatePath(`/invoices/${line.invoiceId}/edit`);
+  revalidatePath(`/invoices/${line.invoiceId}`);
+  return { ok: true };
+}
+
+// ── Delete a line ──────────────────────────────────────────────
+const deleteLineSchema = z.object({ lineId: z.string().uuid() });
+
+export async function deleteInvoiceLineAction(
+  input: z.input<typeof deleteLineSchema>,
+): Promise<LineResult> {
+  await requireEmployeeOrAbove();
+  const { lineId } = deleteLineSchema.parse(input);
+  const lineRows = await db
+    .select()
+    .from(invoiceLines)
+    .where(eq(invoiceLines.id, lineId));
+  const line = lineRows[0];
+  if (!line) return { ok: false, error: "Line not found" };
+
+  const check = await loadDraftInvoiceOrError(line.invoiceId);
+  if (!check.ok) return { ok: false, error: check.error };
+
+  await db.transaction(async (tx) => {
+    await tx.delete(invoiceLines).where(eq(invoiceLines.id, lineId));
+    await recomputeAndPersistTotals(tx, line.invoiceId);
+  });
+
+  revalidatePath(`/invoices/${line.invoiceId}/edit`);
+  revalidatePath(`/invoices/${line.invoiceId}`);
+  return { ok: true };
+}
+
+// ── Update invoice-level fields (notes, reverse charge, dates) ──
+const updateMetaSchema = z.object({
+  invoiceId: z.string().uuid(),
+  issueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  reverseCharge: z.boolean().optional(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  deliveryAddress: z.string().trim().max(500).optional().nullable(),
+  deliveryState: z.string().trim().max(80).optional().nullable(),
+});
+
+export async function updateInvoiceMetaAction(
+  input: z.input<typeof updateMetaSchema>,
+): Promise<LineResult> {
+  await requireEmployeeOrAbove();
+  const parsed = updateMetaSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const data = parsed.data;
+  const check = await loadDraftInvoiceOrError(data.invoiceId);
+  if (!check.ok) return { ok: false, error: check.error };
+  const inv = check.invoice;
+
+  // Ship-to changes recompute place of supply (and possibly flip intra
+  // ↔ inter-state). When that happens we must recompute every line's
+  // tax breakdown because CGST/SGST ↔ IGST changes per line too.
+  let newDeliveryState: string | null = inv.deliveryState;
+  let newDeliveryStateCode: string | null = inv.deliveryStateCode;
+  let newDeliveryAddress: string | null = inv.deliveryAddress;
+  let newPlaceOfSupply: string = inv.placeOfSupply;
+  let newPlaceOfSupplyCode: string = inv.placeOfSupplyCode;
+  let newIsInterState: boolean = inv.isInterState;
+
+  if (data.deliveryState !== undefined) {
+    const trimmed = data.deliveryState?.trim() || null;
+    if (trimmed) {
+      const code = deriveStateCode(trimmed);
+      if (!code) {
+        return {
+          ok: false,
+          error: `Delivery state "${trimmed}" isn't a recognised Indian state.`,
+        };
+      }
+      newDeliveryState = trimmed;
+      newDeliveryStateCode = code;
+      newPlaceOfSupply = trimmed;
+      newPlaceOfSupplyCode = code;
+    } else {
+      // Cleared — revert place of supply to buyer's billing state.
+      newDeliveryState = null;
+      newDeliveryStateCode = null;
+      newPlaceOfSupply = inv.buyerState ?? inv.placeOfSupply;
+      newPlaceOfSupplyCode = inv.buyerStateCode ?? inv.placeOfSupplyCode;
+    }
+    newIsInterState = newPlaceOfSupplyCode !== inv.supplierStateCode;
+  }
+  if (data.deliveryAddress !== undefined) {
+    newDeliveryAddress = data.deliveryAddress?.trim() || null;
+  }
+
+  const interStateFlipped = newIsInterState !== inv.isInterState;
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(invoices)
+      .set({
+        issueDate: data.issueDate ?? inv.issueDate,
+        reverseCharge: data.reverseCharge ?? inv.reverseCharge,
+        notes: data.notes === undefined ? inv.notes : data.notes,
+        deliveryAddress: newDeliveryAddress,
+        deliveryState: newDeliveryState,
+        deliveryStateCode: newDeliveryStateCode,
+        placeOfSupply: newPlaceOfSupply,
+        placeOfSupplyCode: newPlaceOfSupplyCode,
+        isInterState: newIsInterState,
+      })
+      .where(eq(invoices.id, data.invoiceId));
+
+    if (interStateFlipped) {
+      // Re-derive every line's tax breakdown under the new regime.
+      const lines = await tx
+        .select()
+        .from(invoiceLines)
+        .where(eq(invoiceLines.invoiceId, data.invoiceId));
+      for (const l of lines) {
+        const tax = computeInvoiceLineTax(
+          new Decimal(l.quantity),
+          new Decimal(l.unitPrice),
+          new Decimal(l.gstRate),
+          newIsInterState,
+        );
+        await tx
+          .update(invoiceLines)
+          .set({
+            cgstRate: tax.cgstRate.toFixed(2),
+            cgstAmount: tax.cgstAmount.toFixed(2),
+            sgstRate: tax.sgstRate.toFixed(2),
+            sgstAmount: tax.sgstAmount.toFixed(2),
+            igstRate: tax.igstRate.toFixed(2),
+            igstAmount: tax.igstAmount.toFixed(2),
+            lineTotal: tax.lineTotal.toFixed(2),
+          })
+          .where(eq(invoiceLines.id, l.id));
+      }
+      await recomputeAndPersistTotals(tx, data.invoiceId);
+    }
+  });
+
+  revalidatePath(`/invoices/${data.invoiceId}/edit`);
+  revalidatePath(`/invoices/${data.invoiceId}`);
+  return { ok: true };
+}
+
+// ── Finalize a DRAFT into an ISSUED invoice ────────────────────
+const finalizeSchema = z.object({ invoiceId: z.string().uuid() });
+
+export type FinalizeResult =
+  | { ok: true; invoiceNumber: string }
+  | { ok: false; error: string };
+
+export async function finalizeInvoiceAction(
+  input: z.input<typeof finalizeSchema>,
+): Promise<FinalizeResult> {
+  const actor = await requireEmployeeOrAbove();
+  const { invoiceId } = finalizeSchema.parse(input);
+  const check = await loadDraftInvoiceOrError(invoiceId);
+  if (!check.ok) return { ok: false, error: check.error };
+  const inv = check.invoice;
+
+  // Guardrail: refuse to finalize an empty invoice.
+  const lineCount = (await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(invoiceLines)
+    .where(eq(invoiceLines.invoiceId, invoiceId))) as unknown as { n: number }[];
+  if ((lineCount[0]?.n ?? 0) === 0) {
+    return {
+      ok: false,
+      error: "Cannot finalize — invoice has no lines. Add at least one item first.",
+    };
+  }
+
+  // Allocate the next sequential number for the issue date's FY.
+  const settingsRows = await db
+    .select({ prefix: companySettings.quoteNumberPrefix })
+    .from(companySettings)
+    .where(eq(companySettings.id, 1));
+  const prefix = settingsRows[0]?.prefix ?? "BW";
+  const issueDate = new Date(`${inv.issueDate as unknown as string}T00:00:00Z`);
+  const fyStart = fyStartYear(issueDate);
+
+  const result = await db.transaction(async (tx) => {
+    // Re-compute totals one more time inside the txn so we never
+    // freeze a stale row (e.g. line added after a totals recompute).
+    await recomputeAndPersistTotals(tx, invoiceId);
+
+    const numRows = (await tx.execute(
+      sql`SELECT next_invoice_number(${prefix}, ${fyStart}::int) AS n`,
+    )) as unknown as { n: string }[];
+    const invoiceNumber = numRows[0]?.n;
+    if (!invoiceNumber) throw new Error("Could not allocate invoice number");
+
+    await tx
+      .update(invoices)
+      .set({ status: "ISSUED", invoiceNumber })
+      .where(eq(invoices.id, invoiceId));
+    return invoiceNumber;
+  });
+
+  await audit({
+    actorId: actor.id,
+    action: "INVOICE_FINALIZE",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: { invoiceNumber: result },
+  });
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath(`/invoices/${invoiceId}/edit`);
+  return { ok: true, invoiceNumber: result };
+}
+
+// ── Discard a DRAFT ────────────────────────────────────────────
+const deleteDraftSchema = z.object({ invoiceId: z.string().uuid() });
+
+export async function deleteDraftInvoiceAction(
+  input: z.input<typeof deleteDraftSchema>,
+): Promise<LineResult> {
+  const actor = await requireEmployeeOrAbove();
+  const { invoiceId } = deleteDraftSchema.parse(input);
+  const check = await loadDraftInvoiceOrError(invoiceId);
+  if (!check.ok) return { ok: false, error: check.error };
+
+  await db.transaction(async (tx) => {
+    // invoice_lines has ON DELETE CASCADE so this clears them too.
+    await tx.delete(invoices).where(eq(invoices.id, invoiceId));
+  });
+
+  await audit({
+    actorId: actor.id,
+    action: "INVOICE_DRAFT_DELETE",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: {},
+  });
+
+  revalidatePath("/invoices");
+  return { ok: true };
 }
