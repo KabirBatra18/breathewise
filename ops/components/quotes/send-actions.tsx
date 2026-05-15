@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, FileCheck, MessageCircle, Send } from "lucide-react";
+import { Download, MessageCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   buildWhatsappMessage,
@@ -45,9 +45,13 @@ export function QuoteSendActions({
   }
 
   const canSend = status === "DRAFT" || status === "SENT" || status === "NEGOTIATING";
-  // Once a quote is accepted (or has its first advance), the project is
-  // live — the user can issue a Tax Invoice / Final Bill against it.
-  const canIssueInvoice = status === "ACCEPTED" || status === "ADVANCE_PAID";
+
+  // (Tax invoices are issued via the proper Convert-to-Tax-Invoice
+  // flow on the quote detail page — that path goes through DRAFT →
+  // ISSUED with HSN, CGST/SGST split, invoice number, etc. We
+  // deliberately do NOT expose a "Tax invoice (PDF)" shortcut here
+  // because it would render a re-labelled PI without those legal
+  // fields, which is dangerous to send to a customer.)
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -55,21 +59,6 @@ export function QuoteSendActions({
         <Download className="h-4 w-4" />
         Proforma (PDF)
       </Button>
-      {canIssueInvoice ? (
-        <Button
-          variant="default"
-          render={
-            <a
-              href={`${pdfUrl}?doc=invoice`}
-              target="_blank"
-              rel="noopener"
-            />
-          }
-        >
-          <FileCheck className="h-4 w-4" />
-          Tax invoice (PDF)
-        </Button>
-      ) : null}
       {canSend ? (
         <Button onClick={handleSend} disabled={pending} variant="secondary">
           <Send className="h-4 w-4" />
