@@ -125,6 +125,25 @@ export function InvoiceEditor({
   const [deliveryState, setDeliveryState] = useState(
     invoice.deliveryState ?? "",
   );
+  // Tracks lines that successfully round-tripped a save in the last
+  // ~1.5s. Used to flash a green ✓ on the row so silent server-side
+  // saves stop feeling broken.
+  const [savedFlash, setSavedFlash] = useState<Set<string>>(new Set());
+
+  function flashSaved(lineId: string) {
+    setSavedFlash((s) => {
+      const next = new Set(s);
+      next.add(lineId);
+      return next;
+    });
+    setTimeout(() => {
+      setSavedFlash((s) => {
+        const next = new Set(s);
+        next.delete(lineId);
+        return next;
+      });
+    }, 1500);
+  }
 
   // Live totals from the current in-memory line set. Server is the
   // source of truth (each edit round-trips), but recomputing here
@@ -181,6 +200,7 @@ export function InvoiceEditor({
         router.refresh();
         return;
       }
+      flashSaved(line.id);
     });
   }
 
@@ -623,16 +643,26 @@ export function InvoiceEditor({
                     {formatIndianNumber(new Decimal(line.lineTotal))}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => removeLine(line.id)}
-                      disabled={pending}
-                      aria-label="Remove line"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      {/* Brief ✓ flash after a successful server-side
+                          save so the user knows the blur committed. */}
+                      {savedFlash.has(line.id) ? (
+                        <Check
+                          className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+                          aria-label="Saved"
+                        />
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => removeLine(line.id)}
+                        disabled={pending}
+                        aria-label="Remove line"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
