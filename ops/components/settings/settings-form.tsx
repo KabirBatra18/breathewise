@@ -214,22 +214,7 @@ export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
           Pre-filled into every new rough quote. You can still override per
           quote.
         </p>
-        <div className="grid gap-3 md:grid-cols-3">
-          <Field
-            label="Default discount %"
-            hint="Extra concession on top of Astberg DP/MRP rate."
-          >
-            <Input
-              type="number"
-              step="0.01"
-              min={0}
-              max={100}
-              value={v.defaultRoughDiscountPercent}
-              onChange={(e) =>
-                patch("defaultRoughDiscountPercent", e.target.value)
-              }
-            />
-          </Field>
+        <div className="grid gap-3 md:grid-cols-2">
           <Field label="Default validity (days)">
             <Input
               type="number"
