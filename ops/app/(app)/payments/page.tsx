@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { Badge } from "@/components/ui/badge";
+import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import {
   Card,
   CardContent,
@@ -215,9 +216,7 @@ export default async function PaymentsPage() {
                     </TableCell>
                     <TableCell>{r.clientName ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">
-                        {QUOTE_STATUS_LABELS[r.status] ?? r.status}
-                      </Badge>
+                      <QuoteStatusBadge status={r.status} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       ₹{formatIndianNumber(r.contract)}

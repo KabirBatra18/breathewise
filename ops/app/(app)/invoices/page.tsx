@@ -6,6 +6,7 @@ import { clients, invoices, quotes } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ToneBadge } from "@/components/ui/status-badge";
 import {
   Card,
   CardContent,
@@ -234,9 +235,9 @@ export default async function InvoicesListPage() {
                       </TableCell>
                       <TableCell className="text-sm">
                         {r.placeOfSupply}{" "}
-                        <Badge variant="secondary">
+                        <ToneBadge tone={r.isInterState ? "violet" : "sky"}>
                           {r.isInterState ? "IGST" : "CGST+SGST"}
-                        </Badge>
+                        </ToneBadge>
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">
                         {formatIndianNumber(new Decimal(r.totalTaxableValue))}

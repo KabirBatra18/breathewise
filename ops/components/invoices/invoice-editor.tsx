@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, Plus, Trash2, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { InvoiceStatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -264,7 +264,7 @@ export function InvoiceEditor({
       <Card>
         <CardHeader>
           <CardDescription>
-            <Badge variant="secondary">DRAFT</Badge>
+            <InvoiceStatusBadge status="DRAFT" />
             {invoice.sourceQuoteNumber ? (
               <span className="ml-2 text-sm text-muted-foreground">
                 Drafted from quote {invoice.sourceQuoteNumber}

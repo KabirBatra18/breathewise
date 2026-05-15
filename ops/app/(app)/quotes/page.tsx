@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { Badge } from "@/components/ui/badge";
+import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,17 +33,6 @@ import { Decimal } from "@/lib/pricing/decimal";
 
 export const metadata = { title: "Quotes" };
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive"> = {
-  DRAFT: "secondary",
-  SENT: "default",
-  NEGOTIATING: "default",
-  ACCEPTED: "default",
-  REJECTED: "destructive",
-  EXPIRED: "secondary",
-  CANCELLED: "destructive",
-  ADVANCE_PAID: "default",
-  SUPERSEDED: "secondary",
-};
 
 export default async function QuotesListPage({
   searchParams,
@@ -184,9 +174,7 @@ export default async function QuotesListPage({
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1">
-                          <Badge variant={STATUS_VARIANT[r.status] ?? "secondary"}>
-                            {QUOTE_STATUS_LABELS[r.status] ?? r.status}
-                          </Badge>
+                          <QuoteStatusBadge status={r.status} />
                           {isExpired ? (
                             <Badge
                               className="border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"

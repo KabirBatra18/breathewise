@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import { Decimal, ZERO, toMoney } from "@/lib/pricing/decimal";
 import { formatIndianNumber } from "@/lib/pricing/format";
 import { QUOTE_STATUS_LABELS } from "@/lib/constants";
@@ -307,9 +308,7 @@ export default async function DashboardPage() {
                     </TableCell>
                     <TableCell>{r.clientName ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">
-                        {QUOTE_STATUS_LABELS[r.status] ?? r.status}
-                      </Badge>
+                      <QuoteStatusBadge status={r.status} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {r.total

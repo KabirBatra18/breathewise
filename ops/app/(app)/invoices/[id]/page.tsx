@@ -8,6 +8,10 @@ import { requireAuth } from "@/lib/auth/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  InvoiceStatusBadge,
+  ToneBadge,
+} from "@/components/ui/status-badge";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -67,24 +71,19 @@ export default async function InvoiceDetailPage({
           <h1 className="mt-2 text-2xl font-semibold tracking-tight font-mono">
             {inv.invoiceNumber ?? "Untitled DRAFT"}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <InvoiceStatusBadge status={inv.status} />
             {isDraft ? (
-              <>
-                <Badge
-                  variant="secondary"
-                  className="border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                >
-                  DRAFT
-                </Badge>
-                {" "}— editable, no legal status yet
-              </>
+              <span>— editable, no legal status yet</span>
             ) : (
               <>
-                Issued {inv.issueDate as unknown as string} · Place of supply{" "}
-                {inv.placeOfSupply} ({inv.placeOfSupplyCode}) ·{" "}
-                <Badge variant="secondary">
+                <span>
+                  Issued {inv.issueDate as unknown as string} · Place of supply{" "}
+                  {inv.placeOfSupply} ({inv.placeOfSupplyCode})
+                </span>
+                <ToneBadge tone={inv.isInterState ? "violet" : "sky"}>
                   {inv.isInterState ? "Inter-state (IGST)" : "Intra-state (CGST + SGST)"}
-                </Badge>
+                </ToneBadge>
               </>
             )}
           </p>

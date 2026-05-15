@@ -27,6 +27,7 @@ import {
 } from "@/lib/projects/totals";
 import { AcceptDialog } from "@/components/quotes/accept-dialog";
 import { ConvertToInvoiceDialog } from "@/components/invoices/convert-dialog";
+import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import { PaymentLedger } from "@/components/quotes/payment-ledger";
 import { requireAuth } from "@/lib/auth/server";
 import { Badge } from "@/components/ui/badge";
@@ -459,9 +460,7 @@ export default async function QuoteDetailPage({
               Duplicate
             </Button>
           </form>
-          <Badge variant="default">
-            {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
-          </Badge>
+          <QuoteStatusBadge status={quote.status} />
           {isExpired ? (
             <Badge
               className="border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
@@ -687,9 +686,7 @@ export default async function QuoteDetailPage({
                         ) : null}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {QUOTE_STATUS_LABELS[c.status] ?? c.status}
-                        </Badge>
+                        <QuoteStatusBadge status={c.status} />
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {c.issueDate as unknown as string}
