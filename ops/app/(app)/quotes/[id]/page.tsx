@@ -356,6 +356,56 @@ export default async function QuoteDetailPage({
           }))}
           initial={initial}
         />
+
+        {/* Lifecycle controls on a DRAFT quote — these were previously
+            only on the read-only view, leaving DRAFT with no way out.
+            Marking SENT or ACCEPTED here uses whatever's CURRENTLY
+            SAVED in the DB (not the unsaved edits on screen) — so
+            save first if you've changed anything. */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Lifecycle</CardTitle>
+            <CardDescription>
+              Save the draft first, then advance its status. Once accepted
+              you can convert it into a Tax Invoice.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <QuoteSendActions
+                quoteId={quote.id}
+                status={quote.status}
+                pdfUrl={`/api/quotes/${quote.id}/pdf`}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                &ldquo;Send to client&rdquo; flips this draft to SENT and
+                locks the financials snapshot. Use it once you&apos;ve
+                shared the PDF with the customer.
+              </p>
+            </div>
+            <Separator />
+            <div className="flex flex-wrap items-start gap-2">
+              <AcceptDialog
+                quoteId={quote.id}
+                defaultTotal={
+                  financials.find((f) => f.tierLabel === "ROUGH")
+                    ?.totalInvoiceValue ?? "0"
+                }
+                trigger={
+                  <Button type="button" size="sm">
+                    Mark accepted
+                  </Button>
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Skip ahead to ACCEPTED if the customer has agreed
+                informally (verbal / WhatsApp). Captures the final
+                negotiated total and unlocks the &ldquo;Convert to Tax
+                Invoice&rdquo; button.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
