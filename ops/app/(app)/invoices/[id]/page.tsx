@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { invoiceLines, invoices, quotes } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
+import { Breadcrumbs } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
   InvoiceStatusBadge,
@@ -58,15 +59,14 @@ export default async function InvoiceDetailPage({
 
   return (
     <div className="space-y-6 p-8">
+      <Breadcrumbs
+        items={[
+          { label: "Invoices", href: "/invoices" },
+          { label: inv.invoiceNumber ?? "Draft" },
+        ]}
+      />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link
-            href="/invoices"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to invoices
-          </Link>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight font-mono">
             {inv.invoiceNumber ?? "Untitled DRAFT"}
           </h1>

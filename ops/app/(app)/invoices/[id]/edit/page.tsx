@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { invoiceLines, invoices, quotes } from "@/db/schema";
 import { requireEmployeeOrAbove } from "@/lib/auth/server";
+import { Breadcrumbs } from "@/components/ui/breadcrumb";
 import {
   InvoiceEditor,
   type EditorLine,
@@ -90,16 +89,21 @@ export default async function EditInvoicePage({
 
   return (
     <div className="space-y-6 p-8">
+      <Breadcrumbs
+        items={[
+          { label: "Invoices", href: "/invoices" },
+          {
+            label: src?.quoteNumber
+              ? `Draft from ${src.quoteNumber}`
+              : "Draft",
+            href: `/invoices/${inv.id}`,
+          },
+          { label: "Edit" },
+        ]}
+      />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link
-            href="/invoices"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to invoices
-          </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Edit draft invoice
           </h1>
           <p className="text-sm text-muted-foreground">
