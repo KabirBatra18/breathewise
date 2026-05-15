@@ -107,16 +107,25 @@ export async function convertQuoteToInvoiceAction(
     return { ok: false, error: "Client or company settings missing" };
   }
 
-  if (!settings.state || !settings.stateCode) {
+  // Auto-derive state_code from state name when missing (e.g. older
+  // rows where state was filled but state_code wasn't). Falls back to
+  // the user-supplied stateCode if derivation fails for non-standard
+  // state names. Better UX than a hard "go set it" error.
+  const supplierStateCode =
+    settings.stateCode ?? (settings.state ? deriveStateCode(settings.state) : null);
+  if (!settings.state || !supplierStateCode) {
     return {
       ok: false,
-      error: "Set supplier state + state code in Settings before invoicing.",
+      error:
+        "Supplier state isn't set in Settings yet. Open Settings → Tax-invoice details, add the state name (e.g. Delhi) and code (e.g. 07), then come back here.",
     };
   }
-  if (!buyer.state || !buyer.stateCode) {
+  const buyerStateCode =
+    buyer.stateCode ?? (buyer.state ? deriveStateCode(buyer.state) : null);
+  if (!buyer.state || !buyerStateCode) {
     return {
       ok: false,
-      error: `Client "${buyer.name}" has no state set. Edit the client and add state / state code, then retry.`,
+      error: `Client "${buyer.name}" has no state set. Open the client's page, add their state (e.g. Delhi, Uttar Pradesh), save, then retry. The state code derives automatically from the name.`,
     };
   }
 
@@ -166,8 +175,8 @@ export async function convertQuoteToInvoiceAction(
     };
   }
   const placeOfSupplyState = deliveryStateTrimmed ?? buyer.state!;
-  const placeOfSupplyStateCode = deliveryStateCode ?? buyer.stateCode!;
-  const isInterState = placeOfSupplyStateCode !== settings.stateCode;
+  const placeOfSupplyStateCode = deliveryStateCode ?? buyerStateCode;
+  const isInterState = placeOfSupplyStateCode !== supplierStateCode;
   const engineSections: InvoiceBuildSection[] = sectionLines.map(
     ({ section, lines }) => ({
       letter: section.sectionLetter,
@@ -236,7 +245,7 @@ export async function convertQuoteToInvoiceAction(
         clientId: buyer.id,
         issueDate: issueDateStr,
         supplierState: settings.state!,
-        supplierStateCode: settings.stateCode!,
+        supplierStateCode: supplierStateCode,
         placeOfSupply: placeOfSupplyState,
         placeOfSupplyCode: placeOfSupplyStateCode,
         isInterState,
@@ -255,7 +264,7 @@ export async function convertQuoteToInvoiceAction(
         buyerPhone: buyer.phone,
         buyerEmail: buyer.email,
         buyerState: buyer.state,
-        buyerStateCode: buyer.stateCode,
+        buyerStateCode: buyerStateCode,
         bankName: settings.bankName,
         bankAccount: settings.bankAccount,
         bankIfsc: settings.bankIfsc,
