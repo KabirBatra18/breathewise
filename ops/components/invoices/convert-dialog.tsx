@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { convertQuoteToInvoiceAction } from "@/app/(app)/invoices/actions";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 const todayIST = (): string => {
   const d = new Date();
@@ -51,6 +52,9 @@ export function ConvertToInvoiceDialog({
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryState, setDeliveryState] = useState("");
   const [notes, setNotes] = useState("");
+  // Persistent inline error so a missed toast doesn't leave the user
+  // wondering why the button "didn't do anything".
+  const [error, setError] = useState<string | null>(null);
 
   const buyerStateMissing = !buyerState;
 
@@ -61,6 +65,7 @@ export function ConvertToInvoiceDialog({
   const effectivePlaceOfSupply = deliveryState.trim() || buyerState || "—";
 
   function submit() {
+    setError(null);
     startTransition(async () => {
       const res = await convertQuoteToInvoiceAction({
         quoteId,
@@ -74,6 +79,8 @@ export function ConvertToInvoiceDialog({
         notes: notes.trim() === "" ? undefined : notes,
       });
       if (!res.ok) {
+        // Surface inline AND as toast — banner persists, toast pings.
+        setError(res.error);
         toast.error(res.error);
         return;
       }
@@ -92,11 +99,14 @@ export function ConvertToInvoiceDialog({
         <DialogHeader>
           <DialogTitle>Convert to Tax Invoice</DialogTitle>
           <DialogDescription>
-            Generates a frozen GST-compliant tax invoice from quote{" "}
-            <span className="font-mono">{quoteNumber}</span>. The quote
-            stays as-is; the invoice gets its own series and PDF.
+            Generates a draft tax invoice from quote{" "}
+            <span className="font-mono">{quoteNumber}</span>. You&apos;ll
+            land in the editor to adjust lines, then Finalize to issue.
+            The quote stays untouched.
           </DialogDescription>
         </DialogHeader>
+
+        <ErrorBanner message={error} />
 
         {buyerStateMissing ? (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">

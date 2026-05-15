@@ -27,7 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { QUOTE_STATUS_LABELS } from "@/lib/constants";
 import { formatIndianNumber } from "@/lib/pricing/format";
 import { Decimal } from "@/lib/pricing/decimal";
 

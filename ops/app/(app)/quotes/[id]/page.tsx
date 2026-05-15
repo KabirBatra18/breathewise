@@ -48,7 +48,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { QUOTE_STATUS_LABELS } from "@/lib/constants";
 import { formatIndianNumber } from "@/lib/pricing/format";
 import { amountInWords } from "@/lib/pricing/words";
 import { Decimal, toMoney } from "@/lib/pricing/decimal";

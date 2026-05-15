@@ -4,7 +4,6 @@ import { Download } from "lucide-react";
 import { db } from "@/lib/db/client";
 import { clients, invoices, quotes } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToneBadge } from "@/components/ui/status-badge";
 import {

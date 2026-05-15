@@ -5,7 +5,6 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { invoiceLines, invoices, quotes } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   InvoiceStatusBadge,

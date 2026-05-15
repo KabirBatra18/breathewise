@@ -10,7 +10,6 @@ import {
   quotes,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
-import { Badge } from "@/components/ui/badge";
 import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import {
   Card,
@@ -29,7 +28,6 @@ import {
 } from "@/components/ui/table";
 import { Decimal, ZERO, toMoney } from "@/lib/pricing/decimal";
 import { formatIndianNumber } from "@/lib/pricing/format";
-import { QUOTE_STATUS_LABELS } from "@/lib/constants";
 
 export const metadata = { title: "Payments" };
 

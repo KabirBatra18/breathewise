@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { InvoiceStatusBadge } from "@/components/ui/status-badge";
+import { HelpHint } from "@/components/ui/help-hint";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -350,7 +351,15 @@ export function InvoiceEditor({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Place of supply</Label>
+              <Label className="flex items-center gap-1">
+                Place of supply
+                <HelpHint>
+                  The state where the supply terminates (i.e. where the
+                  customer takes delivery). If it&apos;s the same state as
+                  your GSTIN, the tax splits as CGST + SGST. If different,
+                  one combined IGST line.
+                </HelpHint>
+              </Label>
               <div className="rounded-md border px-3 py-2 text-sm">
                 <strong>{invoice.placeOfSupply}</strong>{" "}
                 <span className="text-muted-foreground">
@@ -419,7 +428,17 @@ export function InvoiceEditor({
               className="mt-0.5 h-4 w-4 rounded border-input"
             />
             <span>
-              <span className="block font-medium">Reverse charge applies</span>
+              <span className="flex items-center gap-1 font-medium">
+                Reverse charge applies
+                <HelpHint>
+                  Forward charge (default) = you collect GST from the
+                  customer and remit it to the government. Reverse charge
+                  = the customer pays the GST direct to the government.
+                  Rare in our category — only certain notified supplies
+                  (legal services to businesses, GTA, security agency,
+                  unregistered → registered B2B transactions).
+                </HelpHint>
+              </span>
               <span className="block text-xs text-muted-foreground">
                 Off by default. Rare for our category.
               </span>
@@ -462,7 +481,17 @@ export function InvoiceEditor({
               <TableRow>
                 <TableHead className="w-10">#</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead className="w-20">HSN/SAC</TableHead>
+                <TableHead className="w-20">
+                  <span className="inline-flex items-center gap-1">
+                    HSN/SAC
+                    <HelpHint>
+                      4-digit code that classifies the item under GST.
+                      Most of our fans are 8414, filters 8421, ERVs 8415,
+                      installation services SAC 9954. Mandatory on every
+                      tax invoice (Rule 46g).
+                    </HelpHint>
+                  </span>
+                </TableHead>
                 <TableHead className="w-16 text-right">Qty</TableHead>
                 <TableHead className="w-16">Unit</TableHead>
                 <TableHead className="w-24 text-right">Rate (₹)</TableHead>
