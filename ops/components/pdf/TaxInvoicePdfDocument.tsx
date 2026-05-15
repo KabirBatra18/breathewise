@@ -341,13 +341,29 @@ export interface TaxInvoicePdfData {
     phone?: string | null;
     email?: string | null;
   };
+  /** Ship-to / delivery address when distinct from billing. When set,
+   *  the PDF prints a "Ship To" block beside "Bill To" and the place
+   *  of supply uses this state (driven by the convert action — engine
+   *  has already flipped intra↔inter accordingly). */
+  shipTo?: {
+    address?: string | null;
+    state?: string | null;
+    stateCode?: string | null;
+  } | null;
   lines: TaxInvoicePdfLine[];
   totals: {
     taxableValue: string;
     cgst: string;
     sgst: string;
     igst: string;
+    /** Pre-round-off invoice value (sum of taxable + tax). */
     invoiceValue: string;
+    /** ± adjustment so the printed grand total is a whole rupee. */
+    roundOff?: string | null;
+    /** Whole-rupee figure printed in the GRAND TOTAL bar. When unset,
+     *  the PDF falls back to invoiceValue (legacy behaviour for any
+     *  callers that haven't updated yet). */
+    grandTotalRounded?: string | null;
   };
   bank?: {
     name?: string | null;
@@ -434,7 +450,11 @@ function InvoicePage({
         </View>
 
         <View style={[styles.partyBox, styles.partyBoxLast]}>
-          <Text style={styles.partyTitle}>Recipient (Buyer)</Text>
+          <Text style={styles.partyTitle}>
+            {data.shipTo && (data.shipTo.address || data.shipTo.state)
+              ? "Bill To"
+              : "Recipient (Buyer)"}
+          </Text>
           <Text style={[styles.partyLine, { fontFamily: "Helvetica-Bold" }]}>
             {data.buyer.name}
             {data.buyer.company ? ` · ${data.buyer.company}` : ""}
@@ -462,6 +482,34 @@ function InvoicePage({
           ) : null}
         </View>
       </View>
+
+      {/* ── Ship To block (only when delivery differs from billing) ─── */}
+      {data.shipTo && (data.shipTo.address || data.shipTo.state) ? (
+        <View
+          style={{
+            borderWidth: 0.5,
+            borderColor: C.border,
+            padding: 5,
+            marginBottom: 6,
+          }}
+        >
+          <Text style={styles.partyTitle}>Ship To (Place of Delivery)</Text>
+          {data.shipTo.address ? (
+            <Text style={styles.partyLine}>{data.shipTo.address}</Text>
+          ) : null}
+          {data.shipTo.state ? (
+            <Text style={styles.partyLine}>
+              State:{" "}
+              <Text style={{ fontFamily: "Helvetica-Bold" }}>
+                {data.shipTo.state}
+              </Text>
+              {data.shipTo.stateCode
+                ? ` (Code: ${data.shipTo.stateCode})`
+                : ""}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* ── Invoice meta grid ───────────────────────────────────────── */}
       <View style={styles.metaGrid}>
@@ -595,15 +643,30 @@ function InvoicePage({
             </View>
           </>
         )}
+        {/* Round-off row — only when there's a non-zero adjustment. */}
+        {data.totals.roundOff &&
+        !new Decimal(data.totals.roundOff).isZero() ? (
+          <View style={styles.totalsBar}>
+            <Text style={styles.totalsLabel}>Round Off</Text>
+            <Text style={styles.totalsAmount}>
+              {new Decimal(data.totals.roundOff).gte(0) ? "+" : ""}
+              {new Decimal(data.totals.roundOff).toFixed(2)}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {/* ── Grand total bar ─────────────────────────────────────────── */}
       <View style={styles.grandBar}>
         <Text style={styles.grandLabel}>GRAND TOTAL (₹)</Text>
-        <Text style={styles.grandAmount}>{fmt(data.totals.invoiceValue)}</Text>
+        <Text style={styles.grandAmount}>
+          {fmt(data.totals.grandTotalRounded ?? data.totals.invoiceValue)}
+        </Text>
       </View>
       <Text style={styles.inWords}>
-        {amountInWords(new Decimal(data.totals.invoiceValue))}
+        {amountInWords(
+          new Decimal(data.totals.grandTotalRounded ?? data.totals.invoiceValue),
+        )}
       </Text>
 
       {/* ── Bank details (only if any field is set) ─────────────────── */}

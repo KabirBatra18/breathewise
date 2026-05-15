@@ -127,7 +127,11 @@ export default async function InvoiceDetailPage({
 
         <Card>
           <CardHeader>
-            <CardDescription>Recipient</CardDescription>
+            <CardDescription>
+              {inv.deliveryAddress || inv.deliveryState
+                ? "Bill To"
+                : "Recipient"}
+            </CardDescription>
             <CardTitle>
               {inv.buyerName}
               {inv.buyerCompany ? ` · ${inv.buyerCompany}` : ""}
@@ -155,6 +159,32 @@ export default async function InvoiceDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {inv.deliveryAddress || inv.deliveryState ? (
+        <Card>
+          <CardHeader>
+            <CardDescription>Place of delivery</CardDescription>
+            <CardTitle>Ship To</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            {inv.deliveryAddress ? <p>{inv.deliveryAddress}</p> : null}
+            {inv.deliveryState ? (
+              <p>
+                State: <strong>{inv.deliveryState}</strong>
+                {inv.deliveryStateCode ? (
+                  <span className="text-muted-foreground">
+                    {" "}({inv.deliveryStateCode})
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Place of supply uses this state, which is what determines
+              CGST+SGST vs IGST on this invoice.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -248,6 +278,9 @@ export default async function InvoiceDetailPage({
               <Row label="Total SGST" value={inv.totalSgst} />
             </>
           )}
+          {!new Decimal(inv.roundOff).isZero() ? (
+            <Row label="Round off" value={inv.roundOff} />
+          ) : null}
           <Separator className="my-2" />
           <Row
             label="Grand total"

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { clients } from "@/db/schema";
 import { requireEmployeeOrAbove, requireOwner } from "@/lib/auth/server";
+import { deriveStateCode } from "@/lib/gst/state-codes";
 
 // Indian phone: 10 digits, optional country code +91/91/0
 const phoneSchema = z
@@ -57,56 +58,6 @@ const clientSchema = z.object({
   notes: optionalText(2000),
 });
 
-/**
- * Map free-text state names to the standard CBIC 2-digit GST state
- * codes. Used to auto-populate clients.state_code so the user never
- * has to memorise codes — they just type "Delhi" and we record "07".
- * Returns null for unrecognised names; the invoice-conversion dialog
- * surfaces those and points the user back here.
- */
-function deriveStateCode(state: string | null): string | null {
-  if (!state) return null;
-  const k = state.trim().toLowerCase();
-  const map: Record<string, string> = {
-    "jammu and kashmir": "01",
-    "himachal pradesh": "02",
-    "punjab": "03",
-    "chandigarh": "04",
-    "uttarakhand": "05",
-    "haryana": "06",
-    "delhi": "07",
-    "rajasthan": "08",
-    "uttar pradesh": "09",
-    "bihar": "10",
-    "sikkim": "11",
-    "arunachal pradesh": "12",
-    "nagaland": "13",
-    "manipur": "14",
-    "mizoram": "15",
-    "tripura": "16",
-    "meghalaya": "17",
-    "assam": "18",
-    "west bengal": "19",
-    "jharkhand": "20",
-    "odisha": "21",
-    "chhattisgarh": "22",
-    "madhya pradesh": "23",
-    "gujarat": "24",
-    "dadra and nagar haveli and daman and diu": "26",
-    "maharashtra": "27",
-    "karnataka": "29",
-    "goa": "30",
-    "lakshadweep": "31",
-    "kerala": "32",
-    "tamil nadu": "33",
-    "puducherry": "34",
-    "andaman and nicobar islands": "35",
-    "telangana": "36",
-    "andhra pradesh": "37",
-    "ladakh": "38",
-  };
-  return map[k] ?? null;
-}
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 

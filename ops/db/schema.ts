@@ -313,12 +313,22 @@ export const invoices = pgTable("invoices", {
   bankAccount: text("bank_account"),
   bankIfsc: text("bank_ifsc"),
   bankBranch: text("bank_branch"),
-  // Totals
+  // Totals — total_invoice_value is the ROUNDED amount printed on
+  // the invoice. The precise value can be reconstructed as
+  // total_taxable_value + total_cgst + total_sgst + total_igst, and
+  // `round_off` captures the delta (typically ±₹0.50).
   totalTaxableValue: money("total_taxable_value").notNull(),
   totalCgst: money("total_cgst").notNull().default("0"),
   totalSgst: money("total_sgst").notNull().default("0"),
   totalIgst: money("total_igst").notNull().default("0"),
+  roundOff: percent("round_off").notNull().default("0"),
   totalInvoiceValue: money("total_invoice_value").notNull(),
+  // Optional ship-to (delivery) address. When delivery_state is set
+  // and differs from buyer_state, the place of supply uses the
+  // delivery state — correctly flipping CGST+SGST ↔ IGST.
+  deliveryAddress: text("delivery_address"),
+  deliveryState: text("delivery_state"),
+  deliveryStateCode: text("delivery_state_code"),
   notes: text("notes"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

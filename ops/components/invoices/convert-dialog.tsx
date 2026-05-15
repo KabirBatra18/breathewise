@@ -48,9 +48,17 @@ export function ConvertToInvoiceDialog({
   const [issueDate, setIssueDate] = useState(todayIST());
   const [includeLabour, setIncludeLabour] = useState(false);
   const [reverseCharge, setReverseCharge] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
   const [notes, setNotes] = useState("");
 
   const buyerStateMissing = !buyerState;
+
+  // What the engine will actually use as place of supply: delivery
+  // state if the user filled one, otherwise the buyer's billing state.
+  // Surfaced live so the user can see CGST+SGST ↔ IGST decision before
+  // they hit Generate.
+  const effectivePlaceOfSupply = deliveryState.trim() || buyerState || "—";
 
   function submit() {
     startTransition(async () => {
@@ -59,6 +67,10 @@ export function ConvertToInvoiceDialog({
         issueDate,
         includeLabour,
         reverseCharge,
+        deliveryAddress:
+          deliveryAddress.trim() === "" ? undefined : deliveryAddress,
+        deliveryState:
+          deliveryState.trim() === "" ? undefined : deliveryState,
         notes: notes.trim() === "" ? undefined : notes,
       });
       if (!res.ok) {
@@ -91,8 +103,17 @@ export function ConvertToInvoiceDialog({
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Place of supply: <strong>{buyerState}</strong>. Determines whether
-            CGST + SGST (intra-state) or IGST (inter-state) applies.
+            Place of supply: <strong>{effectivePlaceOfSupply}</strong>.
+            {deliveryState.trim() &&
+            deliveryState.trim().toLowerCase() !==
+              (buyerState ?? "").toLowerCase() ? (
+              <>
+                {" "}
+                Using <strong>delivery state</strong> instead of billing.
+              </>
+            ) : null}{" "}
+            Determines whether CGST + SGST (intra-state) or IGST
+            (inter-state) applies.
           </p>
         )}
 
@@ -149,6 +170,43 @@ export function ConvertToInvoiceDialog({
               </span>
             </span>
           </label>
+
+          <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+            <Label className="text-sm font-medium">
+              Ship-to / delivery address{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                (optional — only if different from billing)
+              </span>
+            </Label>
+            <Textarea
+              value={deliveryAddress}
+              onChange={(e) => setDeliveryAddress(e.target.value)}
+              placeholder="e.g. 441, Sector-15A, Noida"
+              rows={2}
+            />
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              <div>
+                <Label
+                  htmlFor="deliveryState"
+                  className="text-xs text-muted-foreground"
+                >
+                  Delivery state
+                </Label>
+                <Input
+                  id="deliveryState"
+                  value={deliveryState}
+                  onChange={(e) => setDeliveryState(e.target.value)}
+                  placeholder={buyerState ?? "e.g. Uttar Pradesh"}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Per GST law, place of supply is where the goods are delivered.
+              If you deliver to a state different from the billing address,
+              fill these — the engine will switch CGST+SGST → IGST
+              automatically.
+            </p>
+          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Internal notes (optional)</Label>

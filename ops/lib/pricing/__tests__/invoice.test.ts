@@ -236,6 +236,51 @@ describe("buildInvoiceFromQuote — rounding reconciliation", () => {
   });
 });
 
+describe("buildInvoiceFromQuote — round-off", () => {
+  test("paisa is absorbed into a Round Off line; rounded total is whole rupee", () => {
+    const input: InvoiceBuildInput = {
+      sections: [goodsSection],
+      discountTargetSaving: null,
+      isInterState: false,
+      includeLabour: false,
+    };
+    const out = buildInvoiceFromQuote(input);
+    // Precise: 23942.20 → rounded down to 23942 → roundOff = −0.20
+    expect(out.totalInvoiceValue.toFixed(2)).toBe("23942.20");
+    expect(out.grandTotalRounded.toFixed(2)).toBe("23942.00");
+    expect(out.roundOff.toFixed(2)).toBe("-0.20");
+    // Identity: rounded = precise + roundOff
+    expect(out.totalInvoiceValue.plus(out.roundOff).toFixed(2)).toBe(
+      out.grandTotalRounded.toFixed(2),
+    );
+  });
+
+  test("whole-rupee total → roundOff = 0", () => {
+    const input: InvoiceBuildInput = {
+      sections: [goodsSection],
+      discountTargetSaving: "5000",
+      isInterState: false,
+      includeLabour: false,
+    };
+    const out = buildInvoiceFromQuote(input);
+    // 5000 target → MRP 24170 − 5000 = 19170 exact
+    expect(out.totalInvoiceValue.toFixed(2)).toBe("19170.00");
+    expect(out.grandTotalRounded.toFixed(2)).toBe("19170.00");
+    expect(out.roundOff.toFixed(2)).toBe("0.00");
+  });
+
+  test("round-off magnitude is always ≤ ₹0.50", () => {
+    const input: InvoiceBuildInput = {
+      sections: [goodsSection],
+      discountTargetSaving: null,
+      isInterState: false,
+      includeLabour: false,
+    };
+    const out = buildInvoiceFromQuote(input);
+    expect(out.roundOff.abs().lte(new Decimal("0.50"))).toBe(true);
+  });
+});
+
 describe("buildInvoiceFromQuote — empty / labour-only edge cases", () => {
   test("labour-only quote, labour excluded → empty invoice", () => {
     const input: InvoiceBuildInput = {

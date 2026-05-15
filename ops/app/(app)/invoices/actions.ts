@@ -20,6 +20,7 @@ import {
   buildInvoiceFromQuote,
   type InvoiceBuildSection,
 } from "@/lib/pricing";
+import { deriveStateCode } from "@/lib/gst/state-codes";
 import { audit } from "@/lib/audit/log";
 
 /**
@@ -39,6 +40,11 @@ const convertSchema = z.object({
     .optional(),
   includeLabour: z.boolean().default(false),
   reverseCharge: z.boolean().default(false),
+  // Optional ship-to. When deliveryState differs from buyer.state the
+  // engine flips intra ↔ inter-state automatically. Empty = same as
+  // billing address (most common).
+  deliveryAddress: z.string().trim().max(500).optional(),
+  deliveryState: z.string().trim().max(80).optional(),
   notes: z.string().trim().max(2000).optional(),
 });
 
@@ -135,8 +141,25 @@ export async function convertQuoteToInvoiceAction(
     }
   }
 
-  // 3. Build the engine input.
-  const isInterState = buyer.stateCode !== settings.stateCode;
+  // 3. Place of supply: derive from the delivery state if the user
+  //    provided a ship-to, otherwise from the buyer's billing state.
+  //    Per GST law the place of supply for goods is where movement
+  //    terminates — so a Delhi-billed customer asking for Noida
+  //    delivery correctly flips this invoice to IGST.
+  const deliveryStateTrimmed = data.deliveryState?.trim() || null;
+  const deliveryAddressTrimmed = data.deliveryAddress?.trim() || null;
+  const deliveryStateCode = deliveryStateTrimmed
+    ? deriveStateCode(deliveryStateTrimmed)
+    : null;
+  if (deliveryStateTrimmed && !deliveryStateCode) {
+    return {
+      ok: false,
+      error: `Delivery state "${deliveryStateTrimmed}" isn't a recognised Indian state — fix the spelling (e.g. "Uttar Pradesh") and retry.`,
+    };
+  }
+  const placeOfSupplyState = deliveryStateTrimmed ?? buyer.state!;
+  const placeOfSupplyStateCode = deliveryStateCode ?? buyer.stateCode!;
+  const isInterState = placeOfSupplyStateCode !== settings.stateCode;
   const engineSections: InvoiceBuildSection[] = sectionLines.map(
     ({ section, lines }) => ({
       letter: section.sectionLetter,
@@ -212,8 +235,8 @@ export async function convertQuoteToInvoiceAction(
         issueDate: issueDateStr,
         supplierState: settings.state!,
         supplierStateCode: settings.stateCode!,
-        placeOfSupply: buyer.state!,
-        placeOfSupplyCode: buyer.stateCode!,
+        placeOfSupply: placeOfSupplyState,
+        placeOfSupplyCode: placeOfSupplyStateCode,
         isInterState,
         reverseCharge: data.reverseCharge,
         includeLabour: data.includeLabour,
@@ -239,7 +262,13 @@ export async function convertQuoteToInvoiceAction(
         totalCgst: built.totalCgst.toFixed(2),
         totalSgst: built.totalSgst.toFixed(2),
         totalIgst: built.totalIgst.toFixed(2),
-        totalInvoiceValue: built.totalInvoiceValue.toFixed(2),
+        roundOff: built.roundOff.toFixed(2),
+        // Store the ROUNDED grand total so the figure on the invoice
+        // PDF and the figure in the DB are byte-identical.
+        totalInvoiceValue: built.grandTotalRounded.toFixed(2),
+        deliveryAddress: deliveryAddressTrimmed,
+        deliveryState: deliveryStateTrimmed,
+        deliveryStateCode: deliveryStateCode,
         notes: data.notes ?? null,
         createdBy: actor.id,
       })
@@ -283,9 +312,11 @@ export async function convertQuoteToInvoiceAction(
       invoiceNumber: result.invoiceNumber,
       quoteId: quote.id,
       quoteNumber: quote.quoteNumber,
-      total: built.totalInvoiceValue.toFixed(2),
+      total: built.grandTotalRounded.toFixed(2),
+      roundOff: built.roundOff.toFixed(2),
       isInterState,
       includeLabour: data.includeLabour,
+      shipTo: deliveryStateTrimmed,
     },
   });
 

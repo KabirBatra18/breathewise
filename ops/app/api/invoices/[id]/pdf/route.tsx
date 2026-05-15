@@ -109,8 +109,22 @@ export async function GET(
       cgst: inv.totalCgst,
       sgst: inv.totalSgst,
       igst: inv.totalIgst,
+      // total_invoice_value in the DB is the ROUNDED amount (post 0007
+      // migration). We pass it as both the precise value (for amount
+      // in words fallback) and the rounded one. round_off captures the
+      // adjustment so the PDF can print the row.
       invoiceValue: inv.totalInvoiceValue,
+      roundOff: inv.roundOff,
+      grandTotalRounded: inv.totalInvoiceValue,
     },
+    shipTo:
+      inv.deliveryAddress || inv.deliveryState
+        ? {
+            address: inv.deliveryAddress,
+            state: inv.deliveryState,
+            stateCode: inv.deliveryStateCode,
+          }
+        : null,
     bank: {
       name: inv.bankName,
       account: inv.bankAccount,

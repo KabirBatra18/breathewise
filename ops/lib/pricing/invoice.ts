@@ -87,7 +87,15 @@ export interface InvoiceBuilt {
   totalCgst: Decimal;
   totalSgst: Decimal;
   totalIgst: Decimal;
+  /** Precise sum of taxable + all tax components (may carry paisa). */
   totalInvoiceValue: Decimal;
+  /** Round-off adjustment applied so the printed grand total is a whole
+   *  rupee. Can be negative (when we round down) or positive (round up).
+   *  Range: −0.50 < roundOff ≤ +0.50 (HALF_UP). */
+  roundOff: Decimal;
+  /** Whole-rupee grand total = totalInvoiceValue + roundOff. This is
+   *  the figure that appears on the printed PDF. */
+  grandTotalRounded: Decimal;
 }
 
 export function buildInvoiceFromQuote(input: InvoiceBuildInput): InvoiceBuilt {
@@ -235,6 +243,14 @@ export function buildInvoiceFromQuote(input: InvoiceBuildInput): InvoiceBuilt {
   const totalInvoiceValue = toMoney(
     totalTaxableValue.plus(totalCgst).plus(totalSgst).plus(totalIgst),
   );
+  // Round the printed grand total to a whole rupee — convention on
+  // every Indian B2B/B2C invoice. roundOff captures the delta so the
+  // PDF can display a transparent "Round Off" row.
+  const grandTotalRounded = totalInvoiceValue.toDecimalPlaces(
+    0,
+    Decimal.ROUND_HALF_UP,
+  );
+  const roundOff = toMoney(grandTotalRounded.minus(totalInvoiceValue));
 
   return {
     lines,
@@ -243,5 +259,7 @@ export function buildInvoiceFromQuote(input: InvoiceBuildInput): InvoiceBuilt {
     totalSgst,
     totalIgst,
     totalInvoiceValue,
+    roundOff,
+    grandTotalRounded,
   };
 }
