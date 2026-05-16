@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { invoiceLines, invoices, quotes } from "@/db/schema";
+import { invoiceLines, invoices, products, quotes } from "@/db/schema";
 import { requireEmployeeOrAbove } from "@/lib/auth/server";
 import { Breadcrumbs } from "@/components/ui/breadcrumb";
 import {
@@ -9,6 +9,7 @@ import {
   type EditorLine,
   type EditorInvoice,
 } from "@/components/invoices/invoice-editor";
+import type { ProductOption } from "@/components/quotes/product-picker";
 
 export const metadata = { title: "Edit invoice" };
 
@@ -40,6 +41,29 @@ export default async function EditInvoicePage({
     .from(invoiceLines)
     .where(eq(invoiceLines.invoiceId, inv.id))
     .orderBy(asc(invoiceLines.sortOrder));
+
+  // Catalog for the "Add from catalog" dialog. Same shape the quote
+  // builder uses — ProductPicker filters/groups it client-side.
+  const productRows = await db
+    .select({
+      id: products.id,
+      sku: products.sku,
+      name: products.name,
+      category: products.category,
+      subcategory: products.subcategory,
+      mrp: products.mrp,
+    })
+    .from(products)
+    .where(and(isNull(products.deletedAt), eq(products.isActive, true)))
+    .orderBy(asc(products.name));
+  const productOptions: ProductOption[] = productRows.map((p) => ({
+    id: p.id,
+    sku: p.sku,
+    name: p.name,
+    category: p.category,
+    subcategory: p.subcategory,
+    mrp: p.mrp,
+  }));
 
   // Source quote — pulled for the breadcrumb so the user can navigate
   // back to the PI if they need to cross-check.
@@ -113,7 +137,11 @@ export default async function EditInvoicePage({
         </div>
       </div>
 
-      <InvoiceEditor invoice={editorInvoice} initialLines={editorLines} />
+      <InvoiceEditor
+        invoice={editorInvoice}
+        initialLines={editorLines}
+        products={productOptions}
+      />
     </div>
   );
 }

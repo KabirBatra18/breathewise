@@ -44,6 +44,8 @@ import {
   updateInvoiceLineAction,
   updateInvoiceMetaAction,
 } from "@/app/(app)/invoices/actions";
+import { AddFromCatalogDialog } from "@/components/invoices/add-from-catalog-dialog";
+import type { ProductOption } from "@/components/quotes/product-picker";
 import {
   Decimal,
   computeInvoiceLineTax,
@@ -99,9 +101,13 @@ export interface EditorInvoice {
 export function InvoiceEditor({
   invoice,
   initialLines,
+  products,
 }: {
   invoice: EditorInvoice;
   initialLines: EditorLine[];
+  /** Astberg catalog (server-loaded). Drives the
+   *  "Add from catalog" dialog. */
+  products: ProductOption[];
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<EditorLine[]>(initialLines);
@@ -497,14 +503,51 @@ export function InvoiceEditor({
             <CardTitle>Line items</CardTitle>
             <CardDescription>
               {lines.length === 0
-                ? "No items yet — click Add line to start."
+                ? "No items yet — pick from the Astberg catalog or click Add line."
                 : `${lines.length} item${lines.length === 1 ? "" : "s"}. Edits save when you tab out of a field.`}
             </CardDescription>
           </div>
-          <Button size="sm" onClick={addLine}>
-            <Plus className="h-4 w-4" />
-            Add line
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <AddFromCatalogDialog
+              invoiceId={invoice.id}
+              products={products}
+              onAdded={(line, sku) => {
+                // Map the server's CreatedInvoiceLine into our EditorLine
+                // shape and append locally. The dialog already round-tripped
+                // the server, so no further refresh needed.
+                const newLine: EditorLine = {
+                  id: line.id,
+                  sno: line.sno,
+                  sectionLetter: line.sectionLetter,
+                  sectionTitle: line.sectionTitle,
+                  isLabourStyle: line.isLabourStyle,
+                  skuSnapshot: sku,
+                  description: line.description,
+                  hsnCode: line.hsnCode,
+                  quantity: line.quantity,
+                  unit: line.unit,
+                  unitPrice: line.unitPrice,
+                  gstRate: line.gstRate,
+                  taxableValue: line.taxableValue,
+                  cgstAmount: line.cgstAmount,
+                  sgstAmount: line.sgstAmount,
+                  igstAmount: line.igstAmount,
+                  lineTotal: line.lineTotal,
+                };
+                setLines((curr) => [...curr, newLine]);
+              }}
+              trigger={
+                <Button size="sm" variant="default">
+                  <Plus className="h-4 w-4" />
+                  Add from catalog
+                </Button>
+              }
+            />
+            <Button size="sm" variant="outline" onClick={addLine}>
+              <Plus className="h-4 w-4" />
+              Add custom line
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>

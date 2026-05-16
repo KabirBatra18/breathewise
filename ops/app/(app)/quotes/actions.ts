@@ -665,6 +665,7 @@ export async function fetchProductForLine(productId: string) {
     dpRate,
     mrpRate,
     hasMrpUplift,
+    hsnCode: product.hsnCode,
   };
 }
 
