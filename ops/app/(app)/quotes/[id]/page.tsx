@@ -816,6 +816,8 @@ export default async function QuoteDetailPage({
                     quoteNumber={quote.quoteNumber}
                     buyerHasLabour={sections.some((s) => s.isLabourStyle)}
                     buyerState={client?.state ?? null}
+                    buyerId={quote.clientId}
+                    buyerName={client?.name ?? "client"}
                     trigger={
                       <Button type="button" size="sm">
                         Convert to Tax Invoice

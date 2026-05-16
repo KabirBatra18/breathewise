@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -31,6 +32,8 @@ export function ConvertToInvoiceDialog({
   trigger,
   buyerHasLabour,
   buyerState,
+  buyerId,
+  buyerName,
 }: {
   quoteId: string;
   quoteNumber: string;
@@ -42,6 +45,10 @@ export function ConvertToInvoiceDialog({
    *  place of supply before committing. Null = state not set, button
    *  will be disabled with a hint. */
   buyerState: string | null;
+  /** Buyer's client id and display name — used to build a direct
+   *  'Open client' button when state is missing. */
+  buyerId: string;
+  buyerName: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -57,6 +64,13 @@ export function ConvertToInvoiceDialog({
   const [error, setError] = useState<string | null>(null);
 
   const buyerStateMissing = !buyerState;
+
+  // Clear stale error when the dialog reopens. Without this, a previous
+  // failure would still show even though the user might have fixed the
+  // underlying issue (e.g. set the client's state).
+  useEffect(() => {
+    if (open) setError(null);
+  }, [open]);
 
   // What the engine will actually use as place of supply: delivery
   // state if the user filled one, otherwise the buyer's billing state.
@@ -109,9 +123,27 @@ export function ConvertToInvoiceDialog({
         <ErrorBanner message={error} />
 
         {buyerStateMissing ? (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-            The client doesn&apos;t have a state set. Open the client&apos;s
-            page, add state + state code, then come back here.
+          <div className="rounded-md border-2 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+            <p className="font-semibold">
+              Can&apos;t generate yet — {buyerName} has no state set.
+            </p>
+            <p className="mt-1 text-xs leading-relaxed">
+              GST law needs the buyer&apos;s state to decide CGST+SGST vs
+              IGST. Open the client, add their state (e.g. <em>Delhi</em>,
+              <em> Uttar Pradesh</em>), save — the state code derives
+              automatically. Then come back here.
+            </p>
+            <div className="mt-3">
+              <Button
+                size="sm"
+                variant="secondary"
+                render={
+                  <Link href={`/clients/${buyerId}`} target="_blank" />
+                }
+              >
+                Open {buyerName} in a new tab →
+              </Button>
+            </div>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
@@ -241,7 +273,11 @@ export function ConvertToInvoiceDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={pending || buyerStateMissing}>
-            {pending ? "Generating…" : "Generate invoice"}
+            {pending
+              ? "Generating…"
+              : buyerStateMissing
+                ? "Fix client state first"
+                : "Generate invoice"}
           </Button>
         </DialogFooter>
       </DialogContent>
