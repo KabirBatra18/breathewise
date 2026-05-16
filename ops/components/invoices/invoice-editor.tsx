@@ -37,13 +37,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  addInvoiceLineAction,
   deleteDraftInvoiceAction,
   deleteInvoiceLineAction,
   finalizeInvoiceAction,
   updateInvoiceLineAction,
   updateInvoiceMetaAction,
 } from "@/app/(app)/invoices/actions";
+import { AddCustomLineDialog } from "@/components/invoices/add-custom-line-dialog";
 import { AddFromCatalogDialog } from "@/components/invoices/add-from-catalog-dialog";
 import type { ProductOption } from "@/components/quotes/product-picker";
 import {
@@ -232,37 +232,39 @@ export function InvoiceEditor({
     });
   }
 
-  function addLine() {
-    startTransition(async () => {
-      const res = await addInvoiceLineAction({
-        invoiceId: invoice.id,
-        description: "New item",
-        hsnCode: "8414",
-        quantity: "1",
-        unit: "pcs",
-        unitPrice: "0",
-        gstRate: "18",
-        isLabourStyle: false,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      // Append the new row to the LOCAL state directly using the data
-      // returned by the server. Previously we triggered router.refresh
-      // here, but the client component's `lines` state is initialised
-      // once from props and ignores subsequent server-side data
-      // changes — so the new row never appeared. Hence "Add line
-      // does nothing" feeling.
-      const newLine: EditorLine = {
-        ...res.line,
-        cgstAmount: res.line.cgstAmount,
-        sgstAmount: res.line.sgstAmount,
-        igstAmount: res.line.igstAmount,
-      };
-      setLines((curr) => [...curr, newLine]);
-    });
+  /**
+   * Shared optimistic-append: both the catalog dialog and the custom
+   * dialog round-trip the server, then call this with the inserted
+   * row. We append to local state so the new line shows up instantly,
+   * without a router.refresh round-trip (which wouldn't sync this
+   * client component's state anyway since useState is mount-only).
+   */
+  function appendLineFromServer(
+    line: import("@/app/(app)/invoices/actions").CreatedInvoiceLine,
+    sku: string | null,
+  ) {
+    const newLine: EditorLine = {
+      id: line.id,
+      sno: line.sno,
+      sectionLetter: line.sectionLetter,
+      sectionTitle: line.sectionTitle,
+      isLabourStyle: line.isLabourStyle,
+      skuSnapshot: sku,
+      description: line.description,
+      hsnCode: line.hsnCode,
+      quantity: line.quantity,
+      unit: line.unit,
+      unitPrice: line.unitPrice,
+      gstRate: line.gstRate,
+      taxableValue: line.taxableValue,
+      cgstAmount: line.cgstAmount,
+      sgstAmount: line.sgstAmount,
+      igstAmount: line.igstAmount,
+      lineTotal: line.lineTotal,
+    };
+    setLines((curr) => [...curr, newLine]);
   }
+
 
   function saveMeta() {
     startTransition(async () => {
@@ -511,31 +513,7 @@ export function InvoiceEditor({
             <AddFromCatalogDialog
               invoiceId={invoice.id}
               products={products}
-              onAdded={(line, sku) => {
-                // Map the server's CreatedInvoiceLine into our EditorLine
-                // shape and append locally. The dialog already round-tripped
-                // the server, so no further refresh needed.
-                const newLine: EditorLine = {
-                  id: line.id,
-                  sno: line.sno,
-                  sectionLetter: line.sectionLetter,
-                  sectionTitle: line.sectionTitle,
-                  isLabourStyle: line.isLabourStyle,
-                  skuSnapshot: sku,
-                  description: line.description,
-                  hsnCode: line.hsnCode,
-                  quantity: line.quantity,
-                  unit: line.unit,
-                  unitPrice: line.unitPrice,
-                  gstRate: line.gstRate,
-                  taxableValue: line.taxableValue,
-                  cgstAmount: line.cgstAmount,
-                  sgstAmount: line.sgstAmount,
-                  igstAmount: line.igstAmount,
-                  lineTotal: line.lineTotal,
-                };
-                setLines((curr) => [...curr, newLine]);
-              }}
+              onAdded={appendLineFromServer}
               trigger={
                 <Button size="sm" variant="default">
                   <Plus className="h-4 w-4" />
@@ -543,10 +521,17 @@ export function InvoiceEditor({
                 </Button>
               }
             />
-            <Button size="sm" variant="outline" onClick={addLine}>
-              <Plus className="h-4 w-4" />
-              Add custom line
-            </Button>
+            <AddCustomLineDialog
+              invoiceId={invoice.id}
+              isInterState={invoice.isInterState}
+              onAdded={appendLineFromServer}
+              trigger={
+                <Button size="sm" variant="outline">
+                  <Plus className="h-4 w-4" />
+                  Add custom line
+                </Button>
+              }
+            />
           </div>
         </CardHeader>
         <CardContent>
