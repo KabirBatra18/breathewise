@@ -242,8 +242,19 @@ export function InvoiceEditor({
         toast.error(res.error);
         return;
       }
-      // Refetch to pick up the new row (with its server-allocated id).
-      router.refresh();
+      // Append the new row to the LOCAL state directly using the data
+      // returned by the server. Previously we triggered router.refresh
+      // here, but the client component's `lines` state is initialised
+      // once from props and ignores subsequent server-side data
+      // changes — so the new row never appeared. Hence "Add line
+      // does nothing" feeling.
+      const newLine: EditorLine = {
+        ...res.line,
+        cgstAmount: res.line.cgstAmount,
+        sgstAmount: res.line.sgstAmount,
+        igstAmount: res.line.igstAmount,
+      };
+      setLines((curr) => [...curr, newLine]);
     });
   }
 
@@ -490,7 +501,7 @@ export function InvoiceEditor({
                 : `${lines.length} item${lines.length === 1 ? "" : "s"}. Edits save when you tab out of a field.`}
             </CardDescription>
           </div>
-          <Button size="sm" onClick={addLine} disabled={pending}>
+          <Button size="sm" onClick={addLine}>
             <Plus className="h-4 w-4" />
             Add line
           </Button>
@@ -657,8 +668,9 @@ export function InvoiceEditor({
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => removeLine(line.id)}
-                        disabled={pending}
+                        title="Remove this line"
                         aria-label="Remove line"
+                        className="text-muted-foreground hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

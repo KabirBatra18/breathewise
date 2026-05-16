@@ -425,9 +425,36 @@ const addLineSchema = z.object({
 
 export type LineResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * The new line as returned by addInvoiceLineAction — lets the editor
+ * append optimistically without a router.refresh round-trip.
+ */
+export interface CreatedInvoiceLine {
+  id: string;
+  sno: number;
+  sectionLetter: string | null;
+  sectionTitle: string | null;
+  isLabourStyle: boolean;
+  skuSnapshot: string | null;
+  description: string;
+  hsnCode: string | null;
+  quantity: string;
+  unit: string;
+  unitPrice: string;
+  gstRate: string;
+  taxableValue: string;
+  cgstAmount: string;
+  sgstAmount: string;
+  igstAmount: string;
+  lineTotal: string;
+}
+export type AddLineResult =
+  | { ok: true; line: CreatedInvoiceLine }
+  | { ok: false; error: string };
+
 export async function addInvoiceLineAction(
   input: z.input<typeof addLineSchema>,
-): Promise<LineResult> {
+): Promise<AddLineResult> {
   await requireEmployeeOrAbove();
   const parsed = addLineSchema.safeParse(input);
   if (!parsed.success) {
@@ -446,7 +473,7 @@ export async function addInvoiceLineAction(
     inv.isInterState,
   );
 
-  await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     // Append at the end of the current sort order.
     const maxRows = (await tx.execute(
       sql`SELECT COALESCE(MAX(sort_order), -1) AS m FROM invoice_lines WHERE invoice_id = ${data.invoiceId}::uuid`,
@@ -457,35 +484,60 @@ export async function addInvoiceLineAction(
     )) as unknown as { m: number }[];
     const nextSno = (maxSnoRows[0]?.m ?? 0) + 1;
 
-    await tx.insert(invoiceLines).values({
-      invoiceId: data.invoiceId,
-      sno: nextSno,
-      sectionLetter: data.sectionLetter ?? null,
-      sectionTitle: data.sectionTitle ?? null,
-      isLabourStyle: data.isLabourStyle,
-      skuSnapshot: null,
-      description: data.description,
-      hsnCode: data.hsnCode ?? null,
-      quantity: new Decimal(data.quantity).toFixed(2),
-      unit: data.unit,
-      unitPrice: new Decimal(data.unitPrice).toFixed(2),
-      gstRate: new Decimal(data.gstRate).toFixed(2),
-      taxableValue: tax.taxableValue.toFixed(2),
-      cgstRate: tax.cgstRate.toFixed(2),
-      cgstAmount: tax.cgstAmount.toFixed(2),
-      sgstRate: tax.sgstRate.toFixed(2),
-      sgstAmount: tax.sgstAmount.toFixed(2),
-      igstRate: tax.igstRate.toFixed(2),
-      igstAmount: tax.igstAmount.toFixed(2),
-      lineTotal: tax.lineTotal.toFixed(2),
-      sortOrder: nextSort,
-    });
+    const [row] = await tx
+      .insert(invoiceLines)
+      .values({
+        invoiceId: data.invoiceId,
+        sno: nextSno,
+        sectionLetter: data.sectionLetter ?? null,
+        sectionTitle: data.sectionTitle ?? null,
+        isLabourStyle: data.isLabourStyle,
+        skuSnapshot: null,
+        description: data.description,
+        hsnCode: data.hsnCode ?? null,
+        quantity: new Decimal(data.quantity).toFixed(2),
+        unit: data.unit,
+        unitPrice: new Decimal(data.unitPrice).toFixed(2),
+        gstRate: new Decimal(data.gstRate).toFixed(2),
+        taxableValue: tax.taxableValue.toFixed(2),
+        cgstRate: tax.cgstRate.toFixed(2),
+        cgstAmount: tax.cgstAmount.toFixed(2),
+        sgstRate: tax.sgstRate.toFixed(2),
+        sgstAmount: tax.sgstAmount.toFixed(2),
+        igstRate: tax.igstRate.toFixed(2),
+        igstAmount: tax.igstAmount.toFixed(2),
+        lineTotal: tax.lineTotal.toFixed(2),
+        sortOrder: nextSort,
+      })
+      .returning();
     await recomputeAndPersistTotals(tx, data.invoiceId);
+    return row;
   });
 
   revalidatePath(`/invoices/${data.invoiceId}/edit`);
   revalidatePath(`/invoices/${data.invoiceId}`);
-  return { ok: true };
+  return {
+    ok: true,
+    line: {
+      id: created.id,
+      sno: created.sno,
+      sectionLetter: created.sectionLetter,
+      sectionTitle: created.sectionTitle,
+      isLabourStyle: created.isLabourStyle,
+      skuSnapshot: created.skuSnapshot,
+      description: created.description,
+      hsnCode: created.hsnCode,
+      quantity: created.quantity,
+      unit: created.unit,
+      unitPrice: created.unitPrice,
+      gstRate: created.gstRate,
+      taxableValue: created.taxableValue,
+      cgstAmount: created.cgstAmount,
+      sgstAmount: created.sgstAmount,
+      igstAmount: created.igstAmount,
+      lineTotal: created.lineTotal,
+    },
+  };
 }
 
 // ── Update an existing line ────────────────────────────────────
