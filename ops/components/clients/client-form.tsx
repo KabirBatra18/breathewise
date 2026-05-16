@@ -99,7 +99,9 @@ export function ClientForm({ initial }: { initial?: ClientFormValues }) {
         <CardHeader>
           <CardTitle>Site address</CardTitle>
           <CardDescription>
-            Used as the install address on quotes. Optional but useful.
+            Used as the install address on quotes. Street &amp; city are
+            optional, but <strong>State is required</strong> to ever issue
+            a tax invoice for this client (Rule 46, GST).
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -116,8 +118,17 @@ export function ClientForm({ initial }: { initial?: ClientFormValues }) {
             <Input id="city" name="city" defaultValue={initial?.city ?? ""} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="state">State</Label>
+            <Label htmlFor="state">
+              State
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                (e.g. Delhi, Uttar Pradesh)
+              </span>
+            </Label>
             <Input id="state" name="state" defaultValue={initial?.state ?? ""} />
+            <p className="text-xs text-muted-foreground">
+              Required for tax invoices. GST state code auto-derives from
+              the name on save.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="pincode">PIN code</Label>
