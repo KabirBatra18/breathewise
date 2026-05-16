@@ -899,20 +899,34 @@ export default async function QuoteDetailPage({
                       ₹{formatIndianNumber(new Decimal(inv.totalInvoiceValue))}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        render={
-                          <a
-                            href={`/api/invoices/${inv.id}/pdf`}
-                            target="_blank"
-                            rel="noopener"
-                          />
-                        }
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        PDF
-                      </Button>
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          size="sm"
+                          render={
+                            <a
+                              href={`/api/invoices/${inv.id}/pdf?copy=client`}
+                              target="_blank"
+                              rel="noopener"
+                            />
+                          }
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Client
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          render={
+                            <a
+                              href={`/api/invoices/${inv.id}/pdf`}
+                              target="_blank"
+                              rel="noopener"
+                            />
+                          }
+                        >
+                          3 copies
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

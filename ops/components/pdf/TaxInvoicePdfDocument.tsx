@@ -9,6 +9,10 @@ import {
 import { Decimal } from "@/lib/pricing/decimal";
 import { formatIndianNumber } from "@/lib/pricing/format";
 import { amountInWords } from "@/lib/pricing/words";
+import {
+  INVOICE_TERMS,
+  INVOICE_TERMS_HEADER,
+} from "@/lib/invoice-terms";
 
 /**
  * Tax-invoice PDF — Rule 46 / Section 31 of CGST Act compliant.
@@ -277,6 +281,44 @@ const styles = StyleSheet.create({
   bankCol: { flex: 1, paddingRight: 6 },
   bankLabel: { fontSize: 7, color: C.muted, marginBottom: 1 },
   bankValue: { fontFamily: "Helvetica-Bold", fontSize: 8.5 },
+  // T&Cs section — printed on the client copy only. Mirrors the PI's
+  // terms styling so the customer sees a familiar layout.
+  termsBlock: {
+    marginTop: 14,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: C.border,
+  },
+  termsHeader: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9,
+    color: C.accent,
+    marginBottom: 4,
+  },
+  termsSubHeader: {
+    fontSize: 7,
+    color: C.muted,
+    marginBottom: 6,
+    fontStyle: "italic",
+  },
+  termsRow: {
+    flexDirection: "row",
+    marginBottom: 3,
+  },
+  termsNum: {
+    width: 14,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.5,
+  },
+  termsBodyCol: { flex: 1 },
+  termsTitle: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.5,
+  },
+  termsText: {
+    fontSize: 7.5,
+    lineHeight: 1.35,
+  },
   footer: {
     position: "absolute",
     bottom: "8mm",
@@ -392,9 +434,13 @@ function trimQty(qty: string): string {
 function InvoicePage({
   data,
   copyLabel,
+  showTerms,
 }: {
   data: TaxInvoicePdfData;
   copyLabel: NonNullable<TaxInvoicePdfData["copyLabel"]>;
+  /** Render the legal T&Cs block at the bottom (after signatures,
+   *  before footer). Only true for the single-copy client variant. */
+  showTerms?: boolean;
 }) {
   const isInter = data.isInterState;
   const COLS = isInter ? COLS_INTER : COLS_INTRA;
@@ -740,6 +786,23 @@ function InvoicePage({
         </View>
       </View>
 
+      {showTerms ? (
+        <View style={styles.termsBlock} wrap>
+          <Text style={styles.termsHeader}>Terms &amp; Conditions</Text>
+          <Text style={styles.termsSubHeader}>{INVOICE_TERMS_HEADER}</Text>
+          {INVOICE_TERMS.map((t, i) => (
+            <View key={t.title} style={styles.termsRow} wrap={false}>
+              <Text style={styles.termsNum}>{i + 1}.</Text>
+              <View style={styles.termsBodyCol}>
+                <Text style={styles.termsText}>
+                  <Text style={styles.termsTitle}>{t.title}.</Text> {t.body}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <Text style={styles.footer} fixed>
         {data.supplier.legalName}
         {data.supplier.gstin ? ` · GSTIN ${data.supplier.gstin}` : ""}
@@ -749,11 +812,42 @@ function InvoicePage({
   );
 }
 
-export function TaxInvoicePdfDocument({ data }: { data: TaxInvoicePdfData }) {
-  // Rule 48: goods → 3 copies (Original/Duplicate/Triplicate). We
-  // render all three pages so a single download covers the legal copy
-  // requirement; the user can stop at page 1 if the customer is
-  // local and wants only the original.
+export type TaxInvoicePdfVariant = "all-copies" | "client-only";
+
+export function TaxInvoicePdfDocument({
+  data,
+  variant = "all-copies",
+}: {
+  data: TaxInvoicePdfData;
+  /**
+   * Which copies to render.
+   *   all-copies  → Rule 48 default: 3 marked pages, no T&Cs.
+   *                 What you ship to the customer + give the
+   *                 transporter + retain for yourself.
+   *   client-only → single page marked "ORIGINAL FOR RECIPIENT",
+   *                 with the T&Cs section appended at the bottom.
+   *                 What you email/WhatsApp the customer when you
+   *                 don't need physical transporter/supplier copies.
+   */
+  variant?: TaxInvoicePdfVariant;
+}) {
+  if (variant === "client-only") {
+    return (
+      <Document
+        title={`${data.invoiceNumber} — Tax Invoice (Client Copy)`}
+        author={data.supplier.legalName}
+      >
+        <InvoicePage
+          data={data}
+          copyLabel="ORIGINAL FOR RECIPIENT"
+          showTerms
+        />
+      </Document>
+    );
+  }
+
+  // all-copies — Rule 48 default. T&Cs deliberately omitted: the
+  // transporter and supplier copies don't need the customer recital.
   const copies: Array<NonNullable<TaxInvoicePdfData["copyLabel"]>> = [
     "ORIGINAL FOR RECIPIENT",
     "DUPLICATE FOR TRANSPORTER",

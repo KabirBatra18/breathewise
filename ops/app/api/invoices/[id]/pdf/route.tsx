@@ -18,10 +18,15 @@ import {
  * not touched.
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } },
 ) {
   await requireAuth();
+
+  // ?copy=client → single page (ORIGINAL FOR RECIPIENT) + T&Cs block.
+  // Default (or any other value) → 3 marked copies, no T&Cs.
+  const copyParam = new URL(req.url).searchParams.get("copy");
+  const variant = copyParam === "client" ? "client-only" : "all-copies";
 
   const invRows = await db
     .select()
@@ -147,11 +152,15 @@ export async function GET(
     sourceQuoteNumber,
   };
 
-  const buffer = await renderToBuffer(<TaxInvoicePdfDocument data={data} />);
+  const buffer = await renderToBuffer(
+    <TaxInvoicePdfDocument data={data} variant={variant} />,
+  );
+  const safeNumber = inv.invoiceNumber.replace(/\//g, "-");
+  const suffix = variant === "client-only" ? "-client" : "";
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${inv.invoiceNumber.replace(/\//g, "-")}.pdf"`,
+      "Content-Disposition": `inline; filename="${safeNumber}${suffix}.pdf"`,
       "Cache-Control": "private, no-store",
     },
   });

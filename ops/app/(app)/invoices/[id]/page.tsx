@@ -96,20 +96,35 @@ export default async function InvoiceDetailPage({
               Edit draft
             </Button>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              render={
-                <a
-                  href={`/api/invoices/${inv.id}/pdf`}
-                  target="_blank"
-                  rel="noopener"
-                />
-              }
-            >
-              <Download className="h-4 w-4" />
-              Download PDF
-            </Button>
+            <>
+              <Button
+                size="sm"
+                render={
+                  <a
+                    href={`/api/invoices/${inv.id}/pdf?copy=client`}
+                    target="_blank"
+                    rel="noopener"
+                  />
+                }
+              >
+                <Download className="h-4 w-4" />
+                Client copy (+ T&amp;Cs)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                render={
+                  <a
+                    href={`/api/invoices/${inv.id}/pdf`}
+                    target="_blank"
+                    rel="noopener"
+                  />
+                }
+              >
+                <Download className="h-4 w-4" />
+                All 3 copies
+              </Button>
+            </>
           )}
           {src ? (
             <Button

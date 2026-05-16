@@ -249,20 +249,37 @@ export default async function InvoicesListPage() {
                         {formatIndianNumber(new Decimal(r.totalInvoiceValue))}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          render={
-                            <a
-                              href={`/api/invoices/${r.id}/pdf`}
-                              target="_blank"
-                              rel="noopener"
-                            />
-                          }
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          PDF
-                        </Button>
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            size="sm"
+                            render={
+                              <a
+                                href={`/api/invoices/${r.id}/pdf?copy=client`}
+                                target="_blank"
+                                rel="noopener"
+                                title="Single client copy with T&Cs"
+                              />
+                            }
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Client
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            render={
+                              <a
+                                href={`/api/invoices/${r.id}/pdf`}
+                                target="_blank"
+                                rel="noopener"
+                                title="All 3 copies (Original / Duplicate / Triplicate)"
+                              />
+                            }
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            3 copies
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
