@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { convertQuoteToInvoiceAction } from "@/app/(app)/invoices/actions";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { StateSelect } from "@/components/ui/state-select";
 
 const todayIST = (): string => {
   const d = new Date();
@@ -228,27 +229,25 @@ export function ConvertToInvoiceDialog({
               placeholder="e.g. 441, Sector-15A, Noida"
               rows={2}
             />
-            <div className="grid gap-1.5 sm:grid-cols-2">
-              <div>
-                <Label
-                  htmlFor="deliveryState"
-                  className="text-xs text-muted-foreground"
-                >
-                  Delivery state
-                </Label>
-                <Input
-                  id="deliveryState"
-                  value={deliveryState}
-                  onChange={(e) => setDeliveryState(e.target.value)}
-                  placeholder={buyerState ?? "e.g. Uttar Pradesh"}
-                />
-              </div>
+            <div>
+              <Label
+                htmlFor="deliveryState"
+                className="text-xs text-muted-foreground"
+              >
+                Delivery state
+              </Label>
+              <StateSelect
+                id="deliveryState"
+                value={deliveryState === "" ? null : deliveryState}
+                onChange={(v) => setDeliveryState(v ?? "")}
+                placeholder={`Same as billing (${buyerState ?? "—"})`}
+                emptyLabel="Same as billing"
+              />
             </div>
             <p className="text-xs text-muted-foreground">
-              Per GST law, place of supply is where the goods are delivered.
-              If you deliver to a state different from the billing address,
-              fill these — the engine will switch CGST+SGST → IGST
-              automatically.
+              Per GST law, place of supply = where the goods are delivered.
+              Pick a different state here and the engine flips
+              CGST+SGST → IGST automatically.
             </p>
           </div>
 

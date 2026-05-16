@@ -6,9 +6,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StateSelect } from "@/components/ui/state-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { saveSettingsAction } from "@/app/(app)/settings/actions";
+import { deriveStateCode } from "@/lib/gst/state-codes";
 
 export interface SettingsFormValues {
   legalName: string;
@@ -140,28 +142,19 @@ export function SettingsForm({ initial }: { initial: SettingsFormValues }) {
           Required on every GST tax invoice (Rule 46). Bank details print on
           the invoice payment block so the customer can pay you directly.
         </p>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2">
           <Field
             label="Supplier state"
-            hint="The state where your GSTIN is registered."
+            hint="The state where your GSTIN is registered. State code auto-derives (Delhi → 07)."
           >
-            <Input
-              value={v.state}
-              onChange={(e) => patch("state", e.target.value)}
-              placeholder="Delhi"
-            />
-          </Field>
-          <Field
-            label="State code"
-            hint="2-digit GST state code. Delhi=07, Haryana=06, UP=09 …"
-          >
-            <Input
-              value={v.stateCode}
-              onChange={(e) =>
-                patch("stateCode", e.target.value.replace(/[^0-9]/g, ""))
-              }
-              placeholder="07"
-              maxLength={2}
+            <StateSelect
+              value={v.state || null}
+              onChange={(nm) => {
+                patch("state", nm ?? "");
+                patch("stateCode", deriveStateCode(nm) ?? "");
+              }}
+              allowEmpty={false}
+              placeholder="Select state…"
             />
           </Field>
           <Field label="PAN" hint="Customary on Indian invoices.">

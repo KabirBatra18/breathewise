@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StateSelect } from "@/components/ui/state-select";
 import { Textarea } from "@/components/ui/textarea";
 
 export interface ClientFormValues {
@@ -50,6 +51,11 @@ export function ClientForm({ initial }: { initial?: ClientFormValues }) {
   const [state, action] = useFormState<ActionResult | null, FormData>(
     boundAction,
     null,
+  );
+  // Controlled state-name for the StateSelect dropdown. Submits to the
+  // form via a hidden input (name="state") rendered inside StateSelect.
+  const [stateName, setStateName] = useState<string | null>(
+    initial?.state ?? null,
   );
 
   useEffect(() => {
@@ -118,16 +124,18 @@ export function ClientForm({ initial }: { initial?: ClientFormValues }) {
             <Input id="city" name="city" defaultValue={initial?.city ?? ""} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="state">
-              State
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                (e.g. Delhi, Uttar Pradesh)
-              </span>
-            </Label>
-            <Input id="state" name="state" defaultValue={initial?.state ?? ""} />
+            <Label htmlFor="state">State</Label>
+            <StateSelect
+              id="state"
+              name="state"
+              value={stateName}
+              onChange={setStateName}
+              placeholder="Select state…"
+              emptyLabel="— Not set —"
+            />
             <p className="text-xs text-muted-foreground">
-              Required for tax invoices. GST state code auto-derives from
-              the name on save.
+              Required for tax invoices. GST state code (e.g. 07 for
+              Delhi) auto-derives when you save.
             </p>
           </div>
           <div className="space-y-2">
