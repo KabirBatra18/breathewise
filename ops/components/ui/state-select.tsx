@@ -48,7 +48,25 @@ export function StateSelect({
   // We use the sentinel "__none__" internally and translate at the
   // boundary. Empty string would collide with state names.
   const SENTINEL = "__none__";
-  const currentValue = value ?? (allowEmpty ? SENTINEL : "");
+
+  // Case-insensitive normalisation. Legacy rows often have "DELHI" or
+  // "delhi" — without this, the Select's value wouldn't match any
+  // SelectItem (which use Title-Case names) and Base UI would crash
+  // with 'Application error: a client-side exception has occurred'.
+  const canonicalValue = (() => {
+    if (!value) return null;
+    const lower = value.trim().toLowerCase();
+    const match = INDIAN_STATES.find((s) => s.name.toLowerCase() === lower);
+    return match?.name ?? null;
+  })();
+  // Pick a select value that's GUARANTEED to exist in the rendered
+  // items, otherwise leave it `undefined` (placeholder shown). Passing
+  // a value that has no matching SelectItem is what crashes Base UI.
+  const currentValue: string | undefined = canonicalValue
+    ? canonicalValue
+    : allowEmpty
+      ? SENTINEL
+      : undefined;
 
   function handleChange(v: string | null) {
     if (v == null || v === SENTINEL) onChange(null);
@@ -58,7 +76,7 @@ export function StateSelect({
   return (
     <>
       <Select
-        value={currentValue || undefined}
+        value={currentValue}
         onValueChange={handleChange}
         disabled={disabled}
       >
@@ -79,9 +97,15 @@ export function StateSelect({
           ))}
         </SelectContent>
       </Select>
-      {/* Hidden input so the value submits with a plain <form action>. */}
+      {/* Hidden input so the value submits with a plain <form action>.
+          Always submit the CANONICAL name so legacy "DELHI"/"delhi"
+          rows get cleaned to "Delhi" on next save. */}
       {name ? (
-        <input type="hidden" name={name} value={value ?? ""} />
+        <input
+          type="hidden"
+          name={name}
+          value={canonicalValue ?? value ?? ""}
+        />
       ) : null}
     </>
   );
