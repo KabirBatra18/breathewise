@@ -57,8 +57,9 @@ export default async function InvoicesListPage() {
 
   const drafts = rows.filter((r) => r.status === "DRAFT");
   const issued = rows.filter((r) => r.status === "ISSUED");
+  const canceled = rows.filter((r) => r.status === "CANCELED");
 
-  // Aggregate tiles (issued only — drafts aren't real revenue yet)
+  // Aggregate tiles (issued only — drafts and canceled don't count)
   const totalBilled = toMoney(
     issued.reduce((a, r) => a.plus(new Decimal(r.totalInvoiceValue)), ZERO),
   );
@@ -296,6 +297,65 @@ export default async function InvoicesListPage() {
           )}
         </CardContent>
       </Card>
+
+      {canceled.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardDescription>
+              {canceled.length} canceled invoice{canceled.length === 1 ? "" : "s"}.
+              Numbers preserved (no gaps) — these are not part of any total.
+            </CardDescription>
+            <CardTitle>Canceled invoices</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Issued</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead className="text-right">Was ₹</TableHead>
+                  <TableHead className="w-24" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {canceled.map((r) => (
+                  <TableRow key={r.id} className="text-muted-foreground">
+                    <TableCell className="font-mono text-sm line-through">
+                      <Link
+                        href={`/invoices/${r.id}`}
+                        className="hover:underline"
+                      >
+                        {r.invoiceNumber}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {r.issueDate as unknown as string}
+                    </TableCell>
+                    <TableCell>
+                      {[r.clientName, r.clientCompany]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums line-through">
+                      ₹{formatIndianNumber(new Decimal(r.totalInvoiceValue))}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        render={<Link href={`/invoices/${r.id}`} />}
+                      >
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

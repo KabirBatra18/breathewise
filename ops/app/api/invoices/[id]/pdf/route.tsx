@@ -165,6 +165,11 @@ export async function GET(
     },
     notes: inv.notes,
     sourceQuoteNumber,
+    canceled: inv.status === "CANCELED",
+    canceledOn:
+      inv.status === "CANCELED" && inv.canceledAt
+        ? format(new Date(inv.canceledAt as unknown as string), "d MMMM yyyy")
+        : null,
   };
 
   const buffer = await renderToBuffer(

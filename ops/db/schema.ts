@@ -281,8 +281,14 @@ export const invoices = pgTable("invoices", {
   // sequential BW/INV/2627/NNNN once ISSUED. The unique index allows
   // many NULLs (Postgres semantics) so multiple drafts coexist.
   invoiceNumber: text("invoice_number").unique(),
-  // Lifecycle: DRAFT (editable) or ISSUED (frozen legal document).
+  // Lifecycle: DRAFT (editable) → ISSUED (frozen legal document) →
+  // CANCELED (issued-but-voided; number is preserved, PDF gets a
+  // CANCELED stamp). Each arrow is one-way.
   status: text("status").notNull().default("ISSUED"),
+  // Set together when status flips ISSUED → CANCELED (DRAFTs are just
+  // deleted, never canceled). NULL on DRAFT and live ISSUED rows.
+  canceledAt: timestamp("canceled_at", { withTimezone: true }),
+  cancelReason: text("cancel_reason"),
   quoteId: uuid("quote_id")
     .notNull()
     .references(() => quotes.id),

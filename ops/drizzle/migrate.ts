@@ -16,6 +16,7 @@ const MIGRATIONS = [
   "0007_invoice_round_off_and_ship_to.sql",
   "0008_invoice_drafts.sql",
   "0009_invoice_date_of_removal.sql",
+  "0010_invoice_cancel.sql",
 ];
 
 async function main() {

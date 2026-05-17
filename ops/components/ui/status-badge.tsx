@@ -68,11 +68,13 @@ const QUOTE_STATUS_TONE: Record<string, StatusTone> = {
 const INVOICE_STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
   ISSUED: "Issued",
+  CANCELED: "Canceled",
 };
 
 const INVOICE_STATUS_TONE: Record<string, StatusTone> = {
   DRAFT: "amber",
   ISSUED: "emerald",
+  CANCELED: "rose",
 };
 
 const PAYMENT_TONE: Record<string, StatusTone> = {

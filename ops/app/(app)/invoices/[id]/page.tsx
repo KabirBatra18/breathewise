@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
 import { asc, eq } from "drizzle-orm";
+import { format } from "date-fns";
 import { db } from "@/lib/db/client";
 import { invoiceLines, invoices, quotes } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
@@ -11,6 +12,7 @@ import {
   InvoiceStatusBadge,
   ToneBadge,
 } from "@/components/ui/status-badge";
+import { CancelInvoiceButton } from "@/components/invoices/cancel-invoice-button";
 import {
   Card,
   CardContent,
@@ -56,6 +58,7 @@ export default async function InvoiceDetailPage({
     .where(eq(quotes.id, inv.quoteId));
   const src = srcRows[0];
   const isDraft = inv.status === "DRAFT";
+  const isCanceled = inv.status === "CANCELED";
 
   return (
     <div className="space-y-6 p-8">
@@ -124,6 +127,12 @@ export default async function InvoiceDetailPage({
                 <Download className="h-4 w-4" />
                 All 3 copies
               </Button>
+              {!isCanceled && inv.invoiceNumber ? (
+                <CancelInvoiceButton
+                  invoiceId={inv.id}
+                  invoiceNumber={inv.invoiceNumber}
+                />
+              ) : null}
             </>
           )}
           {src ? (
@@ -137,6 +146,29 @@ export default async function InvoiceDetailPage({
           ) : null}
         </div>
       </div>
+
+      {isCanceled ? (
+        <div className="rounded-lg border-2 border-rose-300 bg-rose-50 p-4 text-sm dark:border-rose-900 dark:bg-rose-950/30">
+          <p className="font-semibold text-rose-900 dark:text-rose-200">
+            This invoice is canceled.
+          </p>
+          <p className="mt-1 text-rose-900/80 dark:text-rose-200/80">
+            The invoice number {inv.invoiceNumber} stays on record (no gaps in
+            the sequence). Every PDF copy is stamped CANCELED.
+          </p>
+          {inv.canceledAt ? (
+            <p className="mt-2 text-xs text-rose-900/70 dark:text-rose-200/70">
+              Canceled on{" "}
+              {format(new Date(inv.canceledAt as unknown as string), "d MMMM yyyy, p")}.
+            </p>
+          ) : null}
+          {inv.cancelReason ? (
+            <p className="mt-2 whitespace-pre-wrap text-rose-900 dark:text-rose-200">
+              <span className="font-medium">Reason:</span> {inv.cancelReason}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

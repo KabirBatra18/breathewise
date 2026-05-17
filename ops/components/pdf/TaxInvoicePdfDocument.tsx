@@ -130,6 +130,41 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 6,
   },
+  // Diagonal CANCELED stamp. react-pdf's transform support is limited
+  // — rotate works on a positioned View. Sized + offset so the word
+  // lands across the line table on A4 portrait without colliding with
+  // the copy-tag in the top-right or the footer at the bottom.
+  cancelStampWrap: {
+    position: "absolute",
+    top: "40%",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    transform: "rotate(-22deg)",
+  },
+  cancelStamp: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 88,
+    letterSpacing: 8,
+    color: "#dc2626", // red-600
+    opacity: 0.18,
+    borderWidth: 6,
+    borderColor: "#dc2626",
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+  },
+  cancelBanner: {
+    borderWidth: 0.5,
+    borderColor: "#dc2626",
+    backgroundColor: "#fee2e2", // red-100
+    color: "#7f1d1d", // red-900
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    marginBottom: 6,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 8.5,
+    textAlign: "center",
+  },
   partyRow: {
     flexDirection: "row",
     marginBottom: 6,
@@ -419,6 +454,12 @@ export interface TaxInvoicePdfData {
   notes?: string | null;
   /** Source quote number, printed as a reference for audit. */
   sourceQuoteNumber?: string | null;
+  /** When true, every copy gets a diagonal CANCELED stamp + a small
+   *  note above the lines that this invoice has been canceled. The
+   *  invoice number stays printed (no gaps in the sequence). */
+  canceled?: boolean;
+  /** Optional formatted date string for the canceled-on line. */
+  canceledOn?: string | null;
 }
 
 function fmt(value: string | undefined | null): string {
@@ -463,6 +504,14 @@ function InvoicePage({
       <View style={styles.docLabelBar}>
         <Text style={styles.docLabel}>TAX INVOICE</Text>
       </View>
+
+      {data.canceled ? (
+        <Text style={styles.cancelBanner}>
+          THIS INVOICE HAS BEEN CANCELED
+          {data.canceledOn ? ` ON ${data.canceledOn.toUpperCase()}` : ""}
+          . NUMBER PRESERVED FOR AUDIT.
+        </Text>
+      ) : null}
 
       {/* ── Supplier + Buyer ────────────────────────────────────────── */}
       <View style={styles.partyRow}>
@@ -820,6 +869,12 @@ function InvoicePage({
         {data.supplier.gstin ? ` · GSTIN ${data.supplier.gstin}` : ""}
         {" · "}This is a computer-generated tax invoice.
       </Text>
+
+      {data.canceled ? (
+        <View style={styles.cancelStampWrap} fixed>
+          <Text style={styles.cancelStamp}>CANCELED</Text>
+        </View>
+      ) : null}
     </Page>
   );
 }

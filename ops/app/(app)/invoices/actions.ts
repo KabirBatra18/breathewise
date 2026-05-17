@@ -35,6 +35,9 @@ import { audit } from "@/lib/audit/log";
  *   3. finalizeInvoiceAction — DRAFT → ISSUED. Allocates the next
  *      BW/INV/2627/NNNN, freezes the row. Cannot be undone.
  *   4. deleteDraftInvoiceAction — discards a DRAFT entirely.
+ *   5. cancelInvoiceAction — ISSUED → CANCELED. Preserves the number,
+ *      stamps canceled_at + reason. Cannot be undone; PDF gets a
+ *      CANCELED stamp on every copy after this.
  *
  * Issued invoices are legally immutable (Rule 46). Every mutating
  * action below guards against status='ISSUED' and rejects edits.
@@ -891,5 +894,66 @@ export async function deleteDraftInvoiceAction(
   });
 
   revalidatePath("/invoices");
+  return { ok: true };
+}
+
+// ── Cancel an ISSUED invoice ───────────────────────────────────
+// Issued invoices are legally immutable (Rule 46), so we cannot
+// hard-delete on a "mistake" click. CANCELED preserves the row + the
+// allocated invoice number (no gaps in the BW/INV/2627/NNNN sequence
+// — what GST audits expect) and captures a reason for the audit trail.
+const cancelInvoiceSchema = z.object({
+  invoiceId: z.string().uuid(),
+  reason: z.string().trim().min(3).max(500),
+});
+
+export async function cancelInvoiceAction(
+  input: z.input<typeof cancelInvoiceSchema>,
+): Promise<LineResult> {
+  const actor = await requireEmployeeOrAbove();
+  const parsed = cancelInvoiceSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    };
+  }
+  const { invoiceId, reason } = parsed.data;
+
+  const rows = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
+  const inv = rows[0];
+  if (!inv) return { ok: false, error: "Invoice not found" };
+  if (inv.status === "DRAFT") {
+    return {
+      ok: false,
+      error: "Drafts can't be canceled — use Discard draft instead.",
+    };
+  }
+  if (inv.status === "CANCELED") {
+    return { ok: false, error: "Invoice is already canceled." };
+  }
+  if (inv.status !== "ISSUED") {
+    return { ok: false, error: `Cannot cancel from status ${inv.status}.` };
+  }
+
+  await db
+    .update(invoices)
+    .set({
+      status: "CANCELED",
+      canceledAt: new Date(),
+      cancelReason: reason,
+    })
+    .where(eq(invoices.id, invoiceId));
+
+  await audit({
+    actorId: actor.id,
+    action: "INVOICE_CANCEL",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: { invoiceNumber: inv.invoiceNumber, reason },
+  });
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
   return { ok: true };
 }

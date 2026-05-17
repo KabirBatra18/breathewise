@@ -22,10 +22,11 @@ import { deleteDraftInvoiceAction } from "@/app/(app)/invoices/actions";
  * have no allocated number and no legal status, so deleting one is
  * a safe local operation — it leaves no gap in the issued sequence.
  *
- * ISSUED invoices are intentionally NOT deletable. Rule 46 makes
- * them immutable legal documents — the only correct reversal is a
- * credit note. The list deliberately renders no delete control for
- * issued rows; we never trust a UI confirm() for that.
+ * ISSUED invoices are intentionally NOT deletable — Rule 46 makes
+ * them immutable legal documents. They can be CANCELED instead (see
+ * CancelInvoiceButton + cancelInvoiceAction): the row + number stay,
+ * status flips to CANCELED, PDF gets a CANCELED stamp. Hard-delete
+ * is never offered for issued rows.
  */
 export function DeleteDraftButton({
   invoiceId,
