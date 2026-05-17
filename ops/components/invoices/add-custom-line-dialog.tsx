@@ -67,6 +67,7 @@ export function AddCustomLineDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [customSku, setCustomSku] = useState("");
   const [description, setDescription] = useState("");
   const [hsnCode, setHsnCode] = useState("8414");
   const [quantity, setQuantity] = useState("1");
@@ -76,6 +77,7 @@ export function AddCustomLineDialog({
   const [priceInput, setPriceInput] = useState("");
 
   function resetState() {
+    setCustomSku("");
     setDescription("");
     setHsnCode("8414");
     setQuantity("1");
@@ -132,6 +134,7 @@ export function AddCustomLineDialog({
       return;
     }
     startTransition(async () => {
+      const trimmedSku = customSku.trim() || null;
       const res = await addInvoiceLineAction({
         invoiceId,
         description: description.trim(),
@@ -142,12 +145,13 @@ export function AddCustomLineDialog({
         unitPrice: computed.unitPriceExGst.toFixed(2),
         gstRate,
         isLabourStyle: false,
+        skuSnapshot: trimmedSku,
       });
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
-      onAdded(res.line, null);
+      onAdded(res.line, trimmedSku);
       toast.success("Line added.");
       resetState();
       setOpen(false);
@@ -173,6 +177,25 @@ export function AddCustomLineDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="customSku">
+              Model code / SKU{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </Label>
+            <Input
+              id="customSku"
+              value={customSku}
+              onChange={(e) => setCustomSku(e.target.value)}
+              placeholder="e.g. BC-1200 — leave blank for ad-hoc items"
+            />
+            <p className="text-xs text-muted-foreground">
+              Prints bold above the description on the invoice. Skip for
+              labour/freight; fill in for branded items.
+            </p>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="customDesc">Description</Label>
             <Textarea

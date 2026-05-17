@@ -358,6 +358,9 @@ export interface TaxInvoicePdfData {
   copyLabel?: "ORIGINAL FOR RECIPIENT" | "DUPLICATE FOR TRANSPORTER" | "TRIPLICATE FOR SUPPLIER";
   invoiceNumber: string;
   issueDate: string; // formatted, e.g. "14 May 2026"
+  /** Rule 46(c) date of removal. Set only when goods are dispatched
+   *  on a date different from the invoice date. */
+  dateOfRemoval?: string | null;
   placeOfSupply: string; // buyer's state
   placeOfSupplyCode: string;
   isInterState: boolean;
@@ -567,6 +570,12 @@ function InvoicePage({
           <Text style={styles.metaLabel}>Invoice Date</Text>
           <Text style={styles.metaValue}>{data.issueDate}</Text>
         </View>
+        {data.dateOfRemoval ? (
+          <View style={styles.metaCell}>
+            <Text style={styles.metaLabel}>Date of Removal</Text>
+            <Text style={styles.metaValue}>{data.dateOfRemoval}</Text>
+          </View>
+        ) : null}
         <View style={styles.metaCell}>
           <Text style={styles.metaLabel}>Place of Supply</Text>
           <Text style={styles.metaValue}>
@@ -704,7 +713,10 @@ function InvoicePage({
 
       {/* ── Grand total bar ─────────────────────────────────────────── */}
       <View style={styles.grandBar}>
-        <Text style={styles.grandLabel}>GRAND TOTAL (₹)</Text>
+        {/* Helvetica (PDF default) lacks the ₹ glyph, which renders as
+            "¹" on print. Spell "INR" instead — matches formatRupees() and
+            is the auditor-friendly form. */}
+        <Text style={styles.grandLabel}>GRAND TOTAL (INR)</Text>
         <Text style={styles.grandAmount}>
           {fmt(data.totals.grandTotalRounded ?? data.totals.invoiceValue)}
         </Text>

@@ -126,10 +126,18 @@ describe("buildInvoiceFromQuote — intra-state (Delhi → Delhi)", () => {
       includeLabour: false,
     };
     const out = buildInvoiceFromQuote(input);
-    // Total invoice value = (mrpSubtotal of goods) − target
+    // Total invoice value should land within ±0.05 of (mrpSubtotal − target).
     //   mrpSubtotal = 10390 + 2×6890 = 24170
-    //   total = 24170 − 5000 = 19170
-    expect(out.totalInvoiceValue.toFixed(2)).toBe("19170.00");
+    //   target = 5000
+    //   ideal total = 19170, but per-line rate rounding (2dp) means
+    //   the actual sum can drift by a paise or two. The Round Off line
+    //   on the printed PDF absorbs this, so the grand total stays a
+    //   whole rupee.
+    const diff = out.totalInvoiceValue
+      .minus(new Decimal("19170"))
+      .abs();
+    expect(diff.lte(new Decimal("0.05"))).toBe(true);
+    expect(out.grandTotalRounded.toFixed(2)).toBe("19170.00");
   });
 
   test("each line satisfies: taxable + CGST + SGST = line total", () => {
@@ -240,6 +248,51 @@ describe("buildInvoiceFromQuote — rounding reconciliation", () => {
   });
 });
 
+describe("buildInvoiceFromQuote — Rule 46 transparency: Qty × Rate = Taxable", () => {
+  test("no discount: each line's unitPrice unchanged from input", () => {
+    const input: InvoiceBuildInput = {
+      sections: [goodsSection],
+      discountTargetSaving: null,
+      isInterState: false,
+      includeLabour: false,
+    };
+    const out = buildInvoiceFromQuote(input);
+    // Original DP rates of 8690 and 5800 carry through verbatim.
+    expect(out.lines[0].unitPrice.toFixed(2)).toBe("8690.00");
+    expect(out.lines[1].unitPrice.toFixed(2)).toBe("5800.00");
+  });
+
+  test("with discount target: unitPrice reflects post-discount effective rate", () => {
+    const input: InvoiceBuildInput = {
+      sections: [goodsSection],
+      discountTargetSaving: "5000",
+      isInterState: false,
+      includeLabour: false,
+    };
+    const out = buildInvoiceFromQuote(input);
+    // For every line, qty × (new unitPrice) must equal taxableValue.
+    // That's the GST-audit-clean identity Rule 46 wants.
+    for (const line of out.lines) {
+      const product = line.quantity.mul(line.unitPrice);
+      expect(product.toFixed(2)).toBe(line.taxableValue.toFixed(2));
+    }
+  });
+
+  test("inter-state with discount: same identity holds", () => {
+    const input: InvoiceBuildInput = {
+      sections: [goodsSection],
+      discountTargetSaving: "5000",
+      isInterState: true,
+      includeLabour: false,
+    };
+    const out = buildInvoiceFromQuote(input);
+    for (const line of out.lines) {
+      const product = line.quantity.mul(line.unitPrice);
+      expect(product.toFixed(2)).toBe(line.taxableValue.toFixed(2));
+    }
+  });
+});
+
 describe("buildInvoiceFromQuote — round-off", () => {
   test("paisa is absorbed into a Round Off line; rounded total is whole rupee", () => {
     const input: InvoiceBuildInput = {
@@ -259,7 +312,7 @@ describe("buildInvoiceFromQuote — round-off", () => {
     );
   });
 
-  test("whole-rupee total → roundOff = 0", () => {
+  test("whole-rupee target → grandTotalRounded lands on a whole rupee", () => {
     const input: InvoiceBuildInput = {
       sections: [goodsSection],
       discountTargetSaving: "5000",
@@ -267,10 +320,11 @@ describe("buildInvoiceFromQuote — round-off", () => {
       includeLabour: false,
     };
     const out = buildInvoiceFromQuote(input);
-    // 5000 target → MRP 24170 − 5000 = 19170 exact
-    expect(out.totalInvoiceValue.toFixed(2)).toBe("19170.00");
+    // Per-line rate rounding (Rule 46 compliance) means sub-totals
+    // can drift up to a couple of paise; the Round Off line absorbs
+    // the drift so the printed grand total stays a whole rupee.
     expect(out.grandTotalRounded.toFixed(2)).toBe("19170.00");
-    expect(out.roundOff.toFixed(2)).toBe("0.00");
+    expect(out.roundOff.abs().lte(new Decimal("0.50"))).toBe(true);
   });
 
   test("round-off magnitude is always ≤ ₹0.50", () => {

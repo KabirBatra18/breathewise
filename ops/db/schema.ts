@@ -61,9 +61,10 @@ export const products = pgTable("products", {
   defaultUnitPrice: money("default_unit_price").notNull(),
   defaultGstRate: percent("default_gst_rate").notNull().default("18.00"),
   // HSN / SAC code — Rule 46(g) of CGST Rules makes it mandatory on
-  // tax invoices. We default everything to 8414 (fans/blowers) via
-  // the 0006 migration and let the user refine the dozen non-fan
-  // entries (filters → 8421, ERVs → 8415) in the catalog UI.
+  // tax invoices. We default everything to 8414 (fans/blowers and
+  // ventilation devices — covers ERVs too, since they're ventilation
+  // not air-conditioning) via the 0006 migration and let the user
+  // refine the dozen non-fan entries (filters → 8421) in the catalog.
   hsnCode: text("hsn_code"),
   unit: text("unit").notNull().default("pcs"),
   isActive: boolean("is_active").notNull().default(true),
@@ -289,6 +290,9 @@ export const invoices = pgTable("invoices", {
     .notNull()
     .references(() => clients.id),
   issueDate: date("issue_date").notNull().defaultNow(),
+  // Optional date of removal/dispatch of goods (Rule 46(c)). Renders
+  // on the PDF only when set and different from issue_date.
+  dateOfRemoval: date("date_of_removal"),
   // Supply geography frozen at issue
   supplierState: text("supplier_state").notNull(),
   supplierStateCode: text("supplier_state_code").notNull(),

@@ -77,6 +77,7 @@ export default async function EditInvoicePage({
     id: inv.id,
     status: inv.status,
     issueDate: inv.issueDate as unknown as string,
+    dateOfRemoval: (inv.dateOfRemoval as unknown as string | null) ?? null,
     reverseCharge: inv.reverseCharge,
     includeLabour: inv.includeLabour,
     notes: inv.notes,

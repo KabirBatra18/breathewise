@@ -84,6 +84,7 @@ export interface EditorInvoice {
   id: string;
   status: string;
   issueDate: string;
+  dateOfRemoval: string | null;
   reverseCharge: boolean;
   includeLabour: boolean;
   notes: string | null;
@@ -123,6 +124,9 @@ export function InvoiceEditor({
     onConfirm: () => void;
   } | null>(null);
   const [issueDate, setIssueDate] = useState(invoice.issueDate);
+  const [dateOfRemoval, setDateOfRemoval] = useState(
+    invoice.dateOfRemoval ?? "",
+  );
   const [reverseCharge, setReverseCharge] = useState(invoice.reverseCharge);
   const [notes, setNotes] = useState(invoice.notes ?? "");
   const [deliveryAddress, setDeliveryAddress] = useState(
@@ -271,6 +275,7 @@ export function InvoiceEditor({
       const res = await updateInvoiceMetaAction({
         invoiceId: invoice.id,
         issueDate,
+        dateOfRemoval: dateOfRemoval.trim() === "" ? null : dateOfRemoval,
         reverseCharge,
         notes: notes.trim() === "" ? null : notes,
         deliveryAddress:
@@ -421,6 +426,24 @@ export function InvoiceEditor({
           <Separator />
 
           <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="dor" className="flex items-center gap-1">
+                Date of removal
+                <HelpHint>
+                  Rule 46(c). Date the goods leave your premises for the
+                  customer. Leave blank if same as invoice date — the PDF
+                  will then treat the invoice date as the date of supply.
+                  Useful when equipment ships later than billing.
+                </HelpHint>
+              </Label>
+              <Input
+                id="dor"
+                type="date"
+                value={dateOfRemoval}
+                onChange={(e) => setDateOfRemoval(e.target.value)}
+                onBlur={saveMeta}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="delAddr">Delivery address (ship-to)</Label>
               <Textarea

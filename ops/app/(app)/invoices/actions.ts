@@ -421,6 +421,10 @@ const addLineSchema = z.object({
   sectionLetter: z.string().trim().max(2).optional().nullable(),
   sectionTitle: z.string().trim().max(200).optional().nullable(),
   isLabourStyle: z.boolean().default(false),
+  // Optional model code / SKU for custom lines (catalog adds set this
+  // server-side from the product row). Renders bold-navy above the
+  // description in the PDF, same as catalog products.
+  skuSnapshot: z.string().trim().max(120).optional().nullable(),
 });
 
 export type LineResult = { ok: true } | { ok: false; error: string };
@@ -492,7 +496,7 @@ export async function addInvoiceLineAction(
         sectionLetter: data.sectionLetter ?? null,
         sectionTitle: data.sectionTitle ?? null,
         isLabourStyle: data.isLabourStyle,
-        skuSnapshot: null,
+        skuSnapshot: data.skuSnapshot?.trim() || null,
         description: data.description,
         hsnCode: data.hsnCode ?? null,
         quantity: new Decimal(data.quantity).toFixed(2),
@@ -655,6 +659,12 @@ const updateMetaSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  // Rule 46(c) optional date of removal/dispatch. Empty string clears.
+  dateOfRemoval: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$|^$/)
+    .optional()
+    .nullable(),
   reverseCharge: z.boolean().optional(),
   notes: z.string().trim().max(2000).optional().nullable(),
   deliveryAddress: z.string().trim().max(500).optional().nullable(),
@@ -718,6 +728,13 @@ export async function updateInvoiceMetaAction(
       .update(invoices)
       .set({
         issueDate: data.issueDate ?? inv.issueDate,
+        // dateOfRemoval: undefined → keep existing. null or "" → clear.
+        dateOfRemoval:
+          data.dateOfRemoval === undefined
+            ? inv.dateOfRemoval
+            : data.dateOfRemoval === null || data.dateOfRemoval === ""
+              ? null
+              : data.dateOfRemoval,
         reverseCharge: data.reverseCharge ?? inv.reverseCharge,
         notes: data.notes === undefined ? inv.notes : data.notes,
         deliveryAddress: newDeliveryAddress,
@@ -805,6 +822,22 @@ export async function finalizeInvoiceAction(
     // Re-compute totals one more time inside the txn so we never
     // freeze a stale row (e.g. line added after a totals recompute).
     await recomputeAndPersistTotals(tx, invoiceId);
+
+    // Renumber sno sequentially before freezing. Editing a DRAFT
+    // (delete + add) leaves gaps in sno because each new line gets
+    // MAX(sno)+1. Rule 46 expects a clean 1..N sequence on the
+    // printed invoice.
+    const orderedLines = await tx
+      .select({ id: invoiceLines.id })
+      .from(invoiceLines)
+      .where(eq(invoiceLines.invoiceId, invoiceId))
+      .orderBy(asc(invoiceLines.sortOrder), asc(invoiceLines.sno));
+    for (let i = 0; i < orderedLines.length; i++) {
+      await tx
+        .update(invoiceLines)
+        .set({ sno: i + 1, sortOrder: i + 1 })
+        .where(eq(invoiceLines.id, orderedLines[i]!.id));
+    }
 
     const numRows = (await tx.execute(
       sql`SELECT next_invoice_number(${prefix}, ${fyStart}::int) AS n`,

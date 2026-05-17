@@ -153,15 +153,38 @@ export function buildInvoiceFromQuote(input: InvoiceBuildInput): InvoiceBuilt {
       const lineSubtotal = toMoney(qty.mul(unitPrice));
       const isLast = li === s.lines.length - 1;
 
-      let taxable: Decimal;
+      // Step 1: figure out the line's "intended" pre-discount-allocated
+      // taxable value (pre-rounding to a clean rate).
+      let desiredTaxable: Decimal;
       if (isLast) {
-        // Reconcile rounding: this line takes whatever remains.
-        taxable = toMoney(net.minus(allocatedTaxable));
+        desiredTaxable = toMoney(net.minus(allocatedTaxable));
       } else {
-        taxable = toMoney(lineSubtotal.mul(ratio));
-        allocatedTaxable = allocatedTaxable.plus(taxable);
+        desiredTaxable = toMoney(lineSubtotal.mul(ratio));
+        allocatedTaxable = allocatedTaxable.plus(desiredTaxable);
       }
 
+      // Step 2: pick the effective per-unit rate so that Qty × Rate
+      // exactly equals the published Taxable. Rule 46 requires this
+      // reconciliation on the face of the invoice — otherwise the
+      // discount is "silent". We compute rate = round(desired / qty)
+      // then RE-DERIVE taxable from qty × rate so the line is
+      // internally exact. The trade-off: section-level totals might
+      // drift by ±qty × 0.005 paise from the engine's allocation
+      // target — that's absorbed by the invoice's Round Off line.
+      let effectiveUnitPrice: Decimal;
+      let taxable: Decimal;
+      if (qty.isZero()) {
+        effectiveUnitPrice = unitPrice;
+        taxable = desiredTaxable;
+      } else {
+        effectiveUnitPrice = toMoney(desiredTaxable.div(qty));
+        taxable = toMoney(qty.mul(effectiveUnitPrice));
+      }
+
+      // Step 3: GST is computed against the ACTUAL (rounded) taxable,
+      // not the pre-allocation target. This keeps per-line math
+      // internally consistent: line_total = taxable + cgst + sgst
+      // (+ igst). Section sums are just sums of per-line values.
       let cgstRate = ZERO;
       let cgstAmount = ZERO;
       let sgstRate = ZERO;
@@ -171,29 +194,15 @@ export function buildInvoiceFromQuote(input: InvoiceBuildInput): InvoiceBuilt {
 
       if (input.isInterState) {
         igstRate = gstRate;
-        if (isLast) {
-          igstAmount = toMoney(t.gstAmount.minus(allocatedIgst));
-        } else {
-          igstAmount = toMoney(taxable.mul(gstRate).div(100));
-          allocatedIgst = allocatedIgst.plus(igstAmount);
-        }
+        igstAmount = toMoney(taxable.mul(gstRate).div(100));
+        allocatedIgst = allocatedIgst.plus(igstAmount);
       } else {
         cgstRate = halfRate;
         sgstRate = halfRate;
-        if (isLast) {
-          // Distribute remaining GST evenly across CGST+SGST so they
-          // each end up at exactly section.gst / 2 (within a paisa).
-          const remainingGst = t.gstAmount
-            .minus(allocatedCgst)
-            .minus(allocatedSgst);
-          cgstAmount = toMoney(remainingGst.div(2));
-          sgstAmount = toMoney(remainingGst.minus(cgstAmount));
-        } else {
-          cgstAmount = toMoney(taxable.mul(halfRate).div(100));
-          sgstAmount = toMoney(taxable.mul(halfRate).div(100));
-          allocatedCgst = allocatedCgst.plus(cgstAmount);
-          allocatedSgst = allocatedSgst.plus(sgstAmount);
-        }
+        cgstAmount = toMoney(taxable.mul(halfRate).div(100));
+        sgstAmount = toMoney(taxable.mul(halfRate).div(100));
+        allocatedCgst = allocatedCgst.plus(cgstAmount);
+        allocatedSgst = allocatedSgst.plus(sgstAmount);
       }
 
       const lineTotal = toMoney(
@@ -213,7 +222,7 @@ export function buildInvoiceFromQuote(input: InvoiceBuildInput): InvoiceBuilt {
         hsnCode: line.hsnCode,
         quantity: qty,
         unit: line.unit,
-        unitPrice,
+        unitPrice: effectiveUnitPrice,
         gstRate,
         taxableValue: taxable,
         cgstRate,

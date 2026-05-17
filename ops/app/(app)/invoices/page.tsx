@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Decimal, ZERO, toMoney } from "@/lib/pricing/decimal";
 import { formatIndianNumber } from "@/lib/pricing/format";
+import { DeleteDraftButton } from "@/components/invoices/delete-draft-button";
 
 export const metadata = { title: "Invoices" };
 
@@ -149,12 +150,18 @@ export default async function InvoicesListPage() {
                       {formatIndianNumber(new Decimal(r.totalInvoiceValue))}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        render={<Link href={`/invoices/${r.id}/edit`} />}
-                      >
-                        Open editor
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          size="sm"
+                          render={<Link href={`/invoices/${r.id}/edit`} />}
+                        >
+                          Open editor
+                        </Button>
+                        <DeleteDraftButton
+                          invoiceId={r.id}
+                          quoteNumber={r.quoteNumber}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

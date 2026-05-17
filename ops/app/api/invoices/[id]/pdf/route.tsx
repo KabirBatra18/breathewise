@@ -71,6 +71,20 @@ export async function GET(
     }
   })();
 
+  // Date of removal — only render on PDF when set and not equal to
+  // the invoice date (otherwise it's redundant and would clutter the
+  // meta strip).
+  const dorRaw = inv.dateOfRemoval as unknown as string | null;
+  const dateOfRemovalFormatted = (() => {
+    if (!dorRaw) return null;
+    if (dorRaw === (inv.issueDate as unknown as string)) return null;
+    try {
+      return format(new Date(`${dorRaw}T00:00:00`), "d MMMM yyyy");
+    } catch {
+      return dorRaw;
+    }
+  })();
+
   const pdfLines: TaxInvoicePdfLine[] = lines.map((l) => ({
     sno: l.sno,
     sectionLetter: l.sectionLetter,
@@ -95,6 +109,7 @@ export async function GET(
   const data: TaxInvoicePdfData = {
     invoiceNumber: inv.invoiceNumber,
     issueDate: issueDateFormatted,
+    dateOfRemoval: dateOfRemovalFormatted,
     placeOfSupply: inv.placeOfSupply,
     placeOfSupplyCode: inv.placeOfSupplyCode,
     isInterState: inv.isInterState,
