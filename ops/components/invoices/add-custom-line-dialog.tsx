@@ -375,7 +375,17 @@ export function AddCustomLineDialog({
           >
             Cancel
           </Button>
-          <Button onClick={submit} disabled={pending || !preview}>
+          <Button
+            onClick={submit}
+            disabled={pending || !preview}
+            disabledReason={
+              pending
+                ? "Adding line…"
+                : !preview
+                  ? "Fill in description, quantity, and price to see the preview before adding."
+                  : undefined
+            }
+          >
             {pending ? "Adding…" : "Add to invoice"}
           </Button>
         </DialogFooter>

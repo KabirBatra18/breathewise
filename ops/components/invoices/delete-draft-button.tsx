@@ -76,6 +76,7 @@ export function DeleteDraftButton({
             <AlertDialogAction
               variant="destructive"
               disabled={pending}
+              disabledReason={pending ? "Discarding…" : undefined}
               onClick={() => {
                 startTransition(async () => {
                   const res = await deleteDraftInvoiceAction({ invoiceId });

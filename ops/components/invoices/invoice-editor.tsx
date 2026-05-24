@@ -795,11 +795,28 @@ export function InvoiceEditor({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-start gap-3">
-          <Button onClick={finalize} disabled={pending || lines.length === 0}>
+          <Button
+            onClick={finalize}
+            disabled={pending || lines.length === 0}
+            disabledReason={
+              pending
+                ? "A save is in progress — give it a second."
+                : lines.length === 0
+                  ? "Add at least one line before finalizing."
+                  : undefined
+            }
+          >
             <Check className="h-4 w-4" />
             Finalize &amp; Issue
           </Button>
-          <Button variant="destructive" onClick={discard} disabled={pending}>
+          <Button
+            variant="destructive"
+            onClick={discard}
+            disabled={pending}
+            disabledReason={
+              pending ? "A save is in progress — give it a second." : undefined
+            }
+          >
             <X className="h-4 w-4" />
             Discard draft
           </Button>

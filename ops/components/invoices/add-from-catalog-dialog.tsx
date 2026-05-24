@@ -241,7 +241,17 @@ export function AddFromCatalogDialog({
           <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={pending || !detail}>
+          <Button
+            onClick={submit}
+            disabled={pending || !detail}
+            disabledReason={
+              pending
+                ? "Adding line…"
+                : !detail
+                  ? "Pick a product from the catalog first."
+                  : undefined
+            }
+          >
             {pending ? "Adding…" : "Add to invoice"}
           </Button>
         </DialogFooter>

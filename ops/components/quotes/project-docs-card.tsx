@@ -96,7 +96,13 @@ export function ProjectDocsCard({
               Agreement Date on the Handover Certificate.
             </p>
             <div className="pt-1">
-              <Button size="sm" variant="outline" onClick={save} disabled={pending}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={save}
+                disabled={pending}
+                disabledReason={pending ? "Saving…" : undefined}
+              >
                 <Save className="h-4 w-4" />
                 {pending ? "Saving…" : "Save"}
               </Button>

@@ -91,6 +91,13 @@ export function CancelInvoiceButton({
             <AlertDialogAction
               variant="destructive"
               disabled={pending || reasonTooShort}
+              disabledReason={
+                pending
+                  ? "Cancellation in progress…"
+                  : reasonTooShort
+                    ? "Type at least 3 characters of reason."
+                    : undefined
+              }
               onClick={() => {
                 startTransition(async () => {
                   const res = await cancelInvoiceAction({

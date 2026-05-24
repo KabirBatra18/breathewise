@@ -271,7 +271,17 @@ export function ConvertToInvoiceDialog({
           >
             Cancel
           </Button>
-          <Button onClick={submit} disabled={pending || buyerStateMissing}>
+          <Button
+            onClick={submit}
+            disabled={pending || buyerStateMissing}
+            disabledReason={
+              pending
+                ? "Generating invoice…"
+                : buyerStateMissing
+                  ? "Set the client's state on their profile — needed to determine place of supply."
+                  : undefined
+            }
+          >
             {pending
               ? "Generating…"
               : buyerStateMissing
