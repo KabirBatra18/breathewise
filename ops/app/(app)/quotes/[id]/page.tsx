@@ -28,6 +28,7 @@ import {
 import { AcceptDialog } from "@/components/quotes/accept-dialog";
 import { ProjectDocsCard } from "@/components/quotes/project-docs-card";
 import { ConvertToInvoiceDialog } from "@/components/invoices/convert-dialog";
+import { PdfPreviewButton } from "@/components/ui/pdf-preview-button";
 import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import { PaymentLedger } from "@/components/quotes/payment-ledger";
 import { requireAuth } from "@/lib/auth/server";
@@ -314,20 +315,16 @@ export default async function QuoteDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
+            <PdfPreviewButton
+              url={`/api/quotes/${quote.id}/pdf`}
+              filename={`${quote.quoteNumber.replace(/\//g, "-")}.pdf`}
+              title={`Quote ${quote.quoteNumber}`}
+              description="Proforma Invoice — sent to the client for review."
               variant="outline"
-              render={
-                <a
-                  href={`/api/quotes/${quote.id}/pdf`}
-                  target="_blank"
-                  rel="noopener"
-                />
-              }
             >
               <Download className="h-4 w-4" />
               Download PDF
-            </Button>
+            </PdfPreviewButton>
             <form action={duplicateQuoteAction}>
               <input type="hidden" name="id" value={quote.id} />
               <Button type="submit" size="sm" variant="outline">
@@ -912,32 +909,24 @@ export default async function QuoteDetailPage({
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        <Button
-                          size="sm"
-                          render={
-                            <a
-                              href={`/api/invoices/${inv.id}/pdf?copy=client`}
-                              target="_blank"
-                              rel="noopener"
-                            />
-                          }
+                        <PdfPreviewButton
+                          url={`/api/invoices/${inv.id}/pdf?copy=client`}
+                          filename={`${(inv.invoiceNumber ?? "invoice").replace(/\//g, "-")}-client.pdf`}
+                          title={`Tax Invoice ${inv.invoiceNumber ?? ""} — Client Copy`}
+                          description="Original for Recipient + T&Cs."
                         >
                           <Download className="h-3.5 w-3.5" />
                           Client
-                        </Button>
-                        <Button
-                          size="sm"
+                        </PdfPreviewButton>
+                        <PdfPreviewButton
+                          url={`/api/invoices/${inv.id}/pdf`}
+                          filename={`${(inv.invoiceNumber ?? "invoice").replace(/\//g, "-")}.pdf`}
+                          title={`Tax Invoice ${inv.invoiceNumber ?? ""} — All Copies`}
+                          description="Original / Duplicate / Triplicate."
                           variant="outline"
-                          render={
-                            <a
-                              href={`/api/invoices/${inv.id}/pdf`}
-                              target="_blank"
-                              rel="noopener"
-                            />
-                          }
                         >
                           3 copies
-                        </Button>
+                        </PdfPreviewButton>
                       </div>
                     </TableCell>
                   </TableRow>

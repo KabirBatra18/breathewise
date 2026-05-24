@@ -13,6 +13,7 @@ import {
   ToneBadge,
 } from "@/components/ui/status-badge";
 import { CancelInvoiceButton } from "@/components/invoices/cancel-invoice-button";
+import { PdfPreviewButton } from "@/components/ui/pdf-preview-button";
 import {
   Card,
   CardContent,
@@ -100,47 +101,35 @@ export default async function InvoiceDetailPage({
             </Button>
           ) : (
             <>
-              <Button
-                size="sm"
-                render={
-                  <a
-                    href={`/api/invoices/${inv.id}/pdf?copy=client`}
-                    target="_blank"
-                    rel="noopener"
-                  />
-                }
+              <PdfPreviewButton
+                url={`/api/invoices/${inv.id}/pdf?copy=client`}
+                filename={`${(inv.invoiceNumber ?? "invoice").replace(/\//g, "-")}-client.pdf`}
+                title={`Tax Invoice ${inv.invoiceNumber ?? ""} — Client Copy`}
+                description="Original for Recipient, with T&Cs appended."
               >
                 <Download className="h-4 w-4" />
                 Client copy (+ T&amp;Cs)
-              </Button>
-              <Button
-                size="sm"
+              </PdfPreviewButton>
+              <PdfPreviewButton
+                url={`/api/invoices/${inv.id}/pdf`}
+                filename={`${(inv.invoiceNumber ?? "invoice").replace(/\//g, "-")}.pdf`}
+                title={`Tax Invoice ${inv.invoiceNumber ?? ""} — All Copies`}
+                description="Original / Duplicate / Triplicate."
                 variant="outline"
-                render={
-                  <a
-                    href={`/api/invoices/${inv.id}/pdf`}
-                    target="_blank"
-                    rel="noopener"
-                  />
-                }
               >
                 <Download className="h-4 w-4" />
                 All 3 copies
-              </Button>
-              <Button
-                size="sm"
+              </PdfPreviewButton>
+              <PdfPreviewButton
+                url={`/api/invoices/${inv.id}/handover-certificate`}
+                filename={`${(inv.invoiceNumber ?? "invoice").replace(/\//g, "-")}-handover-certificate.pdf`}
+                title="Handover Certificate"
+                description="Project completion + client acceptance."
                 variant="outline"
-                render={
-                  <a
-                    href={`/api/invoices/${inv.id}/handover-certificate`}
-                    target="_blank"
-                    rel="noopener"
-                  />
-                }
               >
                 <Download className="h-4 w-4" />
                 Handover Certificate
-              </Button>
+              </PdfPreviewButton>
               {!isCanceled && inv.invoiceNumber ? (
                 <CancelInvoiceButton
                   invoiceId={inv.id}

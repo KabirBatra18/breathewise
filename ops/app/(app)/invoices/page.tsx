@@ -24,6 +24,7 @@ import {
 import { Decimal, ZERO, toMoney } from "@/lib/pricing/decimal";
 import { formatIndianNumber } from "@/lib/pricing/format";
 import { DeleteDraftButton } from "@/components/invoices/delete-draft-button";
+import { PdfPreviewButton } from "@/components/ui/pdf-preview-button";
 
 export const metadata = { title: "Invoices" };
 
@@ -258,35 +259,25 @@ export default async function InvoicesListPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          <Button
-                            size="sm"
-                            render={
-                              <a
-                                href={`/api/invoices/${r.id}/pdf?copy=client`}
-                                target="_blank"
-                                rel="noopener"
-                                title="Single client copy with T&Cs"
-                              />
-                            }
+                          <PdfPreviewButton
+                            url={`/api/invoices/${r.id}/pdf?copy=client`}
+                            filename={`${(r.invoiceNumber ?? "invoice").replace(/\//g, "-")}-client.pdf`}
+                            title={`Tax Invoice ${r.invoiceNumber ?? ""} — Client Copy`}
+                            description="Original for Recipient + T&Cs."
                           >
                             <Download className="h-3.5 w-3.5" />
                             Client
-                          </Button>
-                          <Button
-                            size="sm"
+                          </PdfPreviewButton>
+                          <PdfPreviewButton
+                            url={`/api/invoices/${r.id}/pdf`}
+                            filename={`${(r.invoiceNumber ?? "invoice").replace(/\//g, "-")}.pdf`}
+                            title={`Tax Invoice ${r.invoiceNumber ?? ""} — All Copies`}
+                            description="Original / Duplicate / Triplicate."
                             variant="outline"
-                            render={
-                              <a
-                                href={`/api/invoices/${r.id}/pdf`}
-                                target="_blank"
-                                rel="noopener"
-                                title="All 3 copies (Original / Duplicate / Triplicate)"
-                              />
-                            }
                           >
                             <Download className="h-3.5 w-3.5" />
                             3 copies
-                          </Button>
+                          </PdfPreviewButton>
                         </div>
                       </TableCell>
                     </TableRow>

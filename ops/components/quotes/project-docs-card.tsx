@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PdfPreviewButton } from "@/components/ui/pdf-preview-button";
 import { updateQuoteProjectDocsAction } from "@/app/(app)/quotes/actions";
 
 /**
@@ -111,35 +112,25 @@ export function ProjectDocsCard({
         </div>
 
         <div className="flex flex-wrap gap-2 border-t pt-4">
-          <Button
-            size="sm"
+          <PdfPreviewButton
+            url="/docs/welcome-pack.pdf"
+            filename="BreatheWise-Welcome-Pack.pdf"
+            title="Client Welcome & Scope Pack"
+            description="Generic onboarding document — same for every client."
             variant="outline"
-            render={
-              <a
-                href="/docs/welcome-pack.pdf"
-                target="_blank"
-                rel="noopener"
-                download
-              />
-            }
           >
             <Download className="h-4 w-4" />
             Welcome Pack
-          </Button>
-          <Button
-            size="sm"
-            render={
-              <a
-                href={`/api/quotes/${quoteId}/services-agreement`}
-                target="_blank"
-                rel="noopener"
-                download={`${safeNumber}-services-agreement.pdf`}
-              />
-            }
+          </PdfPreviewButton>
+          <PdfPreviewButton
+            url={`/api/quotes/${quoteId}/services-agreement`}
+            filename={`${safeNumber}-services-agreement.pdf`}
+            title={`Services Agreement — ${quoteNumber}`}
+            description="Pre-filled with client + project details."
           >
             <Download className="h-4 w-4" />
             Services Agreement
-          </Button>
+          </PdfPreviewButton>
           <p className="flex-1 text-xs text-muted-foreground">
             Handover Certificate is generated from the issued invoice once the
             project is complete.
