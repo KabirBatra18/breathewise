@@ -354,6 +354,59 @@ export async function markQuoteStatusAction(
   revalidatePath(`/quotes/${id}`);
 }
 
+// ── Project-document metadata on a quote ───────────────────────
+// project_site_address + agreement_signed_date drive the Services
+// Agreement and Handover Certificate PDFs. Both optional — edited
+// from the quote detail page after the quote is accepted.
+const updateProjectDocsSchema = z.object({
+  id: z.string().uuid(),
+  projectSiteAddress: z.string().trim().max(500).nullable(),
+  agreementSignedDate: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$|^$/, "Date must be YYYY-MM-DD")
+    .nullable(),
+});
+
+export type UpdateProjectDocsResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function updateQuoteProjectDocsAction(
+  input: z.input<typeof updateProjectDocsSchema>,
+): Promise<UpdateProjectDocsResult> {
+  await requireEmployeeOrAbove();
+  const parsed = updateProjectDocsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    };
+  }
+  const { id, projectSiteAddress, agreementSignedDate } = parsed.data;
+
+  const rows = await db.select().from(quotes).where(eq(quotes.id, id));
+  if (rows.length === 0) return { ok: false, error: "Quote not found" };
+
+  await db
+    .update(quotes)
+    .set({
+      projectSiteAddress:
+        projectSiteAddress && projectSiteAddress.length > 0
+          ? projectSiteAddress
+          : null,
+      agreementSignedDate:
+        agreementSignedDate && agreementSignedDate.length > 0
+          ? agreementSignedDate
+          : null,
+    })
+    .where(eq(quotes.id, id));
+
+  revalidatePath("/quotes");
+  revalidatePath(`/quotes/${id}`);
+  return { ok: true };
+}
+
 const acceptSchema = z.object({
   id: z.string().uuid(),
   // GST-inclusive final negotiated total. Empty / null falls back to the

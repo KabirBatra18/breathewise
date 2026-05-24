@@ -26,6 +26,7 @@ import {
   type ProjectQuoteRow,
 } from "@/lib/projects/totals";
 import { AcceptDialog } from "@/components/quotes/accept-dialog";
+import { ProjectDocsCard } from "@/components/quotes/project-docs-card";
 import { ConvertToInvoiceDialog } from "@/components/invoices/convert-dialog";
 import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import { PaymentLedger } from "@/components/quotes/payment-ledger";
@@ -859,6 +860,17 @@ export default async function QuoteDetailPage({
             </Card>
           ) : null}
         </div>
+      ) : null}
+
+      {isAcceptedOrAdvance ? (
+        <ProjectDocsCard
+          quoteId={quote.id}
+          quoteNumber={quote.quoteNumber}
+          initialSiteAddress={quote.projectSiteAddress ?? null}
+          initialAgreementDate={
+            (quote.agreementSignedDate as unknown as string | null) ?? null
+          }
+        />
       ) : null}
 
       {existingInvoices.length > 0 ? (

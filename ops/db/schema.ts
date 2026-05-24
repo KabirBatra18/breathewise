@@ -141,6 +141,13 @@ export const quotes = pgTable("quotes", {
   discountTargetSaving: money("discount_target_saving"),
   validityDays: integer("validity_days").notNull().default(15),
   issueDate: date("issue_date").notNull().defaultNow(),
+  // Where the work is being executed when different from the client's
+  // billing address — used on the Project Services Agreement and the
+  // Handover Certificate. NULL = falls back to the client address.
+  projectSiteAddress: text("project_site_address"),
+  // Date the client signed the Services Agreement. Prints as the
+  // Agreement Date on the Handover Certificate. NULL until signed.
+  agreementSignedDate: date("agreement_signed_date"),
   closedAt: timestamp("closed_at", { withTimezone: true }),
   closedReason: text("closed_reason"),
   createdBy: uuid("created_by").references(() => users.id),

@@ -127,6 +127,20 @@ export default async function InvoiceDetailPage({
                 <Download className="h-4 w-4" />
                 All 3 copies
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                render={
+                  <a
+                    href={`/api/invoices/${inv.id}/handover-certificate`}
+                    target="_blank"
+                    rel="noopener"
+                  />
+                }
+              >
+                <Download className="h-4 w-4" />
+                Handover Certificate
+              </Button>
               {!isCanceled && inv.invoiceNumber ? (
                 <CancelInvoiceButton
                   invoiceId={inv.id}
