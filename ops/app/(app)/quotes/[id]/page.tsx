@@ -297,7 +297,7 @@ export default async function QuoteDetailPage({
     };
 
     return (
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="flex items-start justify-between gap-4">
           <div>
             <Link
@@ -431,7 +431,7 @@ export default async function QuoteDetailPage({
     Date.now() > expiryMs;
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <Link
