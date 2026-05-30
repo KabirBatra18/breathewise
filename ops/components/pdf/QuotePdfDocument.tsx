@@ -440,11 +440,14 @@ export function QuotePdfDocument({ data }: { data: QuotePdfData }) {
                       <Text style={styles.totalsLabelCell}>MRP (with GST)</Text>
                       <Text style={styles.totalsAmountCell}>{fmt(section.mrpSubtotal)}</Text>
                     </View>
-                    {!new Decimal(section.totalDiscountVsMrp).isZero() ? (
+                    {new Decimal(section.totalDiscountVsMrp).isPositive() ? (
                       <View style={styles.totalsRow}>
                         <Text style={styles.totalsLabelCell}>Total discount</Text>
                         <Text style={styles.totalsAmountCell}>
-                          {fmt(`-${section.totalDiscountVsMrp}`, true)}
+                          {fmt(
+                            new Decimal(section.totalDiscountVsMrp).neg().toFixed(2),
+                            true,
+                          )}
                         </Text>
                       </View>
                     ) : null}
