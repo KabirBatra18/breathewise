@@ -2,7 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Robots-Tag": "noindex, nofollow, noarchive",
-  "X-Frame-Options": "DENY",
+  // SAMEORIGIN (not DENY) so the in-app PDF preview drawer can iframe
+  // our own /api/.../pdf endpoints. External sites are still blocked
+  // from clickjacking the app via the matching CSP frame-ancestors
+  // 'self' below.
+  "X-Frame-Options": "SAMEORIGIN",
   "X-Content-Type-Options": "nosniff",
   "Strict-Transport-Security":
     "max-age=63072000; includeSubDomains; preload",
@@ -21,7 +25,10 @@ const CSP = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "connect-src 'self'",
-  "frame-ancestors 'none'",
+  // 'self' (not 'none') so the in-app PDF preview drawer can frame
+  // our own /api/.../pdf endpoints. Cross-origin framing is still
+  // blocked, matching the X-Frame-Options: SAMEORIGIN above.
+  "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
