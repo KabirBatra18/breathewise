@@ -2,7 +2,13 @@
 document.addEventListener('DOMContentLoaded', () => {
   gsap.registerPlugin(ScrollTrigger);
   const navbar = document.querySelector('.navbar');
-  const hero = document.querySelector('.hero');
+  // Hero is .hero-v2 in the current index.html. The selector used to
+  // be .hero which silently broke the navbar at-hero transition and
+  // the IntersectionObserver inside the particles canvas. The
+  // canvas itself (#hero-particles) doesn't exist on the v2 hero, so
+  // the particle code below is dead anyway — kept in case the v1
+  // hero is reintroduced; if not, it can be deleted in a follow-up.
+  const hero = document.querySelector('.hero-v2') ?? document.querySelector('.hero');
 
   /* ========== LIVE AQI FLUX ========== */
   const aqiEl = document.getElementById('live-aqi');
@@ -92,16 +98,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     draw();
 
-    // Pause when not visible
-    const heroObserver = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) {
-        if (!animId) draw();
-      } else {
-        cancelAnimationFrame(animId);
-        animId = null;
-      }
-    });
-    heroObserver.observe(hero);
+    // Pause when not visible. Skip if there's no hero element (v2
+    // hero doesn't render the canvas; this code path only runs when
+    // the canvas exists AND we have a hero to observe).
+    if (hero) {
+      const heroObserver = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting) {
+          if (!animId) draw();
+        } else {
+          cancelAnimationFrame(animId);
+          animId = null;
+        }
+      });
+      heroObserver.observe(hero);
+    }
   }
 
   /* ========== NAV ========== */
