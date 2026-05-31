@@ -5,22 +5,24 @@ import postgres from "postgres";
 
 config({ path: ".env.local" });
 
-const MIGRATIONS = [
-  "0000_initial_schema.sql",
-  "0001_seed_data.sql",
-  "0002_products_subcategory.sql",
-  "0003_quotes_accepted_total.sql",
-  "0004_quotes_show_savings_on_pdf.sql",
-  "0005_quotes_discount_target_saving.sql",
-  "0006_invoice_compliance.sql",
-  "0007_invoice_round_off_and_ship_to.sql",
-  "0008_invoice_drafts.sql",
-  "0009_invoice_date_of_removal.sql",
-  "0010_invoice_cancel.sql",
-  "0011_quotes_project_docs.sql",
-  "0012_sync_check_constraints.sql",
-  "0013_indexes_hot_paths.sql",
-];
+const MIGRATIONS_DIR = path.resolve(process.cwd(), "drizzle");
+
+/**
+ * Auto-discover migration files in ./drizzle so adding a new
+ * NNNN_*.sql file is enough — you don't have to also remember to
+ * append to a hardcoded array (which was the silent-no-op trap we
+ * hit shipping migration 0009 → 0011).
+ *
+ * Sort lexicographically on the leading sequence. The filename
+ * format is fixed at NNNN_description.sql (zero-padded), so a plain
+ * sort gives the right order through 9999 migrations.
+ */
+async function discoverMigrations(): Promise<string[]> {
+  const entries = await fs.readdir(MIGRATIONS_DIR);
+  return entries
+    .filter((name) => /^\d{4}_[\w-]+\.sql$/.test(name))
+    .sort();
+}
 
 async function main() {
   const url =
@@ -45,15 +47,17 @@ async function main() {
       (await sql`SELECT name FROM _bw_migrations`).map((row) => row.name as string),
     );
 
-    for (const name of MIGRATIONS) {
+    const migrations = await discoverMigrations();
+    if (migrations.length === 0) {
+      throw new Error(`No migration files found in ${MIGRATIONS_DIR}`);
+    }
+
+    for (const name of migrations) {
       if (applied.has(name)) {
         console.log(`• ${name} — already applied, skipping`);
         continue;
       }
-      const file = await fs.readFile(
-        path.resolve(process.cwd(), "drizzle", name),
-        "utf8",
-      );
+      const file = await fs.readFile(path.join(MIGRATIONS_DIR, name), "utf8");
       console.log(`→ applying ${name}`);
       await sql.begin(async (tx) => {
         await tx.unsafe(file);

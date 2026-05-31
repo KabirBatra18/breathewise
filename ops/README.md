@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BreatheWise Ops
 
-## Getting Started
+Internal CRM + GST quoting + tax-invoicing app for BreatheWise / Urban
+Tech Home Solutions. Built for a single Indian small business; one
+OWNER (the founder), a small employee roster, daily desk use.
 
-First, run the development server:
+- **Stack:** Next.js 14 App Router · Drizzle ORM · Postgres (Supabase)
+  · Tailwind v4 · shadcn-style components on Base UI primitives
+  · `@react-pdf/renderer` + `pdf-lib` for documents
+- **Deploy:** Vercel (region `bom1`), domain `hub.breathe-wise.in`
+- **Lives at:** `/ops` inside the BreatheWise repo. The public marketing
+  site sits in the same repo at the root.
+
+## Quick links
+
+- [DEPLOY.md](./DEPLOY.md) — Vercel + Supabase setup, env vars,
+  domain configuration, rollback playbook
+- [`drizzle/`](./drizzle) — SQL migrations (auto-discovered by
+  `pnpm db:migrate`; just drop a new `NNNN_*.sql` file)
+- [`db/schema.ts`](./db/schema.ts) — Drizzle schema, single source of
+  TS truth for the DB
+- [`lib/pricing/`](./lib/pricing) — money math (HALF_UP rounding,
+  GST split, MRP discount engine). 88 vitest tests gate any change.
+
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.local.example .env.local         # fill in DATABASE_URL etc.
+pnpm db:migrate                          # apply schema to your local DB
+pnpm db:seed                             # OWNER + sample data
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Useful scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Command | Does |
+|---|---|
+| `pnpm dev` | Next.js dev server |
+| `pnpm typecheck` | `tsc --noEmit`, gated by CI |
+| `pnpm test` | Vitest — money math + projects rollup |
+| `pnpm e2e` | Playwright smoke tests |
+| `pnpm db:migrate` | Apply pending SQL migrations (auto-discovers files) |
+| `pnpm db:seed` | Seed OWNER + Astberg catalog |
+| `pnpm db:studio` | Drizzle Studio for ad-hoc queries |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploying to prod
 
-## Learn More
+Migrations **do not run automatically** on Vercel deploy. After
+pushing a schema change, run locally against the prod DB:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm dlx vercel@latest env pull .env.production.local --environment=production --yes
+DATABASE_URL=$(grep '^POSTGRES_URL_NON_POOLING=' .env.production.local | cut -d= -f2- | tr -d '"') pnpm db:migrate
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Then push the code commit. See [DEPLOY.md](./DEPLOY.md) for the full
+walkthrough and a rollback runbook.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## House rules
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Don't touch money math without running `pnpm test`.** The 88-test
+  pricing suite is the firewall against silent invoice errors.
+- **Drizzle for queries, never `sql.raw`.** Parameterised by default.
+- **New migration → drop the file in `drizzle/`.** The runner
+  auto-discovers; no array to update.
+- **Add an `audit({ action, entityType, entityId, metadata })` call**
+  on every mutating server action. The audit log is what we'll need
+  if a GST audit ever asks "who changed this invoice and when."

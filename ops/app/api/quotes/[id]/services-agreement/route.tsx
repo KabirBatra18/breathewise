@@ -25,6 +25,9 @@ function joinAddress(c: typeof clients.$inferSelect): string {
     .join(", ");
 }
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } },

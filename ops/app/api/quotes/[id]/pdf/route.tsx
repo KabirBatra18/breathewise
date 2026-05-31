@@ -29,6 +29,9 @@ import {
   type QuotePdfLine,
 } from "@/components/pdf/QuotePdfDocument";
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 export async function GET(
   req: Request,
   { params }: { params: { id: string } },

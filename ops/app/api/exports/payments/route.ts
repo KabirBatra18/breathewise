@@ -12,6 +12,9 @@ import { csvEscape } from "@/lib/csv";
  * Columns: received_at, quote#, client, payment_type, mode, reference,
  * amount_inr, recorded_by, notes.
  */
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 export async function GET(req: Request) {
   await requireOwner();
   const url = new URL(req.url);

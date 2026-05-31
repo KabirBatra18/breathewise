@@ -30,6 +30,9 @@ function clientContact(c: typeof clients.$inferSelect): string {
   return [c.phone, c.email].filter((s) => s && s.trim() !== "").join(" · ");
 }
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } },

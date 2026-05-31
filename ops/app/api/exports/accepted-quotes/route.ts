@@ -18,6 +18,9 @@ import { csvEscape } from "@/lib/csv";
  * Columns: quote#, client, status, accepted_at, contract_value (₹),
  * received (₹), outstanding (₹), accepted_notes.
  */
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 export async function GET(req: Request) {
   await requireOwner();
   const url = new URL(req.url);
