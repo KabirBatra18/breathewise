@@ -13,6 +13,7 @@ import {
   Receipt,
   Settings,
   UserCog,
+  KeyRound,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -80,17 +81,31 @@ export function Sidebar({ role, name }: { role: Role; name: string }) {
           );
         })}
       </nav>
-      <form action={logoutAction} className="border-t p-2">
-        <Button
-          type="submit"
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-muted-foreground"
+      <div className="border-t p-2">
+        <Link
+          href="/settings/change-password"
+          className={cn(
+            "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+            pathname.startsWith("/settings/change-password")
+              ? "bg-muted font-medium text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
         >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </Button>
-      </form>
+          <KeyRound className="h-4 w-4" />
+          Change password
+        </Link>
+        <form action={logoutAction}>
+          <Button
+            type="submit"
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-muted-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Button>
+        </form>
+      </div>
     </aside>
   );
 }

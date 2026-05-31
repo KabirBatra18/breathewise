@@ -8,6 +8,7 @@ import { db } from "@/lib/db/client";
 import { clients } from "@/db/schema";
 import { requireEmployeeOrAbove, requireOwner } from "@/lib/auth/server";
 import { deriveStateCode } from "@/lib/gst/state-codes";
+import { audit } from "@/lib/audit/log";
 
 // Indian phone: 10 digits, optional country code +91/91/0
 const phoneSchema = z
@@ -94,6 +95,13 @@ export async function createClientAction(
       createdBy: actor.id,
     })
     .returning({ id: clients.id });
+  await audit({
+    actorId: actor.id,
+    action: "CLIENT_CREATE",
+    entityType: "client",
+    entityId: row.id,
+    metadata: { name: parsed.data.name, gstin: parsed.data.gstin ?? null },
+  });
   revalidatePath("/clients");
   redirect(`/clients/${row.id}`);
 }
@@ -103,7 +111,11 @@ export async function updateClientAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireEmployeeOrAbove();
+  const actor = await requireEmployeeOrAbove();
+  const parsedId = z.string().uuid().safeParse(clientId);
+  if (!parsedId.success) {
+    return { ok: false, error: "Invalid client id." };
+  }
   const parsed = clientSchema.safeParse(readForm(formData));
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -115,18 +127,32 @@ export async function updateClientAction(
       stateCode: deriveStateCode(parsed.data.state),
     })
     .where(eq(clients.id, clientId));
+  await audit({
+    actorId: actor.id,
+    action: "CLIENT_UPDATE",
+    entityType: "client",
+    entityId: clientId,
+    metadata: { name: parsed.data.name },
+  });
   revalidatePath("/clients");
   revalidatePath(`/clients/${clientId}`);
   return { ok: true, id: clientId };
 }
 
 export async function softDeleteClientAction(formData: FormData): Promise<void> {
-  await requireOwner();
+  const actor = await requireOwner();
   const id = z.string().uuid().parse(formData.get("id"));
   await db
     .update(clients)
     .set({ deletedAt: new Date() })
     .where(eq(clients.id, id));
+  await audit({
+    actorId: actor.id,
+    action: "CLIENT_SOFT_DELETE",
+    entityType: "client",
+    entityId: id,
+    metadata: {},
+  });
   revalidatePath("/clients");
   redirect("/clients");
 }

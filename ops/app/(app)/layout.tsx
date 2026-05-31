@@ -1,4 +1,6 @@
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/app/sidebar";
 import {
   CommandPalette,
@@ -10,12 +12,27 @@ import { requireAuth } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
+const CHANGE_PASSWORD_PATH = "/settings/change-password";
+
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const user = await requireAuth();
+
+  // Force the user to set a fresh password the first time they log in
+  // after either: (a) being created by an OWNER, (b) having their
+  // password reset. The flag is cleared by changeOwnPasswordAction
+  // (see /settings/change-password). x-pathname is set by middleware
+  // so we can avoid an infinite redirect loop on the change-password
+  // page itself.
+  if (user.mustChangePassword) {
+    const path = headers().get("x-pathname") ?? "";
+    if (!path.startsWith(CHANGE_PASSWORD_PATH)) {
+      redirect(CHANGE_PASSWORD_PATH);
+    }
+  }
 
   // Lightweight search index for the Cmd+K palette. Whole tree is small
   // (~250 rows) so we ship the lot to the client and filter locally —

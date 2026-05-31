@@ -7,18 +7,25 @@ import { db } from "@/lib/db/client";
  * auto-pausing after ~7 days of zero DB activity. Triggered daily by
  * the cron entry in vercel.json (path: /api/cron/db-ping).
  *
- * The query is intentionally trivial — a single SELECT 1 round-trip
- * is enough for Supabase to count as activity and reset its pause
- * timer. Endpoint is unauthenticated on purpose: the payload is
- * non-sensitive ({ok, latencyMs, ts}) and even adversarial traffic
- * just keeps the DB warm, which is what we want.
+ * Auth: Vercel attaches `Authorization: Bearer ${CRON_SECRET}` to its
+ * own cron calls in production. We verify the header to keep the
+ * endpoint from being public — adversarial traffic isn't a big DoS
+ * risk (it's literally a SELECT 1) but a public DB-ping is also a
+ * fingerprint, and there's no reason to leave it open.
  *
- * Set `dynamic = "force-dynamic"` so Next doesn't try to statically
- * render this at build time.
+ * Locally / in dev where CRON_SECRET is unset, we skip the check so
+ * `curl localhost:3000/api/cron/db-ping` still works for testing.
  */
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (secret) {
+    const auth = req.headers.get("authorization");
+    if (auth !== `Bearer ${secret}`) {
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+  }
   const start = Date.now();
   try {
     await db.execute(sql`SELECT 1`);

@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { users } from "@/db/schema";
 import { requireOwner } from "@/lib/auth/server";
 import { hashPassword } from "@/lib/auth/password";
+import { audit } from "@/lib/audit/log";
 
 const USERNAME_RE = /^[a-zA-Z0-9._-]{3,32}$/;
 
@@ -42,13 +43,27 @@ export async function createUserAction(
   }
 
   const passwordHash = await hashPassword(parsed.data.password);
-  await db.insert(users).values({
-    username: parsed.data.username,
-    fullName: parsed.data.fullName,
-    role: parsed.data.role,
-    passwordHash,
-    mustChangePassword: true,
-    createdBy: actor.id,
+  const inserted = await db
+    .insert(users)
+    .values({
+      username: parsed.data.username,
+      fullName: parsed.data.fullName,
+      role: parsed.data.role,
+      passwordHash,
+      mustChangePassword: true,
+      createdBy: actor.id,
+    })
+    .returning({ id: users.id });
+
+  await audit({
+    actorId: actor.id,
+    action: "USER_CREATE",
+    entityType: "user",
+    entityId: inserted[0]?.id ?? null,
+    metadata: {
+      username: parsed.data.username,
+      role: parsed.data.role,
+    },
   });
 
   revalidatePath("/settings/users");
@@ -64,7 +79,7 @@ export async function resetPasswordAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireOwner();
+  const actor = await requireOwner();
   const parsed = resetSchema.safeParse({
     userId: formData.get("userId"),
     password: formData.get("password"),
@@ -79,6 +94,14 @@ export async function resetPasswordAction(
     .set({ passwordHash, mustChangePassword: true })
     .where(eq(users.id, parsed.data.userId));
 
+  await audit({
+    actorId: actor.id,
+    action: "USER_RESET_PW",
+    entityType: "user",
+    entityId: parsed.data.userId,
+    metadata: {},
+  });
+
   revalidatePath("/settings/users");
   return { ok: true };
 }
@@ -92,9 +115,17 @@ export async function toggleActiveAction(formData: FormData): Promise<void> {
   }
   const target = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!target) return;
+  const nextActive = !target.isActive;
   await db
     .update(users)
-    .set({ isActive: !target.isActive })
+    .set({ isActive: nextActive })
     .where(eq(users.id, userId));
+  await audit({
+    actorId: actor.id,
+    action: nextActive ? "USER_REACTIVATE" : "USER_DEACTIVATE",
+    entityType: "user",
+    entityId: userId,
+    metadata: { username: target.username },
+  });
   revalidatePath("/settings/users");
 }

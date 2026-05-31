@@ -15,12 +15,15 @@ const SECURITY_HEADERS: Record<string, string> = {
 };
 
 // TODO(zyra): tighten to nonce-based CSP once auth flow is stable.
-// For Phase 1, 'unsafe-inline' is required by Next.js's injected inline scripts
-// and next/font's injected inline styles; narrowing that requires emitting a
-// per-request nonce, which we'll do in a follow-up.
+// For Phase 1, 'unsafe-inline' is required by Next.js's injected inline
+// bootstrap script and next/font's injected inline styles; narrowing that
+// requires emitting a per-request nonce, which we'll do in a follow-up.
+// 'unsafe-eval' was previously here but Next 14 prod doesn't require it —
+// dropped 2026-05-31 per audit. If a client-side dep regresses, re-add
+// only after confirming with the audit issue.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
@@ -35,7 +38,14 @@ const CSP = [
 ].join("; ");
 
 export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+  // Forward the current pathname as a request header so server
+  // components (specifically the (app) layout's mustChangePassword
+  // redirect) can detect the current page without spinning up its
+  // own router. Next.js doesn't expose request.nextUrl to RSCs.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(key, value);

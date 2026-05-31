@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import { requireOwner } from "@/lib/auth/server";
 import { Decimal, ZERO, toMoney } from "@/lib/pricing/decimal";
+import { csvEscape } from "@/lib/csv";
 
 /**
  * Accountant-friendly CSV of every accepted/advance-paid quote for the
@@ -110,14 +111,6 @@ export async function GET(req: Request) {
       "Cache-Control": "private, no-store",
     },
   });
-}
-
-function csvEscape(s: string): string {
-  if (s == null) return "";
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
 }
 
 function monthRange(monthParam: string | null): {

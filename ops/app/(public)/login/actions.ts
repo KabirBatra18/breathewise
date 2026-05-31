@@ -23,11 +23,24 @@ export type LoginState = {
   error?: string;
 };
 
-const FAIL_LIMIT = 5;
+// Two independent throttles, both with a 10-minute window:
+//   IP_FAIL_LIMIT     — 5 failed attempts from one IP. Catches the
+//                       simple brute-force from one source.
+//   USER_FAIL_LIMIT   — 8 failed attempts on one username, regardless
+//                       of source IP. Catches credential-stuffing
+//                       across rotating residential proxies (cheap
+//                       enough to defeat IP-only throttling).
 const FAIL_WINDOW_MINUTES = 10;
+const IP_FAIL_LIMIT = 5;
+const USER_FAIL_LIMIT = 8;
 
 function ipFromHeaders(): string {
   const h = headers();
+  // Vercel sets `x-vercel-forwarded-for` from the platform edge and
+  // strips client-supplied versions, so prefer it when present.
+  // Falls back to x-forwarded-for in dev / non-Vercel hosting.
+  const vercel = h.get("x-vercel-forwarded-for");
+  if (vercel) return vercel.split(",")[0]!.trim();
   const fwd = h.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0]!.trim();
   return h.get("x-real-ip") ?? "0.0.0.0";
@@ -50,20 +63,34 @@ export async function loginAction(
   // Opportunistically prune old rows, then count recent failures.
   await db.execute(sql`SELECT prune_login_attempts()`);
 
-  const failRows = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(loginAttempts)
-    .where(
-      and(
-        eq(loginAttempts.ipAddress, ip),
-        eq(loginAttempts.succeeded, false),
-        gt(
-          loginAttempts.attemptedAt,
-          sql`NOW() - (${FAIL_WINDOW_MINUTES} || ' minutes')::interval`,
+  // Count recent failures both by IP and by username (in parallel)
+  // and reject if either exceeds its threshold.
+  const windowStart = sql`NOW() - (${FAIL_WINDOW_MINUTES} || ' minutes')::interval`;
+  const [ipFailRows, userFailRows] = await Promise.all([
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(loginAttempts)
+      .where(
+        and(
+          eq(loginAttempts.ipAddress, ip),
+          eq(loginAttempts.succeeded, false),
+          gt(loginAttempts.attemptedAt, windowStart),
         ),
       ),
-    );
-  if ((failRows[0]?.n ?? 0) >= FAIL_LIMIT) {
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(loginAttempts)
+      .where(
+        and(
+          eq(loginAttempts.username, parsed.data.username),
+          eq(loginAttempts.succeeded, false),
+          gt(loginAttempts.attemptedAt, windowStart),
+        ),
+      ),
+  ]);
+  const ipFailures = ipFailRows[0]?.n ?? 0;
+  const userFailures = userFailRows[0]?.n ?? 0;
+  if (ipFailures >= IP_FAIL_LIMIT || userFailures >= USER_FAIL_LIMIT) {
     return { ok: false, error: "Too many attempts. Try again in a few minutes." };
   }
 

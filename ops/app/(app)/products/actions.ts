@@ -8,6 +8,7 @@ import { db } from "@/lib/db/client";
 import { productCosts, products } from "@/db/schema";
 import { requireEmployeeOrAbove, requireOwner } from "@/lib/auth/server";
 import { PRODUCT_CATEGORIES } from "@/lib/constants";
+import { audit } from "@/lib/audit/log";
 
 const categoryEnum = z.enum(
   PRODUCT_CATEGORIES.map((c) => c.value) as [string, ...string[]],
@@ -128,6 +129,18 @@ export async function createProductAction(
     return row.id;
   });
 
+  await audit({
+    actorId: actor.id,
+    action: "PRODUCT_CREATE",
+    entityType: "product",
+    entityId: newId,
+    metadata: {
+      sku: parsed.data.sku ?? null,
+      name: parsed.data.name,
+      category: parsed.data.category,
+    },
+  });
+
   revalidatePath("/products");
   redirect(`/products/${newId}`);
 }
@@ -138,6 +151,10 @@ export async function updateProductAction(
   formData: FormData,
 ): Promise<ActionResult> {
   const actor = await requireOwner();
+  const idCheck = z.string().uuid().safeParse(productId);
+  if (!idCheck.success) {
+    return { ok: false, error: "Invalid product id." };
+  }
 
   const parsed = productSchema.safeParse(readForm(formData));
   if (!parsed.success) {
@@ -198,30 +215,53 @@ export async function updateProductAction(
     }
   });
 
+  await audit({
+    actorId: actor.id,
+    action: "PRODUCT_UPDATE",
+    entityType: "product",
+    entityId: productId,
+    metadata: { sku: parsed.data.sku ?? null, name: parsed.data.name },
+  });
+
   revalidatePath("/products");
   revalidatePath(`/products/${productId}`);
   return { ok: true, id: productId };
 }
 
 export async function softDeleteProductAction(formData: FormData): Promise<void> {
-  await requireOwner();
+  const actor = await requireOwner();
   const id = z.string().uuid().parse(formData.get("id"));
   await db
     .update(products)
     .set({ deletedAt: new Date(), isActive: false })
     .where(eq(products.id, id));
+  await audit({
+    actorId: actor.id,
+    action: "PRODUCT_SOFT_DELETE",
+    entityType: "product",
+    entityId: id,
+    metadata: {},
+  });
   revalidatePath("/products");
   redirect("/products");
 }
 
 export async function toggleProductActiveAction(formData: FormData): Promise<void> {
-  await requireEmployeeOrAbove();
+  const actor = await requireEmployeeOrAbove();
   const id = z.string().uuid().parse(formData.get("id"));
   const row = await db.query.products.findFirst({ where: eq(products.id, id) });
   if (!row) return;
+  const nextActive = !row.isActive;
   await db
     .update(products)
-    .set({ isActive: !row.isActive })
+    .set({ isActive: nextActive })
     .where(eq(products.id, id));
+  await audit({
+    actorId: actor.id,
+    action: nextActive ? "PRODUCT_REACTIVATE" : "PRODUCT_DEACTIVATE",
+    entityType: "product",
+    entityId: id,
+    metadata: { sku: row.sku ?? null },
+  });
   revalidatePath("/products");
 }

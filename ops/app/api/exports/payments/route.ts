@@ -3,6 +3,7 @@ import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clients, payments, quotes, users } from "@/db/schema";
 import { requireOwner } from "@/lib/auth/server";
+import { csvEscape } from "@/lib/csv";
 
 /**
  * Accountant-friendly CSV of every payment received (or refunded) in
@@ -65,14 +66,6 @@ export async function GET(req: Request) {
       "Cache-Control": "private, no-store",
     },
   });
-}
-
-function csvEscape(s: string): string {
-  if (s == null) return "";
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
 }
 
 function monthRange(monthParam: string | null): {
