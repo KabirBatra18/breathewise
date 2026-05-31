@@ -53,6 +53,7 @@ import {
 import { formatIndianNumber } from "@/lib/pricing/format";
 import { amountInWords } from "@/lib/pricing/words";
 import { Decimal, toMoney } from "@/lib/pricing/decimal";
+import { formatIST } from "@/lib/date-format";
 import { QuoteBuilder } from "@/components/quotes/quote-builder";
 import {
   createAddendumAction,
@@ -445,7 +446,7 @@ export default async function QuoteDetailPage({
             {quote.quoteNumber}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {client?.name} · Issued {quote.issueDate as unknown as string} ·
+            {client?.name} · Issued {formatIST(quote.issueDate as unknown as string)} ·
             Valid {quote.validityDays} days
           </p>
         </div>
@@ -695,7 +696,7 @@ export default async function QuoteDetailPage({
                         <QuoteStatusBadge status={c.status} />
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {c.issueDate as unknown as string}
+                        {formatIST(c.issueDate as unknown as string)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {v.isZero() ? "—" : `₹${formatIndianNumber(v)}`}
@@ -902,7 +903,7 @@ export default async function QuoteDetailPage({
                       </Link>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {inv.issueDate as unknown as string}
+                      {formatIST(inv.issueDate as unknown as string)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       ₹{formatIndianNumber(new Decimal(inv.totalInvoiceValue))}

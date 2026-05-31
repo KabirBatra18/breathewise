@@ -9,6 +9,7 @@ import {
   quotes,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
+import { formatIST } from "@/lib/date-format";
 import { Badge } from "@/components/ui/badge";
 import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -197,7 +198,7 @@ export default async function QuotesListPage({
                           : "—"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {r.issueDate as unknown as string}
+                        {formatIST(r.issueDate as unknown as string)}
                       </TableCell>
                       <TableCell className="w-8 text-muted-foreground">
                         <ChevronRight className="h-4 w-4" />

@@ -20,6 +20,7 @@ import {
   quotes,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
+import { formatIST } from "@/lib/date-format";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -314,7 +315,7 @@ export default async function DashboardPage() {
                         : "—"}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {r.issueDate as unknown as string}
+                      {formatIST(r.issueDate as unknown as string)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       <ArrowRight className="h-4 w-4" />

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Decimal, ZERO, toMoney } from "@/lib/pricing/decimal";
 import { formatIndianNumber } from "@/lib/pricing/format";
+import { formatIST } from "@/lib/date-format";
 import { DeleteDraftButton } from "@/components/invoices/delete-draft-button";
 import { PdfPreviewButton } from "@/components/ui/pdf-preview-button";
 
@@ -222,7 +223,7 @@ export default async function InvoicesListPage() {
                         </Link>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {r.issueDate as unknown as string}
+                        {formatIST(r.issueDate as unknown as string)}
                       </TableCell>
                       <TableCell>
                         {[r.clientName, r.clientCompany]
@@ -321,7 +322,7 @@ export default async function InvoicesListPage() {
                       </Link>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {r.issueDate as unknown as string}
+                      {formatIST(r.issueDate as unknown as string)}
                     </TableCell>
                     <TableCell>
                       {[r.clientName, r.clientCompany]

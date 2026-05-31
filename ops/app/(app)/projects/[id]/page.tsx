@@ -11,6 +11,7 @@ import {
   quotes,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
+import { formatIST } from "@/lib/date-format";
 import { Breadcrumbs } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
@@ -264,7 +265,7 @@ export default async function ProjectPage({
                       <QuoteStatusBadge status={q.status} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {q.issueDate as unknown as string}
+                      {formatIST(q.issueDate as unknown as string)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {v.isZero() ? "—" : formatIndianNumber(v)}
@@ -326,7 +327,7 @@ export default async function ProjectPage({
                       <InvoiceStatusBadge status={inv.status} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {inv.issueDate as unknown as string}
+                      {formatIST(inv.issueDate as unknown as string)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatIndianNumber(new Decimal(inv.totalInvoiceValue))}

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
 import { asc, eq } from "drizzle-orm";
-import { format } from "date-fns";
 import { db } from "@/lib/db/client";
+import { formatIST, formatISTLong } from "@/lib/date-format";
 import { invoiceLines, invoices, quotes } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { Breadcrumbs } from "@/components/ui/breadcrumb";
@@ -81,7 +81,7 @@ export default async function InvoiceDetailPage({
             ) : (
               <>
                 <span>
-                  Issued {inv.issueDate as unknown as string} · Place of supply{" "}
+                  Issued {formatIST(inv.issueDate as unknown as string)} · Place of supply{" "}
                   {inv.placeOfSupply} ({inv.placeOfSupplyCode})
                 </span>
                 <ToneBadge tone={inv.isInterState ? "violet" : "sky"}>
@@ -162,7 +162,7 @@ export default async function InvoiceDetailPage({
           {inv.canceledAt ? (
             <p className="mt-2 text-xs text-rose-900/70 dark:text-rose-200/70">
               Canceled on{" "}
-              {format(new Date(inv.canceledAt as unknown as string), "d MMMM yyyy, p")}.
+              {formatISTLong(inv.canceledAt as unknown as string)}.
             </p>
           ) : null}
           {inv.cancelReason ? (

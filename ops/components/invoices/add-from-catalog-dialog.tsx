@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -65,7 +64,6 @@ export function AddFromCatalogDialog({
   onAdded: (line: CreatedInvoiceLine, sku: string | null) => void;
   trigger: React.ReactNode;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [productId, setProductId] = useState<string | null>(null);
@@ -123,11 +121,13 @@ export function AddFromCatalogDialog({
       }
       // Server returns the inserted row — emit it + the SKU we already
       // resolved client-side. Parent maps to its editor-line shape.
+      // onAdded appends to the editor's local state; no router.refresh
+      // needed (and the previous router.refresh() here was a no-op
+      // since the editor's `lines` is useState-mount-only).
       onAdded(res.line, detail.sku);
       toast.success(`Added ${detail.sku ?? detail.name} to the invoice.`);
       resetState();
       setOpen(false);
-      router.refresh();
     });
   }
 
