@@ -12,6 +12,7 @@ import {
   timestamp,
   unique,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -127,7 +128,10 @@ export const quotes = pgTable("quotes", {
     .references(() => clients.id),
   leadId: uuid("lead_id"),
   quoteType: text("quote_type").notNull(),
-  parentQuoteId: uuid("parent_quote_id"),
+  // Addendum quotes point back at their parent. The SQL FK is in
+  // 0000_initial_schema.sql:128; declaring .references() here lets
+  // Drizzle's relational queries traverse it.
+  parentQuoteId: uuid("parent_quote_id").references((): AnyPgColumn => quotes.id),
   status: text("status").notNull(),
   roughDiscountPercent: percent("rough_discount_percent"),
   acceptedTierLabel: text("accepted_tier_label"),

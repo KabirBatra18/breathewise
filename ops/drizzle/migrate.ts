@@ -19,6 +19,7 @@ const MIGRATIONS = [
   "0010_invoice_cancel.sql",
   "0011_quotes_project_docs.sql",
   "0012_sync_check_constraints.sql",
+  "0013_indexes_hot_paths.sql",
 ];
 
 async function main() {

@@ -677,7 +677,7 @@ const updateMetaSchema = z.object({
 export async function updateInvoiceMetaAction(
   input: z.input<typeof updateMetaSchema>,
 ): Promise<LineResult> {
-  await requireEmployeeOrAbove();
+  const actor = await requireEmployeeOrAbove();
   const parsed = updateMetaSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -777,6 +777,29 @@ export async function updateInvoiceMetaAction(
       }
       await recomputeAndPersistTotals(tx, data.invoiceId);
     }
+  });
+
+  // Forensic audit on meta updates. The big one to capture is
+  // interStateFlipped — flipping CGST/SGST ↔ IGST changes the tax
+  // breakdown on every line of the draft, and we want a record of
+  // the actor + the moment if a customer ever queries the invoice's
+  // tax treatment after issue.
+  await audit({
+    actorId: actor.id,
+    action: "INVOICE_META_UPDATE",
+    entityType: "invoice",
+    entityId: data.invoiceId,
+    metadata: {
+      interStateFlipped,
+      changedFields: {
+        issueDate: data.issueDate !== undefined,
+        dateOfRemoval: data.dateOfRemoval !== undefined,
+        reverseCharge: data.reverseCharge !== undefined,
+        deliveryAddress: data.deliveryAddress !== undefined,
+        deliveryState: data.deliveryState !== undefined,
+        notes: data.notes !== undefined,
+      },
+    },
   });
 
   revalidatePath(`/invoices/${data.invoiceId}/edit`);
