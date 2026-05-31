@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { quoteSends, quoteTierFinancials, quotes } from "@/db/schema";
+import { clients, quoteSends, quoteTierFinancials, quotes } from "@/db/schema";
 import { requireEmployeeOrAbove } from "@/lib/auth/server";
 import { audit } from "@/lib/audit/log";
 
@@ -98,7 +98,7 @@ export async function buildWhatsappMessage(
   const total = fin?.totalInvoiceValue ?? "—";
 
   const client = await db.query.clients.findFirst({
-    where: eq(quotes.clientId, quote.clientId),
+    where: eq(clients.id, quote.clientId),
   });
 
   return [

@@ -553,6 +553,12 @@ export function QuoteBuilder({
   function save() {
     const payload = buildPayload();
     if (!payload) return;
+    // Release the discount input's raw-typing buffer before we save.
+    // Without this, if the user types into the discount field and
+    // clicks Save (which sits in the sticky right column, never
+    // blurring the input), the raw string remains in state forever —
+    // the displayed discount stays stale even after the save lands.
+    setDiscountRawInput(null);
     startTransition(async () => {
       const res = await saveRoughQuoteAction(payload);
       if (!res.ok) {
