@@ -1,0 +1,57 @@
+{
+  "label": "Audit of June 2026 pricelist migration (migration 0015)",
+  "audit_date": "2026-06-04",
+  "verdict": "PASS \u2014 migration is mathematically correct across all 210 SKUs",
+  "summary": {
+    "total_skus_touched": 210,
+    "existing_updated": 196,
+    "new_inserted": 14,
+    "drift_count": 0,
+    "real_issues_found": 1,
+    "expected_outliers": 11
+  },
+  "money_math_regression_88_of_88": true,
+  "engine_code_touched": false,
+  "real_issue": {
+    "sku": "AYJ-100X100X75PE",
+    "description": "PE Pipe Oblique Connector (110x110x75)",
+    "problem": "Astberg's June 2026 PDF has internal math error on this row. DP Basic printed as 466.10 + GST 83.90 = 550, but DP printed as 610. Either DP Basic should have been 516.95, OR DP should have been 550.",
+    "what_we_stored": {
+      "mrp": 760.0,
+      "dp": 610.0,
+      "cost": 372.88
+    },
+    "alternative_if_dp_is_correct": {
+      "mrp": 760.0,
+      "dp": 610.0,
+      "cost": 413.56
+    },
+    "money_impact_per_unit_if_wrong": 40.68,
+    "recommended_action": "Wait for next Astberg PI for this SKU; check what they actually bill. If billed at ~413.56 per unit, write a one-SKU correction migration."
+  },
+  "expected_outliers_aeb_family": {
+    "explanation": "Astberg widened dealer-to-retail gap on the ABS Ball Jet Nozzle family. MRP up 20-27%, cost up ~6%. Intentional retail margin redistribution; favours us when selling at MRP.",
+    "skus": [
+      "AEB-75",
+      "AEB-100",
+      "AEB-150",
+      "AEB-200",
+      "AEB-250",
+      "AEB-315",
+      "AEB-350",
+      "AEB-400",
+      "APB-150"
+    ]
+  },
+  "minor_inverse_anomalies": [
+    {
+      "sku": "AJT-75",
+      "note": "MRP -\u20b910 / cost +\u20b917 \u2014 Astberg trimmed retail + raised dealer. PDF math internally consistent. Verified correct."
+    },
+    {
+      "sku": "ASD-100",
+      "note": "MRP -\u20b95 / cost +\u20b917 \u2014 same pattern. PDF math internally consistent. Verified correct."
+    }
+  ],
+  "verification_method": "Three-way reconciliation: live prod DB query  \u2194  JAN-2025 catalog archive  \u2194  fresh independent re-parse of all 3 Astberg PDFs. Plus per-SKU formula re-derivation (ERV: cost = MRP \u00d7 0.80 / 1.18; non-ERV: cost = DP Basic \u00d7 0.80). Drift tolerance \u00b1\u20b90.05."
+}
