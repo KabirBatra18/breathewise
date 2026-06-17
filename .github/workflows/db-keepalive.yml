@@ -1,0 +1,94 @@
+name: DB keepalive
+
+# Pings the prod DB every 6 hours to prevent Supabase free-tier
+# auto-pause. Backup to the Vercel cron (which has not been reliably
+# firing — zero invocations in prod logs as of 2026-06-04 despite a
+# vercel.json cron config that's been in place since 2026-05-25).
+#
+# Two layers of redundancy:
+#   1. Direct SQL ping via psql — no app code in the loop, only the DB.
+#      If this fails, the DB is genuinely paused/deleted.
+#   2. App endpoint ping — confirms the Next.js function path stays
+#      warm too, so the first user request after the cron isn't a
+#      cold-start.
+#
+# Frequency: every 6 hours (4× daily). Supabase free-tier pause
+# threshold is ~7 days of inactivity; 6-hourly gives us a 28×
+# safety margin while staying within GitHub Actions free quotas
+# (4 runs/day × 30 days × ~30s each ≈ 60 min/month, well under
+# the 2000 min/month free for private repos).
+#
+# Required secrets (set in GitHub repo Settings → Secrets):
+#   POSTGRES_URL_NON_POOLING   — pull from vercel env, paste verbatim
+#   APP_PING_URL               — https://hub.breathe-wise.in/api/cron/db-ping
+#   CRON_SECRET                — same value as the Vercel env var; used
+#                                for the Authorization: Bearer header
+#                                when calling the app endpoint
+
+on:
+  schedule:
+    # Every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC
+    # = 05:30, 11:30, 17:30, 23:30 IST
+    - cron: '0 */6 * * *'
+  # Manual trigger for testing
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: SELECT 1 on prod DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -qq -y postgresql-client
+
+      - name: Direct SQL ping
+        env:
+          PG: ${{ secrets.POSTGRES_URL_NON_POOLING }}
+        run: |
+          if [ -z "$PG" ]; then
+            echo "::error::POSTGRES_URL_NON_POOLING secret is not set. Add it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          start=$(date +%s%N)
+          # -v ON_ERROR_STOP=1 makes psql exit non-zero on SQL errors.
+          # -X skips ~/.psqlrc, -A unaligned, -t tuples-only — minimum noise.
+          psql "$PG" -v ON_ERROR_STOP=1 -X -A -t -c 'SELECT 1' > /tmp/result.txt 2>&1
+          end=$(date +%s%N)
+          result=$(cat /tmp/result.txt)
+          if [ "$result" != "1" ]; then
+            echo "::error::Unexpected query result: $result"
+            exit 1
+          fi
+          latency_ms=$(( (end - start) / 1000000 ))
+          echo "✓ DB responded with: $result"
+          echo "  Latency: ${latency_ms}ms"
+
+      - name: App endpoint ping (warms Next.js function too)
+        env:
+          URL: ${{ secrets.APP_PING_URL }}
+          SECRET: ${{ secrets.CRON_SECRET }}
+        # Optional — only runs if APP_PING_URL is set.
+        # Auth header sent only if CRON_SECRET is also set (matches
+        # the endpoint's auth-when-secret-present convention).
+        run: |
+          if [ -z "$URL" ]; then
+            echo "APP_PING_URL not set; skipping app endpoint ping."
+            exit 0
+          fi
+          headers=()
+          if [ -n "$SECRET" ]; then
+            headers=(-H "Authorization: Bearer $SECRET")
+          fi
+          # -f makes curl exit non-zero on HTTP 4xx/5xx
+          http_code=$(curl -s -o /tmp/resp.txt -w '%{http_code}' "${headers[@]}" "$URL" || true)
+          echo "HTTP $http_code"
+          cat /tmp/resp.txt
+          # Treat 2xx as success
+          case "$http_code" in
+            2*) echo "✓ app endpoint healthy" ;;
+            *)  echo "::warning::App endpoint returned $http_code — DB ping above was the authoritative check" ;;
+          esac
