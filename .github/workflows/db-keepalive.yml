@@ -42,17 +42,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Install psql
-        run: sudo apt-get update -qq && sudo apt-get install -qq -y postgresql-client
-
-      - name: Direct SQL ping
+      # Guard: if the POSTGRES_URL_NON_POOLING secret hasn't been
+      # configured yet, exit the job cleanly with a NOTICE in the
+      # run summary. Without this, scheduled runs error-out every
+      # 6 hours and GitHub emails about the failure — noisy during
+      # the gap between "workflow committed" and "secrets added".
+      - name: Check required secrets
+        id: check
         env:
           PG: ${{ secrets.POSTGRES_URL_NON_POOLING }}
         run: |
           if [ -z "$PG" ]; then
-            echo "::error::POSTGRES_URL_NON_POOLING secret is not set. Add it in repo Settings → Secrets and variables → Actions."
-            exit 1
+            echo "::notice::POSTGRES_URL_NON_POOLING is not set yet. Add it in repo Settings → Secrets and variables → Actions. Skipping this run."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Install psql
+        if: steps.check.outputs.skip != 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -qq -y postgresql-client
+
+      - name: Direct SQL ping
+        if: steps.check.outputs.skip != 'true'
+        env:
+          PG: ${{ secrets.POSTGRES_URL_NON_POOLING }}
+        run: |
           start=$(date +%s%N)
           # -v ON_ERROR_STOP=1 makes psql exit non-zero on SQL errors.
           # -X skips ~/.psqlrc, -A unaligned, -t tuples-only — minimum noise.
@@ -68,6 +83,7 @@ jobs:
           echo "  Latency: ${latency_ms}ms"
 
       - name: App endpoint ping (warms Next.js function too)
+        if: steps.check.outputs.skip != 'true'
         env:
           URL: ${{ secrets.APP_PING_URL }}
           SECRET: ${{ secrets.CRON_SECRET }}
