@@ -537,6 +537,14 @@ export const attendanceSettings = pgTable("attendance_settings", {
   })
     .notNull()
     .default("1.0"),
+  // Migration 0018 (anti-fraud): array of public IPs that count as
+  // "at the office" for the IP-based geofence check. Empty array =
+  // IP check disabled. UI: /settings/attendance has an editor for
+  // this with a "Use my current IP" button.
+  trustedOfficeIps: text("trusted_office_ips")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -572,6 +580,13 @@ export const attendanceDays = pgTable(
     checkInDistanceM: integer("check_in_distance_m"),
     checkInStatus: text("check_in_status"),
     checkInOffsiteNote: text("check_in_offsite_note"),
+    // Migration 0018 (anti-fraud): the client IP at check-in, plus
+    // whether it matched any of attendance_settings.trusted_office_ips,
+    // plus the server-vs-phone clock skew (ms). All nullable for
+    // back-compat with rows that pre-date 0018.
+    checkInIp: text("check_in_ip"),
+    checkInIpMatch: boolean("check_in_ip_match"),
+    checkInClockSkewMs: integer("check_in_clock_skew_ms"),
     // Check-out fields — nullable until punched.
     checkOutAt: timestamp("check_out_at", { withTimezone: true }),
     checkOutLat: numeric("check_out_lat", { precision: 10, scale: 7 }),
@@ -580,6 +595,9 @@ export const attendanceDays = pgTable(
     checkOutDistanceM: integer("check_out_distance_m"),
     checkOutStatus: text("check_out_status"),
     checkOutOffsiteNote: text("check_out_offsite_note"),
+    checkOutIp: text("check_out_ip"),
+    checkOutIpMatch: boolean("check_out_ip_match"),
+    checkOutClockSkewMs: integer("check_out_clock_skew_ms"),
     // Derived at checkout time, frozen onto the row.
     hoursWorked: numeric("hours_worked", { precision: 6, scale: 2 }),
     dayCredit: numeric("day_credit", { precision: 3, scale: 1 }),
@@ -593,6 +611,13 @@ export const attendanceDays = pgTable(
     approvedBy: uuid("approved_by").references(() => users.id),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     approvalNote: text("approval_note"),
+    // Migration 0018 (anti-fraud): overtime approval. day_credit > 1.0
+    // values don't count toward effective credit until OWNER approves
+    // overtime for this specific day. Until approved, the day caps at
+    // 1.0. Closes the "punch in then leave for 8h" exploit.
+    overtimeApprovedBy: uuid("overtime_approved_by").references(() => users.id),
+    overtimeApprovedAt: timestamp("overtime_approved_at", { withTimezone: true }),
+    overtimeApprovalNote: text("overtime_approval_note"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -628,6 +653,12 @@ export const attendancePunches = pgTable("attendance_punches", {
   distanceFromOfficeM: integer("distance_from_office_m"),
   resultingStatus: text("resulting_status").notNull(),
   deviceFingerprint: text("device_fingerprint"),
+  // Migration 0018 (anti-fraud): captured at every punch for the
+  // audit log so OWNER can spot patterns retrospectively even on
+  // AUTO_APPROVED punches.
+  clientIp: text("client_ip"),
+  ipMatch: boolean("ip_match"),
+  clockSkewMs: integer("clock_skew_ms"),
 });
 
 export const employeePayrollSettings = pgTable("employee_payroll_settings", {

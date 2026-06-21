@@ -68,23 +68,49 @@ export function evaluatePunchLocation(args: {
   officeLng: number | null;
   officeRadiusM: number;
   accuracyRejectThresholdM: number;
+  // Anti-fraud commit 1 (2026-06-22): the client's public IP and the
+  // OWNER-configured list of trusted office IPs. Either signal can
+  // approve a punch — geofence OR IP match → AUTO_APPROVED. Pass
+  // `clientIp: null` to skip the IP check (back-compat for callers
+  // pre-dating the anti-fraud work; will eventually become required).
+  clientIp?: string | null;
+  trustedOfficeIps?: string[];
 }): {
   status: "AUTO_APPROVED" | "PENDING" | "REJECT_UNCERTAIN";
   distanceM: number | null;
+  // Whether the IP matched one of the trusted office IPs (null when
+  // no clientIp was provided or trustedOfficeIps was empty).
+  ipMatch: boolean | null;
 } {
   if (args.pointAccuracyM > args.accuracyRejectThresholdM) {
-    return { status: "REJECT_UNCERTAIN", distanceM: null };
+    return { status: "REJECT_UNCERTAIN", distanceM: null, ipMatch: null };
   }
   // Null Island sentinel — never a legitimate Indian-user GPS reading.
   if (isNullIslandReading(args.pointLat, args.pointLng)) {
-    return { status: "REJECT_UNCERTAIN", distanceM: null };
+    return { status: "REJECT_UNCERTAIN", distanceM: null, ipMatch: null };
   }
+
+  // ── IP check ───────────────────────────────────────────────────────
+  // Resolves to one of:
+  //   true   — clientIp is in trustedOfficeIps
+  //   false  — clientIp is set, list non-empty, no match
+  //   null   — IP check not applicable (no client IP, or no trusted list)
+  const ipMatch: boolean | null =
+    args.clientIp && args.trustedOfficeIps && args.trustedOfficeIps.length > 0
+      ? args.trustedOfficeIps.includes(args.clientIp)
+      : null;
+
+  // ── Geofence check ─────────────────────────────────────────────────
   // Office unconfigured. Use `!= null` (not truthiness) so a legitimate
   // office at the equator (latitude 0.0) isn't silently treated as
-  // unconfigured. Audit caught this — actions.ts:113 used `? Number(...) :
-  // null` truthiness which would fail at the equator.
+  // unconfigured.
   if (args.officeLat == null || args.officeLng == null) {
-    return { status: "PENDING", distanceM: null };
+    // No geofence to evaluate. If IP matched, still auto-approve.
+    return {
+      status: ipMatch === true ? "AUTO_APPROVED" : "PENDING",
+      distanceM: null,
+      ipMatch,
+    };
   }
   const d = distanceMeters(
     args.pointLat,
@@ -92,9 +118,25 @@ export function evaluatePunchLocation(args: {
     args.officeLat,
     args.officeLng,
   );
-  const inside = d <= args.officeRadiusM;
+  const insideGeofence = d <= args.officeRadiusM;
+
+  // ── Decision rule ──────────────────────────────────────────────────
+  // EITHER signal can approve. Both fail → PENDING. This handles all
+  // of the edge cases Kabir flagged on 2026-06-22:
+  //   • Office Wi-Fi up + at office → both pass → AUTO_APPROVED
+  //   • Office Wi-Fi DOWN, employee on 4G at office → geofence passes,
+  //     IP doesn't → still AUTO_APPROVED
+  //   • Site visit, off-site on customer Wi-Fi → both fail → PENDING
+  //     (OWNER approves with the note)
+  //   • Home GPS spoofed to office, real home IP → geofence MIGHT pass
+  //     but IP doesn't → AUTO_APPROVED (rule says either is enough),
+  //     BUT the IP mismatch is recorded for OWNER pattern-detection
+  //     review. Selfie / device-pinning are the harder fraud signals
+  //     (declined for now per feedback_attendance_antifraud_choice).
+  const autoApproved = insideGeofence || ipMatch === true;
   return {
-    status: inside ? "AUTO_APPROVED" : "PENDING",
+    status: autoApproved ? "AUTO_APPROVED" : "PENDING",
     distanceM: Math.round(d),
+    ipMatch,
   };
 }

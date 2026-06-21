@@ -92,6 +92,7 @@ export default async function AttendanceSettingsPage() {
               expectedHoursPerDay: Number(settings.expectedHoursPerDay),
               weeklyOffsPerWeek: settings.weeklyOffsPerWeek,
               paidLeavesPerMonth: Number(settings.paidLeavesPerMonth),
+              trustedOfficeIps: settings.trustedOfficeIps ?? [],
             }}
           />
         </CardContent>

@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Loader2, MapPin } from "lucide-react";
+import { Loader2, MapPin, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { saveAttendanceSettingsAction } from "@/app/(app)/settings/attendance/actions";
 
 interface InitialSettings {
@@ -16,6 +17,7 @@ interface InitialSettings {
   expectedHoursPerDay: number;
   weeklyOffsPerWeek: number;
   paidLeavesPerMonth: number;
+  trustedOfficeIps: string[];
 }
 
 export function AttendanceSettingsForm({
@@ -31,6 +33,42 @@ export function AttendanceSettingsForm({
   const [lng, setLng] = useState<string>(
     initial.officeLongitude != null ? String(initial.officeLongitude) : "",
   );
+  // Trusted office IPs state. Stored as a newline-separated string in
+  // the form (one IP per line) so OWNER can edit freely. Validated +
+  // normalised on the server in saveAttendanceSettingsAction.
+  const [trustedIps, setTrustedIps] = useState<string>(
+    initial.trustedOfficeIps.join("\n"),
+  );
+  const [detectingIp, setDetectingIp] = useState(false);
+
+  async function detectCurrentIp() {
+    setDetectingIp(true);
+    try {
+      // Public IP echo from a free zero-auth endpoint. Several
+      // alternatives if this becomes unreliable: api.ipify.org,
+      // icanhazip.com, ipinfo.io. We use ifconfig.me as a primary
+      // because it's stable and CORS-friendly.
+      const r = await fetch("https://api.ipify.org?format=json");
+      if (!r.ok) throw new Error("ipify failed");
+      const j = await r.json();
+      const ip = (j.ip as string).trim();
+      if (!ip) throw new Error("no ip in response");
+      // Add to list if not already present.
+      const lines = trustedIps
+        .split(/[\s,]+/)
+        .map((x) => x.trim())
+        .filter(Boolean);
+      if (!lines.includes(ip)) lines.push(ip);
+      setTrustedIps(lines.join("\n"));
+      toast.success(`Added ${ip} to trusted office IPs.`);
+    } catch {
+      toast.error(
+        "Couldn't detect your IP. Type it manually — find it at whatismyipaddress.com",
+      );
+    } finally {
+      setDetectingIp(false);
+    }
+  }
 
   function useCurrentLocation() {
     if (!("geolocation" in navigator)) {
@@ -169,6 +207,60 @@ export function AttendanceSettingsForm({
           <p className="text-xs text-muted-foreground">
             500m prevents indoor multi-floor false positives.
           </p>
+        </div>
+      </div>
+
+      {/* Anti-fraud — trusted office IPs.
+          Rule: geofence OR IP match → AUTO_APPROVED. Empty list =
+          IP check disabled (geofence still works). */}
+      <div className="rounded-lg border bg-muted/30 p-4">
+        <div className="flex items-start gap-2">
+          <Wifi className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="trustedOfficeIps" className="text-sm">
+              Trusted office IPs &mdash; anti-fraud
+            </Label>
+            <Textarea
+              id="trustedOfficeIps"
+              name="trustedOfficeIps"
+              value={trustedIps}
+              onChange={(e) => setTrustedIps(e.target.value)}
+              rows={Math.max(2, trustedIps.split("\n").length + 1)}
+              placeholder="192.168.1.1&#10;103.45.67.89"
+              className="font-mono text-xs"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={detectCurrentIp}
+                disabled={detectingIp || pending}
+              >
+                {detectingIp ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Detecting…
+                  </>
+                ) : (
+                  <>
+                    <Wifi className="h-3 w-3" />
+                    Use my current IP
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              One IP per line. When an employee punches from an IP in this
+              list, the punch auto-approves even if GPS fails (e.g. indoors,
+              poor signal). Punches from an unknown IP still auto-approve
+              if GPS confirms the office geofence. Leave empty to disable
+              the IP check entirely &mdash; geofence alone will decide.
+              Tip: while at the office, click &ldquo;Use my current IP&rdquo;
+              to add it. Your ISP&apos;s IP may change occasionally &mdash;
+              re-add it then.
+            </p>
+          </div>
         </div>
       </div>
 

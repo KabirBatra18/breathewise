@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
@@ -115,6 +116,24 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
   //   AUTO_APPROVED  — inside the office radius, GPS accuracy OK
   //   PENDING        — outside the radius OR office not yet configured
   //   REJECT_UNCERTAIN — GPS accuracy exceeds the threshold (500m default)
+  // Anti-fraud (2026-06-22): capture the client's public IP from
+  // Vercel's request headers. x-forwarded-for is a comma-separated
+  // list with the original client as the FIRST entry; x-real-ip is
+  // the resolved single value Vercel adds. Prefer x-real-ip and
+  // fall back to the first xff hop.
+  const hdrs = headers();
+  const xRealIp = hdrs.get("x-real-ip");
+  const xff = hdrs.get("x-forwarded-for");
+  const clientIp =
+    xRealIp?.trim() || xff?.split(",")[0]?.trim() || null;
+
+  // Server-vs-phone clock skew, in ms. >60s skew is a strong tampering
+  // signal (mock-clock apps). Stored but not used to auto-reject; OWNER
+  // sees it on the admin approval card.
+  const clockSkewMs = data.clientLocalTime
+    ? Math.abs(Date.now() - new Date(data.clientLocalTime).getTime())
+    : null;
+
   const evaluation = evaluatePunchLocation({
     pointLat: data.lat,
     pointLng: data.lng,
@@ -132,6 +151,8 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
         : null,
     officeRadiusM: settings.officeRadiusMeters,
     accuracyRejectThresholdM: settings.accuracyRejectThresholdM,
+    clientIp,
+    trustedOfficeIps: settings.trustedOfficeIps ?? [],
   });
   if (evaluation.status === "REJECT_UNCERTAIN") {
     return {
@@ -212,6 +233,10 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
           checkInDistanceM: evaluation.distanceM,
           checkInStatus: evaluation.status,
           checkInOffsiteNote: data.offsiteNote?.trim() || null,
+          // Anti-fraud forensic signals (commit 1, 2026-06-22)
+          checkInIp: clientIp,
+          checkInIpMatch: evaluation.ipMatch,
+          checkInClockSkewMs: clockSkewMs,
         })
         .where(eq(attendanceDays.id, day.id));
     } else {
@@ -245,6 +270,10 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
           checkOutOffsiteNote: data.offsiteNote?.trim() || null,
           hoursWorked: hours != null ? hours.toFixed(2) : null,
           dayCredit: credit != null ? credit.toFixed(1) : null,
+          // Anti-fraud forensic signals (commit 1, 2026-06-22)
+          checkOutIp: clientIp,
+          checkOutIpMatch: evaluation.ipMatch,
+          checkOutClockSkewMs: clockSkewMs,
         })
         .where(eq(attendanceDays.id, day.id));
     }
@@ -264,6 +293,9 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
       distanceFromOfficeM: evaluation.distanceM,
       resultingStatus: evaluation.status,
       deviceFingerprint: data.deviceFingerprint ?? null,
+      clientIp,
+      ipMatch: evaluation.ipMatch,
+      clockSkewMs,
     });
 
     // Re-read the row for the response.
