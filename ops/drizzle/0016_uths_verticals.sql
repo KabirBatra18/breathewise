@@ -19,9 +19,13 @@
 -- start reading vertical-specific branding, and the invoice number prefix
 -- flips from BW to UTHS for all newly-finalized invoices. Pre-existing
 -- BW/INV/2627/NNNN invoices remain as-issued (legally immutable).
+--
+-- NOTE on transactions: the migrate.ts runner already wraps each migration
+-- in `sql.begin()`. Do NOT add explicit BEGIN/COMMIT here — nested
+-- transactions in Postgres emit a warning and prematurely commit the outer
+-- transaction. Every other migration in this directory relies on the
+-- runner's wrapper; we follow that pattern.
 -- ============================================================================
-
-BEGIN;
 
 -- ─── verticals table ──────────────────────────────────────────────────────
 CREATE TABLE verticals (
@@ -153,5 +157,3 @@ UPDATE terms_clauses
 UPDATE company_settings
    SET quote_number_prefix = 'UTHS'
  WHERE id = 1;
-
-COMMIT;
