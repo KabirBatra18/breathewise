@@ -35,6 +35,7 @@ import {
   formatIndianNumber,
   type SectionInput,
 } from "@/lib/pricing";
+import { assembleDefaultTermIds } from "@/lib/terms/auto-assemble";
 
 type Role = "OWNER" | "EMPLOYEE" | "VIEWER";
 
@@ -49,6 +50,10 @@ export interface TermsOption {
   id: string;
   title: string;
   isDefault: boolean;
+  // Phase 5: null = universal (auto-included regardless of vertical);
+  // otherwise scoped to that vertical. Combined with isDefault to
+  // decide which clauses pre-select on a new quote.
+  verticalId: string | null;
 }
 
 type PriceMode = "DP" | "MRP";
@@ -213,8 +218,33 @@ export function QuoteBuilder({
   const [sections, setSections] = useState<SectionState[]>(
     initial?.sections ?? [newSection(0), newSection(1), newSection(2)],
   );
+  // Phase 5: initial T&C selection uses the vertical-aware auto-assembly
+  // engine. Universal defaults + primary vertical defaults + (when a
+  // combined-offer quote includes lines from other verticals) those
+  // verticals' defaults too. The user can still toggle clauses on/off
+  // manually below. Editing an existing draft keeps the saved selection
+  // verbatim so we don't surprise the user with new clauses appearing.
   const [selectedTermIds, setSelectedTermIds] = useState<string[]>(
-    initial?.selectedTermIds ?? termsClauses.filter((t) => t.isDefault).map((t) => t.id),
+    initial?.selectedTermIds ??
+      assembleDefaultTermIds({
+        primaryVerticalId:
+          initial?.primaryVerticalId ?? verticals[0]?.id ?? "",
+        // No per-line vertical UI yet, so the set is just the primary.
+        // Once Phase 6 surfaces line.verticalId in the editor, this can
+        // expand to the distinct lineVerticalIds set.
+        lineVerticalIds: [initial?.primaryVerticalId ?? verticals[0]?.id ?? ""],
+        clauses: termsClauses.map((t) => ({
+          id: t.id,
+          title: t.title,
+          isDefault: t.isDefault,
+          verticalId: t.verticalId,
+          // sortOrder is not on TermsOption today; pass 0 so original
+          // array order from the server (already ordered by sort_order)
+          // is preserved within each bucket.
+          sortOrder: 0,
+        })),
+        verticals: verticals.map((v) => ({ id: v.id, brandName: v.brandName })),
+      }),
   );
   // Whether the "You save vs list price" bar renders on the PDF.
   // Default off — small percentage savings (≤ a couple of percent)

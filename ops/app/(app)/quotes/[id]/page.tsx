@@ -363,6 +363,7 @@ export default async function QuoteDetailPage({
             id: t.id,
             title: t.title,
             isDefault: t.isDefault,
+            verticalId: t.verticalId,
           }))}
           verticals={allVerticals}
           initial={initial}

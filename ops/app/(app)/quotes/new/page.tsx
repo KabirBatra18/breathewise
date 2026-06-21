@@ -92,6 +92,7 @@ export default async function NewQuotePage({
           id: t.id,
           title: t.title,
           isDefault: t.isDefault,
+          verticalId: t.verticalId,
         }))}
         verticals={verticalRows}
       />

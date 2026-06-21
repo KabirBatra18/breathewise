@@ -15,6 +15,12 @@ const upsertSchema = z.object({
   category: z.string().trim().min(1).max(80).default("General"),
   appliesTo: z.enum(["ROUGH", "PRECISE", "BOTH"]).default("BOTH"),
   isDefault: z.coerce.boolean().default(false),
+  // Phase 5: scope this clause to a vertical, or leave null for
+  // universal (auto-include on every quote regardless of vertical).
+  verticalId: z
+    .union([z.literal(""), z.string().uuid()])
+    .optional()
+    .transform((v) => (v == null || v === "" ? null : v)),
 });
 
 export type UpsertTermResult =
@@ -40,6 +46,7 @@ export async function upsertTermAction(
         category: data.category,
         appliesTo: data.appliesTo,
         isDefault: data.isDefault,
+        verticalId: data.verticalId,
         updatedAt: new Date(),
       })
       .where(eq(termsClauses.id, data.id));
@@ -71,6 +78,7 @@ export async function upsertTermAction(
       category: data.category,
       appliesTo: data.appliesTo,
       isDefault: data.isDefault,
+      verticalId: data.verticalId,
       sortOrder: nextOrder,
     })
     .returning({ id: termsClauses.id });

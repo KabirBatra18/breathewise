@@ -38,6 +38,14 @@ export interface TermRow {
   appliesTo: string;
   isDefault: boolean;
   sortOrder: number;
+  // Phase 5: null = universal clause (auto-included on every quote
+  // regardless of vertical); otherwise scoped to that vertical.
+  verticalId: string | null;
+}
+
+export interface TermVerticalOption {
+  id: string;
+  brandName: string;
 }
 
 const APPLIES_TO_OPTIONS = [
@@ -46,16 +54,24 @@ const APPLIES_TO_OPTIONS = [
   { value: "PRECISE", label: "Precise only" },
 ];
 
-export function TermsList({ rows }: { rows: TermRow[] }) {
+export function TermsList({
+  rows,
+  verticals,
+}: {
+  rows: TermRow[];
+  verticals: TermVerticalOption[];
+}) {
+  const verticalsById = new Map(verticals.map((v) => [v.id, v]));
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {rows.length} clause{rows.length === 1 ? "" : "s"}. Defaults are
-          auto-checked when creating a new quote — uncheck per quote if not
-          needed.
+          auto-included on new quotes; scope by vertical to limit which
+          quotes pull them automatically.
         </p>
         <TermDialog
+          verticals={verticals}
           trigger={
             <Button size="sm">
               <Plus className="h-4 w-4" />
@@ -71,7 +87,16 @@ export function TermsList({ rows }: { rows: TermRow[] }) {
       ) : (
         <div className="space-y-2">
           {rows.map((r) => (
-            <TermCard key={r.id} term={r} />
+            <TermCard
+              key={r.id}
+              term={r}
+              verticals={verticals}
+              verticalLabel={
+                r.verticalId
+                  ? verticalsById.get(r.verticalId)?.brandName ?? "—"
+                  : "Universal"
+              }
+            />
           ))}
         </div>
       )}
@@ -79,7 +104,15 @@ export function TermsList({ rows }: { rows: TermRow[] }) {
   );
 }
 
-function TermCard({ term }: { term: TermRow }) {
+function TermCard({
+  term,
+  verticals,
+  verticalLabel,
+}: {
+  term: TermRow;
+  verticals: TermVerticalOption[];
+  verticalLabel: string;
+}) {
   return (
     <div className="rounded-lg border p-4">
       <div className="flex items-start justify-between gap-3">
@@ -102,6 +135,12 @@ function TermCard({ term }: { term: TermRow }) {
                   ? "Rough"
                   : "Precise"}
             </Badge>
+            <Badge
+              variant={term.verticalId ? "outline" : "secondary"}
+              className="text-[10px]"
+            >
+              {verticalLabel}
+            </Badge>
           </div>
           <p className="whitespace-pre-wrap text-sm text-muted-foreground">
             {term.body}
@@ -110,6 +149,7 @@ function TermCard({ term }: { term: TermRow }) {
         <div className="flex shrink-0 gap-1">
           <TermDialog
             initial={term}
+            verticals={verticals}
             trigger={
               <Button variant="ghost" size="icon-sm" aria-label="Edit clause">
                 <Edit3 className="h-3.5 w-3.5" />
@@ -136,9 +176,11 @@ function TermCard({ term }: { term: TermRow }) {
 function TermDialog({
   initial,
   trigger,
+  verticals,
 }: {
   initial?: TermRow;
   trigger: React.ReactNode;
+  verticals: TermVerticalOption[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -148,6 +190,8 @@ function TermDialog({
   const [category, setCategory] = useState(initial?.category ?? "General");
   const [appliesTo, setAppliesTo] = useState(initial?.appliesTo ?? "BOTH");
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
+  // "" = Universal (vertical_id NULL). Otherwise a vertical id.
+  const [verticalId, setVerticalId] = useState<string>(initial?.verticalId ?? "");
 
   function submit() {
     startTransition(async () => {
@@ -158,6 +202,7 @@ function TermDialog({
         category,
         appliesTo: appliesTo as "ROUGH" | "PRECISE" | "BOTH",
         isDefault,
+        verticalId,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -228,6 +273,34 @@ function TermDialog({
               </Select>
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label>Vertical scope</Label>
+            <Select
+              value={verticalId || "__universal__"}
+              onValueChange={(v) =>
+                setVerticalId(v === "__universal__" ? "" : v ?? "")
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__universal__">
+                  Universal — every vertical
+                </SelectItem>
+                {verticals.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.brandName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Universal clauses fire on every quote. Vertical-scoped
+              clauses fire only when a line of that vertical is on the
+              quote (combined offers pull from all touched verticals).
+            </p>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -235,7 +308,7 @@ function TermDialog({
               onChange={(e) => setIsDefault(e.target.checked)}
               className="h-4 w-4 rounded border-input"
             />
-            Auto-include this clause on every new quote
+            Auto-include this clause when its scope matches the quote
           </label>
         </div>
         <DialogFooter>
