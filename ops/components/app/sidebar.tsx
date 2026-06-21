@@ -14,6 +14,7 @@ import {
   Receipt,
   Settings,
   UserCog,
+  Building2,
   KeyRound,
   LogOut,
   Loader2,
@@ -44,6 +45,7 @@ const NAV: NavItem[] = [
   { href: "/gst", label: "GST", icon: Receipt, ownerOnly: true },
   { href: "/terms", label: "Terms", icon: ScrollText, ownerOnly: true },
   { href: "/settings/users", label: "Users", icon: UserCog, ownerOnly: true },
+  { href: "/settings/verticals", label: "Verticals", icon: Building2, ownerOnly: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
