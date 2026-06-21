@@ -46,18 +46,46 @@ export async function approveDayPunchAction(
     .limit(1);
   if (!day) return { ok: false, error: "Day not found." };
 
+  // Audit-fix 2026-06-22: refuse to approve a punch that's already
+  // OWNER_REJECTED (would silently no-op + write a misleading audit
+  // log entry). If OWNER changed their mind, they should explicitly
+  // re-open the day via a different action; auto-flipping rejected
+  // → approved is a workflow ambiguity we don't want.
+  const scopeTargets: Array<"CHECK_IN" | "CHECK_OUT"> =
+    data.scope === "BOTH" ? ["CHECK_IN", "CHECK_OUT"] : [data.scope];
+  for (const target of scopeTargets) {
+    const currentStatus =
+      target === "CHECK_IN" ? day.checkInStatus : day.checkOutStatus;
+    if (currentStatus === "OWNER_REJECTED") {
+      return {
+        ok: false,
+        error: `This ${target.toLowerCase().replace("_", " ")} is already rejected. To re-open, ask the employee to re-punch (currently no UI for un-rejecting — by design).`,
+      };
+    }
+    if (currentStatus === "OWNER_APPROVED") {
+      return {
+        ok: false,
+        error: `This ${target.toLowerCase().replace("_", " ")} is already approved.`,
+      };
+    }
+    if (currentStatus !== "PENDING") {
+      return {
+        ok: false,
+        error: `Nothing to approve — ${target.toLowerCase().replace("_", " ")} status is ${currentStatus ?? "not set"}.`,
+      };
+    }
+  }
+
   const patch: Record<string, unknown> = {
     approvedBy: actor.id,
     approvedAt: new Date(),
     approvalNote: data.note ?? null,
   };
   if (data.scope === "CHECK_IN" || data.scope === "BOTH") {
-    if (day.checkInStatus === "PENDING")
-      patch.checkInStatus = "OWNER_APPROVED";
+    patch.checkInStatus = "OWNER_APPROVED";
   }
   if (data.scope === "CHECK_OUT" || data.scope === "BOTH") {
-    if (day.checkOutStatus === "PENDING")
-      patch.checkOutStatus = "OWNER_APPROVED";
+    patch.checkOutStatus = "OWNER_APPROVED";
   }
 
   await db
@@ -175,6 +203,30 @@ export async function editDayCheckoutAction(
     .limit(1);
   const expected = Number(settings?.expectedHoursPerDay ?? 4);
   const newCheckOut = new Date(data.checkOutAt);
+  // Audit-fix 2026-06-22: reject futuristic checkouts. The OWNER could
+  // otherwise type 2099-12-31, producing ~600,000 hours → 150,000 day
+  // credit → numeric(3,1) truncation either errors or silently writes
+  // 999.9.
+  const now = new Date();
+  if (newCheckOut.getTime() > now.getTime() + 5 * 60 * 1000) {
+    return {
+      ok: false,
+      error:
+        "Checkout time can't be in the future. Pick a time that's already passed.",
+    };
+  }
+  // Reject checkouts more than 24h after check-in. A real worked day
+  // is at most ~12-16 hours; anything beyond a day boundary is almost
+  // certainly an OWNER typo + would produce an absurd credit value.
+  const checkInMs = day.checkInAt.getTime();
+  const maxCheckOutMs = checkInMs + 24 * 60 * 60 * 1000;
+  if (newCheckOut.getTime() > maxCheckOutMs) {
+    return {
+      ok: false,
+      error:
+        "Checkout can't be more than 24 hours after check-in. Double-check the time you typed.",
+    };
+  }
   const hours = computeHoursWorked(day.checkInAt, newCheckOut);
   if (hours == null) {
     return {

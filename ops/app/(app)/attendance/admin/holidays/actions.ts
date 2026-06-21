@@ -67,7 +67,28 @@ export async function deleteHolidayAction(
   formData: FormData,
 ): Promise<ActionResult> {
   const actor = await requireOwner();
-  const id = z.string().uuid().parse(formData.get("id"));
+  // Audit-fix 2026-06-22: use safeParse to match every other action's
+  // error-shape contract. Previously .parse() threw, which the calling
+  // client component (HolidayManager) couldn't handle gracefully.
+  const idParse = z.string().uuid().safeParse(formData.get("id"));
+  if (!idParse.success) {
+    return { ok: false, error: "Invalid holiday id." };
+  }
+  const id = idParse.data;
+
+  // Look up the row first so we can include its details in the audit
+  // metadata (useful when OWNER wonders why a credit total changed in
+  // a prior month). Returns the row if found, undefined otherwise.
+  const [row] = await db
+    .select()
+    .from(attendancePublicHolidays)
+    .where(eq(attendancePublicHolidays.id, id))
+    .limit(1);
+  if (!row) {
+    // Idempotent — treat as success so a double-click doesn't error.
+    return { ok: true };
+  }
+
   await db
     .delete(attendancePublicHolidays)
     .where(eq(attendancePublicHolidays.id, id));
@@ -76,7 +97,7 @@ export async function deleteHolidayAction(
     action: "ATTENDANCE_HOLIDAY_DELETE",
     entityType: "attendance_public_holiday",
     entityId: id,
-    metadata: {},
+    metadata: { date: row.date as unknown as string, name: row.name },
   });
   revalidatePath("/attendance/admin");
   revalidatePath("/attendance/admin/grid");

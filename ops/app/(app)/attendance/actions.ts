@@ -149,15 +149,24 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
   const expectedHoursPerDay = Number(settings.expectedHoursPerDay);
 
   // Single transaction:
-  //   1. Find or insert the day row.
+  //   1. Find or insert the day row (atomic via ON CONFLICT — audit-fix).
   //   2. Validate the state machine for this kind of punch.
   //   3. Update the day row with the new check_in_* or check_out_*.
   //   4. Append an audit row in attendance_punches.
   //   5. Return the resulting day row fields.
   const result = await db.transaction(async (tx) => {
-    // Locate today's row. ON CONFLICT DO NOTHING + retry would also work
-    // but a SELECT-then-INSERT is fine here because the unique constraint
-    // (user_id, date) guarantees serialised inserts under the transaction.
+    // Atomic upsert via INSERT ... ON CONFLICT DO NOTHING. Audit-fix
+    // 2026-06-22: the previous SELECT-then-INSERT pattern was vulnerable
+    // to a race where two concurrent punches both see no row, both try
+    // to insert, and the second fails with a unique-violation that
+    // wasn't being caught. ON CONFLICT DO NOTHING + a follow-up SELECT
+    // is atomic at the (user_id, date) unique-constraint level.
+    await tx
+      .insert(attendanceDays)
+      .values({ userId: actor.id, date: today })
+      .onConflictDoNothing({
+        target: [attendanceDays.userId, attendanceDays.date],
+      });
     const dayRows = await tx
       .select()
       .from(attendanceDays)
@@ -168,14 +177,13 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
         ),
       )
       .limit(1);
-    let day = dayRows[0];
-
+    const day = dayRows[0];
     if (!day) {
-      const [inserted] = await tx
-        .insert(attendanceDays)
-        .values({ userId: actor.id, date: today })
-        .returning();
-      day = inserted;
+      // Shouldn't happen given the upsert above, but defensive.
+      return {
+        ok: false as const,
+        error: "Couldn't locate today's attendance row. Please try again.",
+      };
     }
 
     if (data.kind === "CHECK_IN") {
