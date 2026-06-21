@@ -16,6 +16,7 @@ import {
   quotes,
   termsClauses,
 } from "@/db/schema";
+import { VERTICAL_IDS } from "@/lib/verticals/constants";
 import { requireAuth, requireEmployeeOrAbove } from "@/lib/auth/server";
 import {
   Decimal,
@@ -78,11 +79,24 @@ export type SaveQuoteResult =
   | { ok: true; id: string; quoteNumber: string }
   | { ok: false; error: string };
 
+/**
+ * Allocates the next quote number using whatever prefix is configured in
+ * companySettings.quoteNumberPrefix (defaulted to 'UTHS' by migration 0016,
+ * was 'BW' historically). The prefix change is intentional — see
+ * memory/project_uths_verticals_architecture.md — and is the single source
+ * of truth across the codebase. Do NOT hardcode 'BW' or 'UTHS' anywhere
+ * else; read this function or settings directly.
+ */
 async function nextQuoteNumber(): Promise<string> {
   const now = new Date();
   const year = now.getFullYear();
+  const settingsRow = await db
+    .select({ prefix: companySettings.quoteNumberPrefix })
+    .from(companySettings)
+    .limit(1);
+  const prefix = settingsRow[0]?.prefix ?? "UTHS";
   const result = await db.execute<{ next_quote_number: string }>(
-    sql`SELECT next_quote_number('BW', ${year}::int) AS next_quote_number`,
+    sql`SELECT next_quote_number(${prefix}, ${year}::int) AS next_quote_number`,
   );
   const value = (result as unknown as { next_quote_number: string }[])[0]
     ?.next_quote_number;
@@ -111,6 +125,9 @@ export async function saveRoughQuoteAction(
     ),
   );
   const costMap = new Map<string, string>();
+  // Per-product vertical hints (Yale lock → uths_security, ERV → breathewise,
+  // generic line → not in map = falls back to quote's primary vertical).
+  const productDefaultVerticalMap = new Map<string, string>();
   if (productIds.length > 0) {
     const rows = await db
       .select({
@@ -120,6 +137,18 @@ export async function saveRoughQuoteAction(
       .from(productCosts)
       .where(inArray(productCosts.productId, productIds));
     for (const row of rows) costMap.set(row.productId, row.costPrice);
+    const verticalRows = await db
+      .select({
+        id: products.id,
+        defaultVerticalId: products.defaultVerticalId,
+      })
+      .from(products)
+      .where(inArray(products.id, productIds));
+    for (const row of verticalRows) {
+      if (row.defaultVerticalId) {
+        productDefaultVerticalMap.set(row.id, row.defaultVerticalId);
+      }
+    }
   }
 
   // New-model writes: section discountPercent is 0 (target applied
@@ -194,6 +223,11 @@ export async function saveRoughQuoteAction(
           issueDate: data.issueDate,
           showSavingsOnPdf: data.showSavingsOnPdf,
           createdBy: actor.id,
+          // Phase 1: default to BreatheWise (all historical quotes are BW).
+          // Phase 3 will introduce the picker that lets the user choose
+          // primary vertical at creation; this fallback then becomes the
+          // default that the picker pre-selects.
+          primaryVerticalId: VERTICAL_IDS.BREATHEWISE,
         })
         .returning({ id: quotes.id });
       quoteId = row.id;
@@ -214,6 +248,13 @@ export async function saveRoughQuoteAction(
         .returning({ id: quoteSections.id });
 
       for (const [lineIndex, l] of s.lines.entries()) {
+        // Per-line vertical default: a product can pre-tag its vertical
+        // (e.g. a Yale lock → uths_security) via products.defaultVerticalId.
+        // Otherwise the line inherits the quote's primary vertical. Phase
+        // 3's editor will let the user override on a per-line basis.
+        const lineVerticalId = l.productId
+          ? productDefaultVerticalMap.get(l.productId) ?? VERTICAL_IDS.BREATHEWISE
+          : VERTICAL_IDS.BREATHEWISE;
         await tx.insert(quoteLineItems).values({
           quoteSectionId: section.id,
           productId: l.productId ?? null,
@@ -227,6 +268,7 @@ export async function saveRoughQuoteAction(
           costPriceSnapshot: l.productId
             ? costMap.get(l.productId) ?? null
             : null,
+          verticalId: lineVerticalId,
         });
       }
     }
@@ -504,14 +546,7 @@ export async function duplicateQuoteAction(formData: FormData): Promise<void> {
     .where(eq(quoteTerms.quoteId, source.id));
 
   const newId = await db.transaction(async (tx) => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const r = await tx.execute<{ next_quote_number: string }>(
-      sql`SELECT next_quote_number('BW', ${year}::int) AS next_quote_number`,
-    );
-    const quoteNumber = (r as unknown as { next_quote_number: string }[])[0]
-      ?.next_quote_number;
-    if (!quoteNumber) throw new Error("Could not allocate quote number");
+    const quoteNumber = await nextQuoteNumber();
 
     const [created] = await tx
       .insert(quotes)
@@ -527,8 +562,11 @@ export async function duplicateQuoteAction(formData: FormData): Promise<void> {
         discountTargetSaving: source.discountTargetSaving,
         showSavingsOnPdf: source.showSavingsOnPdf,
         validityDays: source.validityDays,
-        issueDate: now.toISOString().slice(0, 10),
+        issueDate: new Date().toISOString().slice(0, 10),
         createdBy: actor.id,
+        // Inherit the source quote's primary vertical so duplicates
+        // stay on the same brand by default.
+        primaryVerticalId: source.primaryVerticalId,
       })
       .returning({ id: quotes.id });
 
@@ -563,6 +601,9 @@ export async function duplicateQuoteAction(formData: FormData): Promise<void> {
           unit: l.unit,
           sortOrder: l.sortOrder,
           costPriceSnapshot: l.costPriceSnapshot,
+          // Preserve the source line's vertical tag — same brand on a
+          // duplicate keeps the per-line breakdown identical for reports.
+          verticalId: l.verticalId,
         })),
       );
     }
@@ -629,14 +670,7 @@ export async function createAddendumAction(formData: FormData): Promise<void> {
   const discountPercent = settings?.defaultRoughDiscountPercent ?? "5.00";
 
   const childId = await db.transaction(async (tx) => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const r = await tx.execute<{ next_quote_number: string }>(
-      sql`SELECT next_quote_number('BW', ${year}::int) AS next_quote_number`,
-    );
-    const quoteNumber = (r as unknown as { next_quote_number: string }[])[0]
-      ?.next_quote_number;
-    if (!quoteNumber) throw new Error("Could not allocate quote number");
+    const quoteNumber = await nextQuoteNumber();
 
     const [child] = await tx
       .insert(quotes)
@@ -650,6 +684,9 @@ export async function createAddendumAction(formData: FormData): Promise<void> {
         validityDays,
         issueDate: new Date().toISOString().slice(0, 10),
         createdBy: actor.id,
+        // Addendum quotes inherit the parent's primary vertical. A
+        // BreatheWise project's addendum stays BreatheWise.
+        primaryVerticalId: parent.primaryVerticalId,
       })
       .returning({ id: quotes.id });
     return child.id;

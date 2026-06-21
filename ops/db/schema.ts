@@ -21,6 +21,31 @@ const money = (name: string) =>
 const percent = (name: string) =>
   numeric(name, { precision: 5, scale: 2 });
 
+// ============================================================
+// Verticals — pure presentation layer on top of UTHS legal entity.
+// Architecture: memory/project_uths_verticals_architecture.md
+//
+// UTHS = single GSTIN, single bank, single set of books, single staff
+// portal. Verticals (BreatheWise, UTHS Security, …) control only
+// customer-facing branding: PDF header, brand color, WhatsApp
+// signature, default T&C set. Seed UUIDs in lib/verticals/constants.ts.
+// ============================================================
+export const verticals = pgTable("verticals", {
+  id: uuid("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  brandName: text("brand_name").notNull(),
+  tagline: text("tagline"),
+  logoUrl: text("logo_url"),
+  brandColor: text("brand_color"),
+  whatsappSignature: text("whatsapp_signature").notNull(),
+  emailFromName: text("email_from_name").notNull(),
+  websiteUrl: text("website_url"),
+  isActive: boolean("is_active").notNull().default(true),
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
@@ -69,6 +94,11 @@ export const products = pgTable("products", {
   hsnCode: text("hsn_code"),
   unit: text("unit").notNull().default("pcs"),
   isActive: boolean("is_active").notNull().default(true),
+  // Hint for the quote builder: when a user adds this product to a
+  // quote, auto-tag the line with this vertical. NULL = inherit the
+  // quote's primary vertical. A Yale lock → uths_security, an ERV →
+  // breathewise, a generic labour line → NULL.
+  defaultVerticalId: uuid("default_vertical_id").references(() => verticals.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -132,6 +162,12 @@ export const quotes = pgTable("quotes", {
   // 0000_initial_schema.sql:128; declaring .references() here lets
   // Drizzle's relational queries traverse it.
   parentQuoteId: uuid("parent_quote_id").references((): AnyPgColumn => quotes.id),
+  // The brand layer (BreatheWise / UTHS Security / …) shown on the PDF
+  // header, WhatsApp signature, and email From. Lines inside the quote
+  // may override this on a per-line basis for combined offers.
+  primaryVerticalId: uuid("primary_vertical_id")
+    .notNull()
+    .references(() => verticals.id),
   status: text("status").notNull(),
   roughDiscountPercent: percent("rough_discount_percent"),
   acceptedTierLabel: text("accepted_tier_label"),
@@ -195,6 +231,15 @@ export const quoteLineItems = pgTable("quote_line_items", {
   unit: text("unit").notNull().default("pcs"),
   sortOrder: integer("sort_order").notNull(),
   costPriceSnapshot: money("cost_price_snapshot"),
+  // Per-line vertical override. Defaults from product.defaultVerticalId
+  // at line creation; otherwise from the quote's primaryVerticalId. Used
+  // for revenue reporting (revenue per vertical = SUM of taxable values
+  // grouped by line.verticalId) and T&C auto-assembly. Does NOT change
+  // which brand appears on the PDF — that is governed by the quote's
+  // primaryVerticalId.
+  verticalId: uuid("vertical_id")
+    .notNull()
+    .references(() => verticals.id),
 });
 
 export const quoteSends = pgTable("quote_sends", {
@@ -264,6 +309,11 @@ export const termsClauses = pgTable("terms_clauses", {
   category: text("category").notNull(),
   appliesTo: text("applies_to").notNull(),
   isDefault: boolean("is_default").notNull().default(false),
+  // Phase 5 / Migration 0016: scope this clause to a vertical, or NULL
+  // for universal. Auto-assembly logic in lib/terms/auto-assemble.ts
+  // uses (verticalId, isDefault) to decide which clauses to seed onto
+  // each new quote.
+  verticalId: uuid("vertical_id").references(() => verticals.id),
   sortOrder: integer("sort_order").notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -357,6 +407,13 @@ export const invoices = pgTable("invoices", {
   deliveryStateCode: text("delivery_state_code"),
   notes: text("notes"),
   createdBy: uuid("created_by").references(() => users.id),
+  // The brand layer at issue time — drives the invoice PDF header,
+  // logo, and any vertical-specific language. The legal block
+  // (UTHS legal name, GSTIN, supplier address) is independent and
+  // sourced from the snapshot columns above.
+  primaryVerticalId: uuid("primary_vertical_id")
+    .notNull()
+    .references(() => verticals.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   // Auto-touched by the trg_invoices_updated_at DB trigger so the
   // drafts list can sort by recency.
@@ -388,6 +445,12 @@ export const invoiceLines = pgTable("invoice_lines", {
   igstAmount: money("igst_amount").notNull().default("0"),
   lineTotal: money("line_total").notNull(),
   sortOrder: integer("sort_order").notNull(),
+  // Frozen per-line vertical. Defaulted from the source quote-line at
+  // convertQuoteToInvoiceAction time. Used for per-vertical revenue
+  // reporting on the dashboard.
+  verticalId: uuid("vertical_id")
+    .notNull()
+    .references(() => verticals.id),
 });
 
 export const auditLog = pgTable("audit_log", {

@@ -221,6 +221,20 @@ export async function convertQuoteToInvoiceAction(
     includeLabour: data.includeLabour,
   });
 
+  // Track the per-line vertical IDs in the same order the engine
+  // walks them — same labour filter the engine applies. The engine
+  // doesn't know about verticals (and stays untouched per the
+  // money-math constraint), so we carry them out-of-band. built.lines
+  // is produced in exactly this order so the index-aligned lookup
+  // below is safe.
+  const orderedSourceVerticalIds: string[] = [];
+  for (const { section, lines } of sectionLines) {
+    if (section.isLabourStyle && !data.includeLabour) continue;
+    for (const l of lines) {
+      orderedSourceVerticalIds.push(l.verticalId);
+    }
+  }
+
   if (built.lines.length === 0) {
     return {
       ok: false,
@@ -291,6 +305,10 @@ export async function convertQuoteToInvoiceAction(
         deliveryStateCode: deliveryStateCode,
         notes: data.notes ?? null,
         createdBy: actor.id,
+        // Invoice inherits the source quote's primary vertical. The
+        // legal supplier block above (UTHS, GSTIN, address) is
+        // unchanged regardless of vertical.
+        primaryVerticalId: quote.primaryVerticalId,
       })
       .returning({ id: invoices.id });
 
@@ -317,6 +335,11 @@ export async function convertQuoteToInvoiceAction(
         igstAmount: l.igstAmount.toFixed(2),
         lineTotal: l.lineTotal.toFixed(2),
         sortOrder: idx,
+        // Carry forward each line's vertical from the source quote.
+        // Falls back to the invoice's primary vertical if the parallel
+        // array is somehow short (defensive — should never happen).
+        verticalId:
+          orderedSourceVerticalIds[idx] ?? quote.primaryVerticalId,
       });
     }
 
@@ -521,6 +544,11 @@ export async function addInvoiceLineAction(
         igstAmount: tax.igstAmount.toFixed(2),
         lineTotal: tax.lineTotal.toFixed(2),
         sortOrder: nextSort,
+        // Adding a line manually after invoice creation: the user has no
+        // way to pick a vertical from this entry point (Phase 3 will
+        // add it to the editor). Default to the invoice's primary
+        // vertical — same as the implicit assumption today.
+        verticalId: inv.primaryVerticalId,
       })
       .returning();
     await recomputeAndPersistTotals(tx, data.invoiceId);
