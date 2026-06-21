@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
 import { ChevronRight, Plus, Search } from "lucide-react";
 import { QuoteRow } from "@/components/quotes/quote-row";
 import { db } from "@/lib/db/client";
@@ -7,6 +7,7 @@ import {
   clients,
   quoteTierFinancials,
   quotes,
+  verticals,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { formatIST } from "@/lib/date-format";
@@ -37,7 +38,7 @@ export const metadata = { title: "Quotes" };
 export default async function QuotesListPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string };
+  searchParams: { q?: string; status?: string; vertical?: string };
 }) {
   await requireAuth();
   const q = searchParams.q?.trim();
@@ -45,9 +46,14 @@ export default async function QuotesListPage({
     searchParams.status && searchParams.status !== "all"
       ? searchParams.status
       : null;
+  const verticalFilter =
+    searchParams.vertical && searchParams.vertical !== "all"
+      ? searchParams.vertical
+      : null;
 
   const where = and(
     statusFilter ? eq(quotes.status, statusFilter) : undefined,
+    verticalFilter ? eq(quotes.primaryVerticalId, verticalFilter) : undefined,
     q
       ? or(
           ilike(quotes.quoteNumber, `%${q}%`),
@@ -55,6 +61,13 @@ export default async function QuotesListPage({
         )
       : undefined,
   );
+
+  // Fetch active verticals for the filter pill row.
+  const verticalRows = await db
+    .select({ id: verticals.id, brandName: verticals.brandName })
+    .from(verticals)
+    .where(eq(verticals.isActive, true))
+    .orderBy(asc(verticals.displayOrder));
 
   const rows = await db
     .select({
@@ -102,9 +115,12 @@ export default async function QuotesListPage({
             method="get"
             className="grid gap-3 sm:grid-cols-[1fr_auto]"
           >
-            {/* preserve current status filter when searching */}
+            {/* preserve current status + vertical filter when searching */}
             {statusFilter ? (
               <input type="hidden" name="status" value={statusFilter} />
+            ) : null}
+            {verticalFilter ? (
+              <input type="hidden" name="vertical" value={verticalFilter} />
             ) : null}
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -120,18 +136,38 @@ export default async function QuotesListPage({
             </Button>
           </form>
 
+          {/* Vertical filter pills — only shown when there's more than
+              one active vertical, otherwise the row is noise. */}
+          {verticalRows.length > 1 ? (
+            <div className="flex flex-wrap gap-1.5 text-xs">
+              <FilterPill
+                label="All brands"
+                href={buildHref({ q, status: statusFilter, vertical: null })}
+                active={!verticalFilter}
+              />
+              {verticalRows.map((v) => (
+                <FilterPill
+                  key={v.id}
+                  label={v.brandName}
+                  href={buildHref({ q, status: statusFilter, vertical: v.id })}
+                  active={verticalFilter === v.id}
+                />
+              ))}
+            </div>
+          ) : null}
+
           {/* Status filter pills — one click each, preserve current
-              search query via &q=. The 'All' pill clears the filter.
-              No client component needed: pills are just links. */}
+              search query via &q= and vertical filter. The 'All' pill
+              clears just the status filter. */}
           <div className="flex flex-wrap gap-1.5 text-xs">
-            <FilterPill label="All" href={buildHref({ q, status: null })} active={!statusFilter} />
-            <FilterPill label="Draft" href={buildHref({ q, status: "DRAFT" })} active={statusFilter === "DRAFT"} />
-            <FilterPill label="Sent" href={buildHref({ q, status: "SENT" })} active={statusFilter === "SENT"} />
-            <FilterPill label="Negotiating" href={buildHref({ q, status: "NEGOTIATING" })} active={statusFilter === "NEGOTIATING"} />
-            <FilterPill label="Accepted" href={buildHref({ q, status: "ACCEPTED" })} active={statusFilter === "ACCEPTED"} />
-            <FilterPill label="Advance paid" href={buildHref({ q, status: "ADVANCE_PAID" })} active={statusFilter === "ADVANCE_PAID"} />
-            <FilterPill label="Rejected" href={buildHref({ q, status: "REJECTED" })} active={statusFilter === "REJECTED"} />
-            <FilterPill label="Expired" href={buildHref({ q, status: "EXPIRED" })} active={statusFilter === "EXPIRED"} />
+            <FilterPill label="All" href={buildHref({ q, status: null, vertical: verticalFilter })} active={!statusFilter} />
+            <FilterPill label="Draft" href={buildHref({ q, status: "DRAFT", vertical: verticalFilter })} active={statusFilter === "DRAFT"} />
+            <FilterPill label="Sent" href={buildHref({ q, status: "SENT", vertical: verticalFilter })} active={statusFilter === "SENT"} />
+            <FilterPill label="Negotiating" href={buildHref({ q, status: "NEGOTIATING", vertical: verticalFilter })} active={statusFilter === "NEGOTIATING"} />
+            <FilterPill label="Accepted" href={buildHref({ q, status: "ACCEPTED", vertical: verticalFilter })} active={statusFilter === "ACCEPTED"} />
+            <FilterPill label="Advance paid" href={buildHref({ q, status: "ADVANCE_PAID", vertical: verticalFilter })} active={statusFilter === "ADVANCE_PAID"} />
+            <FilterPill label="Rejected" href={buildHref({ q, status: "REJECTED", vertical: verticalFilter })} active={statusFilter === "REJECTED"} />
+            <FilterPill label="Expired" href={buildHref({ q, status: "EXPIRED", vertical: verticalFilter })} active={statusFilter === "EXPIRED"} />
           </div>
         </CardContent>
       </Card>
@@ -219,13 +255,16 @@ export default async function QuotesListPage({
 function buildHref({
   q,
   status,
+  vertical,
 }: {
   q: string | undefined;
   status: string | null;
+  vertical: string | null;
 }): string {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (status) params.set("status", status);
+  if (vertical) params.set("vertical", vertical);
   const qs = params.toString();
   return qs ? `/quotes?${qs}` : "/quotes";
 }

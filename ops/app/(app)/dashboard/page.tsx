@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -18,6 +19,7 @@ import {
   payments,
   quoteTierFinancials,
   quotes,
+  verticals,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { formatIST } from "@/lib/date-format";
@@ -84,6 +86,9 @@ export default async function DashboardPage() {
       id: quotes.id,
       acceptedTotal: quotes.acceptedTotal,
       closedAt: quotes.closedAt,
+      // Phase 6: pull primaryVerticalId so we can compute per-vertical
+      // booked revenue alongside the all-up total.
+      primaryVerticalId: quotes.primaryVerticalId,
     })
     .from(quotes)
     .where(
@@ -129,6 +134,8 @@ export default async function DashboardPage() {
   let aging31_60 = ZERO;
   let aging61_90 = ZERO;
   let aging90Plus = ZERO;
+  // Phase 6: per-vertical contract value (Decimal sum keyed by id).
+  const bookedByVertical = new Map<string, Decimal>();
 
   for (const q of acceptedQuotes) {
     const contract = q.acceptedTotal
@@ -140,6 +147,10 @@ export default async function DashboardPage() {
     const due = contract.minus(recv);
     booked = booked.plus(contract);
     collected = collected.plus(recv);
+    bookedByVertical.set(
+      q.primaryVerticalId,
+      (bookedByVertical.get(q.primaryVerticalId) ?? ZERO).plus(contract),
+    );
     if (due.gt(0)) {
       outstanding = outstanding.plus(due);
       const closedDays = q.closedAt
@@ -154,6 +165,26 @@ export default async function DashboardPage() {
   booked = toMoney(booked);
   collected = toMoney(collected);
   outstanding = toMoney(outstanding);
+
+  // Resolve vertical brand names for the per-vertical card.
+  const verticalRows =
+    bookedByVertical.size === 0
+      ? []
+      : await db
+          .select({
+            id: verticals.id,
+            brandName: verticals.brandName,
+            brandColor: verticals.brandColor,
+            displayOrder: verticals.displayOrder,
+          })
+          .from(verticals)
+          .orderBy(asc(verticals.displayOrder));
+  const perVerticalBooked = verticalRows
+    .map((v) => ({
+      ...v,
+      booked: toMoney(bookedByVertical.get(v.id) ?? ZERO),
+    }))
+    .filter((v) => v.booked.gt(0));
 
   // ── Recent quotes (existing) ───────────────────────────────────
   const recent = await db
@@ -246,6 +277,46 @@ export default async function DashboardPage() {
           subtitle="contract − collected"
         />
       </div>
+
+      {/* ── Per-vertical booked breakdown ────────────────────── */}
+      {perVerticalBooked.length > 1 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Booked by vertical</CardTitle>
+            <CardDescription>
+              All-time accepted contracts split by primary vertical. Combined
+              offers count toward whichever brand led the project (see the
+              vertical picker in the quote builder).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {perVerticalBooked.map((v) => (
+                <div
+                  key={v.id}
+                  className="flex items-center gap-3 rounded-lg border p-3"
+                >
+                  {v.brandColor ? (
+                    <span
+                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: v.brandColor }}
+                      aria-hidden
+                    />
+                  ) : null}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">
+                      {v.brandName}
+                    </p>
+                    <p className="font-mono text-lg tabular-nums">
+                      ₹ {formatIndianNumber(v.booked)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* ── Aging on outstanding ─────────────────────────────── */}
       {outstanding.gt(0) ? (
