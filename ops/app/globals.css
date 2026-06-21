@@ -101,3 +101,33 @@
     animation: none;
   }
 }
+
+/* ─── Splash screen progress bar ──────────────────────────────────────
+ * Drives the slim horizontal bar that sweeps left → right beneath the
+ * brand on the first-load splash. Lives in CSS (not inline style) so
+ * the animation curve is consistent and the keyframe is JIT-able.
+ * ──────────────────────────────────────────────────────────────────── */
+@keyframes splash-progress {
+  0%   { width: 0%; }
+  100% { width: 100%; }
+}
+.splash-progress {
+  animation: splash-progress 1800ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* A very slow, restrained "breathing" pulse on the brand mark — scale
+ * floats between 1.00 and 1.03 over a 3s cycle. Used during the
+ * splash hold period to keep the eye gently engaged without anything
+ * jumpy. */
+@keyframes splash-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); }
+}
+.splash-breathe {
+  animation: splash-breathe 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-progress { animation: none; width: 100%; }
+  .splash-breathe  { animation: none; }
+}

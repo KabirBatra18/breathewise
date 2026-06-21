@@ -6,48 +6,49 @@ import { cn } from "@/lib/utils";
 
 /**
  * First-load brand splash for the authenticated app. Shows once per
- * browser tab session — flag stored in sessionStorage, so:
+ * browser tab session — flag stored in sessionStorage.
  *
- *   • First page load (or fresh tab)            → splash plays
- *   • Subsequent navigations in the same tab    → silent (no splash)
- *   • Refresh in the same tab                   → silent
- *   • Close tab and re-open                     → splash plays again
- *   • Log out then back in                      → splash plays again
- *     (because the storage key is keyed by sessionStorage which is
- *      tab-scoped, AND we proactively clear it on logout — see
- *      app/(public)/login/actions.ts)
+ * Choreography (total ~3.0s):
+ *   0   ms — backdrop fades in (250ms)
+ *   200 ms — brand tile zooms + drops in (700ms ease-out)
+ *   600 ms — wordmark slides up & in (500ms)
+ *   900 ms — subtitle fades in (400ms)
+ *   1200ms — progress bar starts sweeping left→right (1800ms total)
+ *   1200ms — brand tile starts its slow breathing scale loop
+ *   2400ms — exit fade + zoom out begins (600ms)
+ *   3000ms — unmounted
  *
- * Timeline:
- *   0.0s            mount, fade in (200ms)
- *   0.0–0.9s        brand sits centered, three pulsing dots beneath
- *   0.9s            begin fade out (300ms + slight scale-up)
- *   1.3s            unmount completely (returns null)
+ * The timings are tuned for "you can definitely see what it is" but
+ * still feel like a snappy launch sequence — not a marketing video.
  *
- * Respects prefers-reduced-motion via the tw-animate-css utilities,
- * which already gate their keyframes on that media query.
+ * Once-per-tab logic:
+ *   • shown on first authenticated load in a new tab
+ *   • silent on subsequent navigations / refreshes in same tab
+ *   • shown again on fresh tab open
+ *   • shown again on logout-then-login same-tab (login form clears
+ *     the storage flag on mount)
  */
 const SPLASH_KEY = "uths-splash-shown";
-const HOLD_MS = 900;
-const EXIT_MS = 400;
+
+const ENTER_MS = 1200; // backdrop + brand + wordmark + subtitle done
+const HOLD_MS = 1200;  // progress bar runs through here
+const EXIT_MS = 600;
+const TOTAL_MS = ENTER_MS + HOLD_MS + EXIT_MS; // 3000ms
 
 export function SplashScreen() {
-  // `mounted` lets us decide on the client whether to render at all,
-  // avoiding an SSR/CSR mismatch (the server can't read sessionStorage).
   const [mounted, setMounted] = useState(false);
   const [phase, setPhase] = useState<"showing" | "exiting" | "done">("showing");
 
   useEffect(() => {
-    // SSR safety — sessionStorage is browser-only.
     if (typeof window === "undefined") return;
-    let shown = false;
+    let alreadyShown = false;
     try {
-      shown = sessionStorage.getItem(SPLASH_KEY) === "1";
+      alreadyShown = sessionStorage.getItem(SPLASH_KEY) === "1";
     } catch {
-      // sessionStorage can throw in some restricted contexts (Safari
-      // private mode, embedded webviews). Treat as "not shown" — a
-      // splash is harmless to render every load in that edge case.
+      // sessionStorage can throw under Safari private mode / certain
+      // embedded webviews. Treat as "not shown" and proceed.
     }
-    if (shown) {
+    if (alreadyShown) {
       setPhase("done");
       return;
     }
@@ -57,11 +58,11 @@ export function SplashScreen() {
       /* ignore */
     }
     setMounted(true);
-    const tExit = window.setTimeout(() => setPhase("exiting"), HOLD_MS);
-    const tDone = window.setTimeout(
-      () => setPhase("done"),
-      HOLD_MS + EXIT_MS,
+    const tExit = window.setTimeout(
+      () => setPhase("exiting"),
+      ENTER_MS + HOLD_MS,
     );
+    const tDone = window.setTimeout(() => setPhase("done"), TOTAL_MS);
     return () => {
       window.clearTimeout(tExit);
       window.clearTimeout(tDone);
@@ -77,21 +78,19 @@ export function SplashScreen() {
       className={cn(
         "fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-background",
         phase === "exiting"
-          ? "animate-out fade-out duration-300 fill-mode-forwards"
-          : "animate-in fade-in duration-200",
+          ? "animate-out fade-out duration-600 fill-mode-forwards"
+          : "animate-in fade-in duration-300",
       )}
     >
-      {/* Soft gradient field — same vocabulary as the login screen so
-          the splash → login → app sequence feels visually continuous. */}
+      {/* Soft gradient field — matches login background vocabulary. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(1200px 500px at 10% -10%, rgba(14,165,233,0.08), transparent 60%), radial-gradient(1000px 500px at 110% 110%, rgba(99,102,241,0.07), transparent 60%)",
+            "radial-gradient(1200px 500px at 10% -10%, rgba(14,165,233,0.10), transparent 60%), radial-gradient(1000px 500px at 110% 110%, rgba(99,102,241,0.08), transparent 60%)",
         }}
       />
-      {/* Faint grid pattern — same 32px square as the login bg. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.04]"
@@ -104,41 +103,63 @@ export function SplashScreen() {
 
       <div
         className={cn(
-          "relative flex flex-col items-center gap-4",
+          "relative flex flex-col items-center gap-5",
           phase === "exiting"
-            ? "animate-out fade-out zoom-out-95 duration-300 fill-mode-forwards"
-            : "animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-500",
+            ? "animate-out fade-out zoom-out-95 duration-500 fill-mode-forwards"
+            : "",
         )}
       >
-        {/* Brand mark — matches sidebar + login lockup, but bigger for
-            the splash moment. */}
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-foreground text-background shadow-lg ring-1 ring-foreground/10">
-          <Building2 className="h-7 w-7" />
+        {/* Brand tile: zoom-in entrance with a soft drop-shadow, then
+            the slow "breathing" scale kicks in once visible. */}
+        <div
+          className={cn(
+            "splash-breathe relative flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground text-background shadow-xl ring-1 ring-foreground/10",
+            "animate-in fade-in zoom-in-50 slide-in-from-bottom-3 duration-700 delay-200 fill-mode-backwards ease-out",
+          )}
+        >
+          <Building2 className="h-8 w-8" />
+          {/* Soft halo glow behind the tile — sits under the icon
+              and adds depth on light backgrounds without being
+              flashy on dark. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10 rounded-2xl bg-foreground/20 blur-xl"
+          />
         </div>
+
+        {/* Wordmark — slides up after the tile lands. */}
         <div className="text-center">
-          <p className="text-base font-semibold tracking-tight">
+          <p
+            className={cn(
+              "text-xl font-semibold tracking-tight",
+              "animate-in fade-in slide-in-from-bottom-2 duration-500 delay-700 fill-mode-backwards ease-out",
+            )}
+          >
             UTHS Operations
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p
+            className={cn(
+              "mt-1 text-xs text-muted-foreground",
+              "animate-in fade-in duration-400 delay-1000 fill-mode-backwards",
+            )}
+          >
             Urban Tech Home Solutions
           </p>
         </div>
-        {/* Three pulsing dots — keeps the user oriented during the
-            short hold without resorting to a spinner (which would
-            imply something blocking, when really we're just
-            showcasing the brand for ~1s). */}
-        <div className="mt-1 flex items-center gap-1.5" aria-hidden>
-          <span
-            className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/40"
-            style={{ animationDelay: "0ms", animationDuration: "900ms" }}
-          />
-          <span
-            className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/40"
-            style={{ animationDelay: "150ms", animationDuration: "900ms" }}
-          />
-          <span
-            className="h-1.5 w-1.5 animate-bounce rounded-full bg-foreground/40"
-            style={{ animationDelay: "300ms", animationDuration: "900ms" }}
+
+        {/* Progress bar — slim, deterministic sweep left→right during
+            the hold period. Gives the eye something to track that
+            isn't competing with the brand. */}
+        <div
+          className={cn(
+            "mt-4 h-0.5 w-40 overflow-hidden rounded-full bg-foreground/10",
+            "animate-in fade-in duration-300 delay-1100 fill-mode-backwards",
+          )}
+          aria-hidden
+        >
+          <div
+            className="splash-progress h-full rounded-full bg-foreground/80"
+            style={{ animationDelay: "1200ms" }}
           />
         </div>
       </div>
