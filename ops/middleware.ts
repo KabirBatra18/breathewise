@@ -11,7 +11,14 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Strict-Transport-Security":
     "max-age=63072000; includeSubDomains; preload",
   "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+  // geolocation=(self) allows the top-level same-origin document
+  // (hub.breathe-wise.in) to use navigator.geolocation, which the
+  // attendance feature (added 2026-06-21) requires for the punch
+  // flow. Empty allowlist () would deny it everywhere including the
+  // app's own top-level context. Cross-origin iframes still can't
+  // inherit geolocation access. mic + camera stay fully denied —
+  // we don't use them.
+  "Permissions-Policy": "geolocation=(self), microphone=(), camera=()",
 };
 
 // TODO(zyra): tighten to nonce-based CSP once auth flow is stable.
@@ -32,6 +39,14 @@ const CSP = [
   // our own /api/.../pdf endpoints. Cross-origin framing is still
   // blocked, matching the X-Frame-Options: SAMEORIGIN above.
   "frame-ancestors 'self'",
+  // frame-src needs to allow openstreetmap.org so the /attendance/admin
+  // map preview (in pending-approval-card.tsx) and the office picker
+  // preview (in settings-form.tsx) can load their iframe. Without
+  // this, default-src 'self' applies and the maps silently fail to
+  // load. CSP-3 falls back frame-src → child-src → default-src, so
+  // we declare frame-src explicitly here. (Added 2026-06-22 alongside
+  // the attendance feature.)
+  "frame-src 'self' https://www.openstreetmap.org",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
