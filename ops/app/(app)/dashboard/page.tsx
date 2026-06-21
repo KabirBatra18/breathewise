@@ -210,7 +210,7 @@ export default async function DashboardPage() {
     .limit(8);
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="animate-in fade-in duration-300 space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
@@ -453,11 +453,15 @@ function MoneyTile({
         ? "text-amber-700 dark:text-amber-400"
         : "";
   return (
-    <div className="rounded-lg border p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+    <div className="group rounded-lg border bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
-      <p className={"mt-1 text-xl font-semibold tabular-nums " + cls}>
+      <p
+        className={
+          "mt-1 text-2xl font-semibold tabular-nums tracking-tight " + cls
+        }
+      >
         ₹{formatIndianNumber(value)}
       </p>
       <p className="mt-1 text-[11px] text-muted-foreground">{subtitle}</p>

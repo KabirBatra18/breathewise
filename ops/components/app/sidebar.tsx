@@ -103,8 +103,16 @@ function SidebarBody({
   return (
     <>
       <div className="border-b px-4 py-5">
-        <p className="text-sm font-semibold">UTHS Operations</p>
-        <p className="mt-2 truncate text-sm">{name}</p>
+        {/* Brand mark — small inline lockup using the same Building2
+            icon as the login page. Keeps a consistent UTHS identity
+            across the staff portal. */}
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground text-background ring-1 ring-foreground/10">
+            <Building2 className="h-4 w-4" />
+          </span>
+          <p className="text-sm font-semibold tracking-tight">UTHS Operations</p>
+        </div>
+        <p className="mt-3 truncate text-sm">{name}</p>
         <p className="text-xs text-muted-foreground">{role}</p>
         {/* The Cmd+K hint only matters on desktop; mobile has its
             own visible Search button in the top bar. */}
@@ -131,11 +139,13 @@ function SidebarBody({
               className={cn(
                 // min-h-9 ensures iOS/Android touch-target minimum on
                 // mobile while keeping a tight visual on desktop where
-                // it doesn't matter.
-                "flex min-h-9 items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors active:scale-[0.985]",
+                // it doesn't matter. The before:* pseudo-element draws
+                // a slim accent bar on the left when active — animated
+                // in via a width transition for a tactile feel.
+                "relative flex min-h-9 items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-all duration-150 active:scale-[0.985] before:absolute before:left-0 before:top-1/2 before:h-5 before:-translate-y-1/2 before:rounded-r-full before:bg-foreground before:transition-all before:duration-200 before:content-['']",
                 active
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "bg-muted font-medium text-foreground before:w-0.5"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground before:w-0",
               )}
             >
               {loading ? (

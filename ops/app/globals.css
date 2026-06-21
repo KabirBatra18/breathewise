@@ -64,3 +64,40 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ─── Loading shimmer ─────────────────────────────────────────────────
+ * A more refined alternative to Tailwind's animate-pulse. Used by the
+ * Skeleton primitive (components/ui/skeleton.tsx) — a soft highlight
+ * sweeps left-to-right across each skeleton block, which reads as
+ * "actively loading" rather than the static pulse fade in / out.
+ * ──────────────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+.dark .skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 100%
+  );
+}
+/* Respect prefers-reduced-motion: stop the moving highlight. The base
+ * muted block still communicates "loading" via colour. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+  }
+}
