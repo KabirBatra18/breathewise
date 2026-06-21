@@ -103,7 +103,7 @@ function SidebarBody({
   return (
     <>
       <div className="border-b px-4 py-5">
-        <p className="text-sm font-semibold">BreatheWise Ops</p>
+        <p className="text-sm font-semibold">UTHS Operations</p>
         <p className="mt-2 truncate text-sm">{name}</p>
         <p className="text-xs text-muted-foreground">{role}</p>
         {/* The Cmd+K hint only matters on desktop; mobile has its
@@ -225,7 +225,7 @@ export function MobileNavBar({ role, name }: { role: Role; name: string }) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <p className="text-sm font-semibold">BreatheWise Ops</p>
+        <p className="text-sm font-semibold">UTHS Operations</p>
         <Button
           type="button"
           variant="ghost"
