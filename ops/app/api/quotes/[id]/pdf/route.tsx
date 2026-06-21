@@ -12,7 +12,9 @@ import {
   quoteSections,
   quoteTerms,
   quotes,
+  verticals,
 } from "@/db/schema";
+import { UTHS_LEGAL_NAME } from "@/lib/verticals/constants";
 import { requireAuth } from "@/lib/auth/server";
 import {
   computeQuoteTotals,
@@ -48,7 +50,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const [client, sections, terms, settingsRow] = await Promise.all([
+  const [client, sections, terms, settingsRow, verticalRow] = await Promise.all([
     db.query.clients.findFirst({ where: eq(clients.id, quote.clientId) }),
     db
       .select()
@@ -61,9 +63,15 @@ export async function GET(
       .where(eq(quoteTerms.quoteId, quote.id))
       .orderBy(asc(quoteTerms.sortOrder)),
     db.select().from(companySettings).where(eq(companySettings.id, 1)),
+    db
+      .select()
+      .from(verticals)
+      .where(eq(verticals.id, quote.primaryVerticalId))
+      .limit(1),
   ]);
   const settings = settingsRow[0];
-  if (!client || !settings) {
+  const vertical = verticalRow[0];
+  if (!client || !settings || !vertical) {
     return NextResponse.json({ error: "Quote incomplete" }, { status: 500 });
   }
 
@@ -241,9 +249,13 @@ export async function GET(
       : "0",
     terms: terms.map((t) => ({ title: t.titleSnapshot, body: t.bodySnapshot })),
     brand: {
-      legalName: settings.legalName,
-      brandName: settings.brandName,
-      tagline: settings.tagline,
+      // The legal block at the bottom of the PDF — always UTHS, never
+      // varies by vertical (GST Rule 46 requires the legal name).
+      legalName: UTHS_LEGAL_NAME,
+      // The header brand — varies per quote.primary_vertical.
+      brandName: vertical.brandName,
+      tagline: vertical.tagline ?? settings.tagline,
+      // Contact details remain UTHS-level (one office, one phone).
       address: settings.address,
       phone: settings.phone,
       email: settings.email,

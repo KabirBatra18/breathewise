@@ -76,7 +76,7 @@ export function CancelInvoiceButton({
               id="cancel-reason"
               autoFocus
               rows={3}
-              placeholder="e.g. Wrong client GSTIN; reissued as BW/INV/2627/0034"
+              placeholder="e.g. Wrong client GSTIN; reissued as UTHS/INV/2627/0034"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               disabled={pending}

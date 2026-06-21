@@ -320,7 +320,7 @@ export function InvoiceEditor({
     setPendingConfirm({
       title: "Finalize this invoice?",
       description:
-        "An invoice number will be allocated (e.g. BW/INV/2627/0001) and the document becomes legally binding. After this you can't edit any line, total or party. The PDF will unlock for download.",
+        "An invoice number will be allocated (e.g. UTHS/INV/2627/0001) and the document becomes legally binding. After this you can't edit any line, total or party. The PDF will unlock for download.",
       actionLabel: "Finalize & issue",
       onConfirm: () => {
         startLifecycleTransition(async () => {
@@ -1008,7 +1008,7 @@ export function InvoiceEditor({
           <CardTitle>Finalize this invoice</CardTitle>
           <CardDescription>
             Once finalized, the invoice gets a permanent number (e.g.
-            BW/INV/2627/0001), becomes a legal document, and can no longer
+            UTHS/INV/2627/0001), becomes a legal document, and can no longer
             be edited. The PDF download unlocks at this point.
           </CardDescription>
         </CardHeader>

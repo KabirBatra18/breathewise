@@ -3,7 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { invoiceLines, invoices, quotes } from "@/db/schema";
+import { invoiceLines, invoices, quotes, verticals } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import {
   TaxInvoicePdfDocument,
@@ -65,6 +65,17 @@ export async function GET(
     .where(eq(quotes.id, inv.quoteId));
   const sourceQuoteNumber = srcRows[0]?.quoteNumber ?? null;
 
+  // Brand layer on top of the invoice PDF. The legal block below
+  // (UTHS legal name, GSTIN, supplier address — all from the inv.*
+  // snapshot columns) is independent and always identifies UTHS as
+  // the supplier per Rule 46 of CGST Rules.
+  const verticalRow = await db
+    .select()
+    .from(verticals)
+    .where(eq(verticals.id, inv.primaryVerticalId))
+    .limit(1);
+  const vertical = verticalRow[0];
+
   const issueDateFormatted = (() => {
     try {
       const d = new Date(`${inv.issueDate as unknown as string}T00:00:00`);
@@ -119,7 +130,11 @@ export async function GET(
     reverseCharge: inv.reverseCharge,
     supplier: {
       legalName: inv.supplierLegalName,
-      brandName: "BreatheWise",
+      // Was hardcoded to "BreatheWise" before Phase 2. Now reads from
+      // the per-invoice primary vertical so a UTHS Security invoice
+      // shows "UTHS Security" in the PDF header while the legal name
+      // (inv.supplierLegalName) stays "Urban Tech Home Solutions".
+      brandName: vertical?.brandName ?? "BreatheWise",
       address: inv.supplierAddress,
       state: inv.supplierState,
       stateCode: inv.supplierStateCode,

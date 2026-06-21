@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { clients, quoteSends, quoteTierFinancials, quotes } from "@/db/schema";
+import { clients, quoteSends, quoteTierFinancials, quotes, verticals } from "@/db/schema";
 import { requireEmployeeOrAbove } from "@/lib/auth/server";
 import { audit } from "@/lib/audit/log";
 
@@ -101,18 +101,28 @@ export async function buildWhatsappMessage(
     where: eq(clients.id, quote.clientId),
   });
 
+  // Per-vertical signature + brand-aware body copy. Phase 2 of the
+  // multi-vertical work — each vertical owns its own whatsapp_signature
+  // and brandName in the verticals table.
+  const vertical = await db.query.verticals.findFirst({
+    where: eq(verticals.id, quote.primaryVerticalId),
+  });
+  const signature =
+    vertical?.whatsappSignature ?? "BreatheWise · Urban Tech Home Solutions";
+  const brandName = vertical?.brandName ?? "BreatheWise";
+
   return [
     `Hello ${client?.name ?? ""},`,
     "",
-    `Please find the rough quotation ${quote.quoteNumber} for your ventilation requirement.`,
+    `Please find the rough quotation ${quote.quoteNumber}.`,
     "",
     `Grand total: ₹${total}`,
     `Valid: ${quote.validityDays} days from ${quote.issueDate}`,
     "",
-    `Quote PDF: <attach the downloaded file from the BreatheWise app>`,
+    `Quote PDF: <attach the downloaded file from the ${brandName} app>`,
     "",
     `For any questions please reply on this thread.`,
     "",
-    `BreatheWise · Urban Tech Home Solutions`,
+    signature,
   ].join("\n");
 }
