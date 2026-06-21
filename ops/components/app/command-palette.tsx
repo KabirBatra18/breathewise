@@ -27,12 +27,20 @@ const TYPE_LABEL: Record<SearchItem["type"], string> = {
 
 const MAX_RESULTS = 30;
 
-export function CommandPalette({ items }: { items: SearchItem[] }) {
+export function CommandPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Lazy-fetch index on first open. Previously this index was
+  // pre-shipped from app/(app)/layout.tsx on every navigation, which
+  // cost ~200-500ms TTFB on every page load. Now we pay the cost
+  // once, only when the user actually presses Cmd+K.
+  const [items, setItems] = useState<SearchItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const fetchedRef = useRef(false);
 
   // Cmd/Ctrl+K toggle (and Esc to close).
   useEffect(() => {
@@ -48,12 +56,27 @@ export function CommandPalette({ items }: { items: SearchItem[] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // Reset on open.
+  // Reset on open + lazy-load index the first time.
   useEffect(() => {
     if (open) {
       setQuery("");
       setHighlighted(0);
       const t = window.setTimeout(() => inputRef.current?.focus(), 0);
+      if (!fetchedRef.current) {
+        fetchedRef.current = true;
+        setLoading(true);
+        fetch("/api/search-index")
+          .then((r) => (r.ok ? r.json() : { items: [] }))
+          .then((data) => {
+            setItems(Array.isArray(data.items) ? data.items : []);
+          })
+          .catch(() => {
+            // Quietly degrade — palette still opens, just empty.
+            // The user can navigate via the sidebar regardless.
+            fetchedRef.current = false; // allow retry next open
+          })
+          .finally(() => setLoading(false));
+      }
       return () => window.clearTimeout(t);
     }
   }, [open]);
@@ -127,7 +150,11 @@ export function CommandPalette({ items }: { items: SearchItem[] }) {
           </kbd>
         </div>
         <div className="max-h-[60vh] overflow-y-auto">
-          {results.length === 0 ? (
+          {loading && items.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+              Loading…
+            </p>
+          ) : results.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               No matches.
             </p>
