@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProductPicker, type ProductOption } from "./product-picker";
+import { ClientPicker } from "./client-picker";
 import { TotalsPanel } from "./totals-panel";
 import { saveRoughQuoteAction, type SaveQuoteInput } from "@/app/(app)/quotes/actions";
 import {
@@ -696,7 +697,21 @@ export function QuoteBuilder({
                 onValueChange={(v) => setPrimaryVerticalId(v ?? "")}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a vertical" />
+                  {/* Base UI's Select.Value defaults to showing the raw
+                      value when an item is selected — for UUID-keyed
+                      selects (like vertical_id) that means the trigger
+                      shows "01000000-…" instead of "BreatheWise". Pass
+                      a function-as-children so we render the human
+                      label from the matching vertical row. */}
+                  <SelectValue placeholder="Choose a vertical">
+                    {(v) => {
+                      const found = verticals.find((x) => x.id === v);
+                      if (!found) return "Choose a vertical";
+                      return found.tagline
+                        ? `${found.brandName} · ${found.tagline}`
+                        : found.brandName;
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {verticals.map((v) => (
@@ -715,20 +730,16 @@ export function QuoteBuilder({
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Client</Label>
-              <Select value={clientId} onValueChange={(v) => setClientId(v ?? "")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                      {c.companyName ? ` · ${c.companyName}` : ""}
-                      {c.phone ? ` · ${c.phone}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Searchable picker — scales to 100s of clients with
+                  type-to-filter on name / company / phone. Replaces
+                  the previous <Select> that rendered the raw UUID in
+                  its trigger and forced the user to scroll through
+                  the entire list. */}
+              <ClientPicker
+                clients={clients}
+                value={clientId}
+                onChange={setClientId}
+              />
               {selectedClient ? null : (
                 <p className="text-xs text-muted-foreground">
                   Don&apos;t see them?{" "}
