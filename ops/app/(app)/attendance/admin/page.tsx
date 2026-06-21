@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, gte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { attendanceDays, users } from "@/db/schema";
 import { requireOwner } from "@/lib/auth/server";
+import { istDateString } from "@/lib/attendance/ist-date";
 import {
   Card,
   CardContent,
@@ -38,6 +39,46 @@ export default async function AttendanceAdminPage() {
       ),
     )
     .orderBy(desc(attendanceDays.date), desc(attendanceDays.updatedAt));
+
+  // Anti-fraud commit 2 (2026-06-22): compute each pending employee's
+  // off-site punch count over the last 30 days. Surfaced on the approval
+  // card so OWNER can spot suspicious patterns (e.g. "this employee has
+  // claimed 12 off-site days this month" = red flag).
+  const today = istDateString();
+  const thirtyDaysAgo = (() => {
+    const d = new Date(`${today}T00:00:00+05:30`);
+    d.setUTCDate(d.getUTCDate() - 30);
+    return d.toISOString().slice(0, 10);
+  })();
+  const userIdsToScan = Array.from(
+    new Set(rows.map((r) => r.day.userId).filter((id): id is string => Boolean(id))),
+  );
+  // Map: userId → count of days in last 30d where either side was
+  // PENDING / OWNER_APPROVED off-site (anything that wasn't AUTO_APPROVED).
+  const offsiteCountByUser = new Map<string, number>();
+  if (userIdsToScan.length > 0) {
+    const offsiteRows = await db
+      .select({
+        userId: attendanceDays.userId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(attendanceDays)
+      .where(
+        and(
+          gte(attendanceDays.date, thirtyDaysAgo),
+          or(
+            eq(attendanceDays.checkInStatus, "PENDING"),
+            eq(attendanceDays.checkInStatus, "OWNER_APPROVED"),
+            eq(attendanceDays.checkOutStatus, "PENDING"),
+            eq(attendanceDays.checkOutStatus, "OWNER_APPROVED"),
+          ),
+        ),
+      )
+      .groupBy(attendanceDays.userId);
+    for (const r of offsiteRows) {
+      offsiteCountByUser.set(r.userId, r.count);
+    }
+  }
 
   // Missed-checkout anomalies are surfaced in the monthly grid (Commit F),
   // where OWNER can click a specific day and enter the actual checkout
@@ -84,6 +125,7 @@ export default async function AttendanceAdminPage() {
                   dayId={day.id}
                   employeeName={userName ?? userUsername ?? "Unknown"}
                   date={day.date as unknown as string}
+                  offsiteCount30d={offsiteCountByUser.get(day.userId) ?? 0}
                   checkIn={
                     day.checkInAt
                       ? {
@@ -94,6 +136,9 @@ export default async function AttendanceAdminPage() {
                           accuracyM: day.checkInAccuracyM,
                           status: day.checkInStatus,
                           note: day.checkInOffsiteNote,
+                          ip: day.checkInIp,
+                          ipMatch: day.checkInIpMatch,
+                          clockSkewMs: day.checkInClockSkewMs,
                         }
                       : null
                   }
@@ -107,6 +152,9 @@ export default async function AttendanceAdminPage() {
                           accuracyM: day.checkOutAccuracyM,
                           status: day.checkOutStatus,
                           note: day.checkOutOffsiteNote,
+                          ip: day.checkOutIp,
+                          ipMatch: day.checkOutIpMatch,
+                          clockSkewMs: day.checkOutClockSkewMs,
                         }
                       : null
                   }

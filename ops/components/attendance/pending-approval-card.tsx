@@ -18,18 +18,26 @@ type Punch = {
   accuracyM: number | null;
   status: string | null;
   note: string | null;
+  // Anti-fraud commit 2 (2026-06-22) — captured at punch time, shown
+  // on the approval card so OWNER has all forensic signals in one view
+  // before approving.
+  ip: string | null;
+  ipMatch: boolean | null;
+  clockSkewMs: number | null;
 };
 
 export function PendingApprovalCard({
   dayId,
   employeeName,
   date,
+  offsiteCount30d,
   checkIn,
   checkOut,
 }: {
   dayId: string;
   employeeName: string;
   date: string;
+  offsiteCount30d: number;
   checkIn: Punch | null;
   checkOut: Punch | null;
 }) {
@@ -89,7 +97,21 @@ export function PendingApprovalCard({
     <div className="rounded-lg border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-medium">{employeeName}</p>
+          <p className="font-medium">
+            {employeeName}
+            {offsiteCount30d >= 8 ? (
+              <span
+                className="ml-2 inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+                title="High off-site count in the last 30 days — worth a closer look"
+              >
+                {offsiteCount30d} off-site days ⚠️
+              </span>
+            ) : offsiteCount30d > 0 ? (
+              <span className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {offsiteCount30d} off-site days in 30d
+              </span>
+            ) : null}
+          </p>
           <p className="text-xs text-muted-foreground">
             {formatDate(date)} ·{" "}
             {scope === "BOTH"
@@ -209,6 +231,11 @@ export function PendingApprovalCard({
 }
 
 function PunchSummary({ label, punch }: { label: string; punch: Punch }) {
+  // Clock skew > 60s is a strong device-clock-tampering signal — render
+  // in rose. 5-60s is normal (NTP drift, app-suspend, network latency).
+  const skewSeconds =
+    punch.clockSkewMs != null ? Math.round(punch.clockSkewMs / 1000) : null;
+  const skewIsRed = skewSeconds != null && skewSeconds > 60;
   return (
     <div className="rounded-md bg-muted/30 p-2">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -223,6 +250,32 @@ function PunchSummary({ label, punch }: { label: string; punch: Punch }) {
           : "distance unknown"}
         {punch.accuracyM != null ? ` · ±${punch.accuracyM}m GPS` : ""}
       </p>
+      {/* Anti-fraud forensic signals — IP + clock skew. Stay visually
+          quiet when everything's normal; flip red when something's off. */}
+      {(punch.ip || skewSeconds != null) && (
+        <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+          {punch.ip ? (
+            <p>
+              IP <code className="font-mono">{punch.ip}</code>
+              {punch.ipMatch === true ? (
+                <span className="ml-1 text-emerald-700 dark:text-emerald-400">
+                  · office ✓
+                </span>
+              ) : punch.ipMatch === false ? (
+                <span className="ml-1 text-rose-700 dark:text-rose-400">
+                  · not in trusted list
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+          {skewSeconds != null ? (
+            <p className={skewIsRed ? "text-rose-700 dark:text-rose-400" : ""}>
+              Clock skew {skewSeconds}s
+              {skewIsRed ? " ⚠️ device clock may be off" : ""}
+            </p>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
