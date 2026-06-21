@@ -580,6 +580,11 @@ export function InvoiceEditor({
           </div>
         </CardHeader>
         <CardContent>
+          {/* Desktop / tablet: 14-column table — same as before.
+              Hidden on phones where horizontal scrolling per blur is
+              unworkable. The mobile per-line cards below show the
+              same data + same handlers in a stacked layout. */}
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -763,6 +768,195 @@ export function InvoiceEditor({
               ) : null}
             </TableBody>
           </Table>
+          </div>
+
+          {/* Mobile: per-line stacked cards. Same `lines` state +
+              same handlers as the table above — only the layout
+              differs. Hidden on md+ where the table works. */}
+          <div className="space-y-3 md:hidden">
+            {lines.length === 0 ? (
+              <p className="rounded-md border-2 border-dashed py-10 text-center text-sm text-muted-foreground">
+                No lines yet. Tap <strong>Add line</strong> above.
+              </p>
+            ) : null}
+            {lines.map((line, idx) => (
+              <div
+                key={line.id}
+                className="space-y-3 rounded-lg border bg-card p-3 shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      #{idx + 1}
+                    </span>
+                    {line.skuSnapshot ? (
+                      <span className="font-mono text-[11px] font-semibold">
+                        {line.skuSnapshot}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {savedFlash.has(line.id) ? (
+                      <Check
+                        className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+                        aria-label="Saved"
+                      />
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => removeLine(line.id)}
+                      aria-label="Remove line"
+                      className="text-muted-foreground hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">
+                    Description
+                  </label>
+                  <Textarea
+                    defaultValue={line.description}
+                    onBlur={(e) => {
+                      if (e.target.value === line.description) return;
+                      patchLineLocal(line.id, { description: e.target.value });
+                      commitLine(line, { description: e.target.value });
+                    }}
+                    rows={2}
+                    className="min-h-[2.25rem] text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Qty</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      inputMode="decimal"
+                      defaultValue={Number(line.quantity)}
+                      onBlur={(e) => {
+                        const v = e.target.value || "0";
+                        if (new Decimal(v).eq(line.quantity)) return;
+                        patchLineLocal(line.id, { quantity: v });
+                        commitLine(line, { quantity: v });
+                      }}
+                      className="text-right tabular-nums"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Unit</label>
+                    <Input
+                      defaultValue={line.unit}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim() || "pcs";
+                        if (v === line.unit) return;
+                        patchLineLocal(line.id, { unit: v });
+                        commitLine(line, { unit: v });
+                      }}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">HSN</label>
+                    <Input
+                      defaultValue={line.hsnCode ?? ""}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim() || null;
+                        if (v === line.hsnCode) return;
+                        patchLineLocal(line.id, { hsnCode: v });
+                        commitLine(line, { hsnCode: v });
+                      }}
+                      className="text-sm tabular-nums"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Rate ₹</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      inputMode="decimal"
+                      defaultValue={Number(line.unitPrice)}
+                      onBlur={(e) => {
+                        const v = e.target.value || "0";
+                        if (new Decimal(v).eq(line.unitPrice)) return;
+                        patchLineLocal(line.id, { unitPrice: v });
+                        commitLine(line, { unitPrice: v });
+                      }}
+                      className="text-right tabular-nums"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">GST %</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      max={100}
+                      inputMode="decimal"
+                      defaultValue={Number(line.gstRate)}
+                      onBlur={(e) => {
+                        const v = e.target.value || "0";
+                        if (new Decimal(v).eq(line.gstRate)) return;
+                        patchLineLocal(line.id, { gstRate: v });
+                        commitLine(line, { gstRate: v });
+                      }}
+                      className="text-right tabular-nums"
+                    />
+                  </div>
+                </div>
+
+                {/* Computed values — read-only. Same numbers shown
+                    in the desktop table; just stacked. */}
+                <div className="space-y-1 rounded-md border bg-muted/30 p-2 text-xs">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">Taxable</span>
+                    <span className="tabular-nums">
+                      ₹ {formatIndianNumber(new Decimal(line.taxableValue))}
+                    </span>
+                  </div>
+                  {invoice.isInterState ? (
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-muted-foreground">IGST</span>
+                      <span className="tabular-nums">
+                        ₹ {formatIndianNumber(new Decimal(line.igstAmount))}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-muted-foreground">CGST</span>
+                        <span className="tabular-nums">
+                          ₹ {formatIndianNumber(new Decimal(line.cgstAmount))}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-muted-foreground">SGST</span>
+                        <span className="tabular-nums">
+                          ₹ {formatIndianNumber(new Decimal(line.sgstAmount))}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-baseline justify-between border-t pt-1 font-semibold">
+                    <span>Total</span>
+                    <span className="tabular-nums">
+                      ₹ {formatIndianNumber(new Decimal(line.lineTotal))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
