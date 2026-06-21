@@ -270,6 +270,11 @@ export function QuoteBuilder({
           sections: SectionState[];
           selectedTermIds: string[];
           showSavingsOnPdf?: boolean;
+          // Persisted in v2 of the autosave snapshot. Older snapshots
+          // (v1) won't have it — applyRestore falls back to the current
+          // primaryVerticalId state if undefined, which is correct
+          // (the user hasn't yet been able to change it).
+          primaryVerticalId?: string;
         };
       }
     | null
@@ -320,6 +325,11 @@ export function QuoteBuilder({
             sections,
             selectedTermIds,
             showSavingsOnPdf,
+            // Phase 3+: include the primary vertical so a restored
+            // draft keeps its brand selection. Persisted on v1
+            // snapshots too (it's optional on the type) so we don't
+            // need a version bump.
+            primaryVerticalId,
           },
         };
         localStorage.setItem(draftKey, JSON.stringify(payload));
@@ -336,6 +346,7 @@ export function QuoteBuilder({
     sections,
     selectedTermIds,
     showSavingsOnPdf,
+    primaryVerticalId,
     draftKey,
   ]);
 
@@ -350,6 +361,13 @@ export function QuoteBuilder({
     setSelectedTermIds(s.selectedTermIds);
     if (typeof s.showSavingsOnPdf === "boolean")
       setShowSavingsOnPdf(s.showSavingsOnPdf);
+    // Restore the persisted vertical if present. Older v1 snapshots
+    // (created before Phase 3 of the verticals work) won't have this
+    // field — in that case we keep whatever the picker currently has
+    // (the auto-defaulted first active vertical), which is correct.
+    if (typeof s.primaryVerticalId === "string" && s.primaryVerticalId) {
+      setPrimaryVerticalId(s.primaryVerticalId);
+    }
     setRestoreOffer(null);
     toast.success("Draft restored.");
   }

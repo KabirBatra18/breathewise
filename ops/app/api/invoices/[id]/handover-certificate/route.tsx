@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { format } from "date-fns";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clients, invoiceLines, invoices, quotes } from "@/db/schema";
+import { clients, invoiceLines, invoices, quotes, verticals } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { fillTemplate, type OverlayField } from "@/lib/pdf-templates/overlay";
+import { VERTICAL_IDS } from "@/lib/verticals/constants";
 
 /**
  * Completion & Handover Certificate — pdf-lib overlay on the source
@@ -47,6 +48,26 @@ export async function GET(
       {
         error:
           "Finalize this invoice first — the Handover Certificate cross-references an issued invoice number.",
+      },
+      { status: 409 },
+    );
+  }
+
+  // Same guard as the Services Agreement route: the Handover
+  // Certificate template is ventilation-specific (mentions filter
+  // CMH, AHU access, fresh-air commissioning) and would be wrong
+  // for a UTHS Security smart-lock handover. Refuse for non-BW
+  // until per-vertical templates are added (Phase 7).
+  if (inv.primaryVerticalId !== VERTICAL_IDS.BREATHEWISE) {
+    const vRows = await db
+      .select({ brandName: verticals.brandName })
+      .from(verticals)
+      .where(eq(verticals.id, inv.primaryVerticalId))
+      .limit(1);
+    const brand = vRows[0]?.brandName ?? "non-BreatheWise";
+    return NextResponse.json(
+      {
+        error: `The Handover Certificate template is ventilation-specific (BreatheWise) and cannot be auto-generated for a ${brand} invoice. Please prepare a vertical-appropriate handover document manually until per-vertical templates are added.`,
       },
       { status: 409 },
     );

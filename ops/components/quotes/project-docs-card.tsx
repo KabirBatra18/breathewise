@@ -114,7 +114,7 @@ export function ProjectDocsCard({
         <div className="flex flex-wrap gap-2 border-t pt-4">
           <PdfPreviewButton
             url="/docs/welcome-pack.pdf"
-            filename="BreatheWise-Welcome-Pack.pdf"
+            filename="UTHS-Welcome-Pack.pdf"
             title="Client Welcome & Scope Pack"
             description="Generic onboarding document — same for every client."
             variant="outline"

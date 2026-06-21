@@ -239,6 +239,12 @@ export default async function QuoteDetailPage({
         .where(isNull(termsClauses.deletedAt))
         .orderBy(asc(termsClauses.sortOrder)),
       db.select().from(companySettings).where(eq(companySettings.id, 1)),
+      // Fetch ALL verticals (not just active) so a quote whose
+      // current vertical has been hidden in the admin still has its
+      // option present in the picker — otherwise the Select would
+      // show an empty value and the user couldn't see/change the
+      // brand. The picker UI can decorate hidden verticals later
+      // (Phase 4 admin work) if needed.
       db
         .select({
           id: verticals.id,
@@ -246,7 +252,6 @@ export default async function QuoteDetailPage({
           tagline: verticals.tagline,
         })
         .from(verticals)
-        .where(eq(verticals.isActive, true))
         .orderBy(asc(verticals.displayOrder)),
     ]);
 

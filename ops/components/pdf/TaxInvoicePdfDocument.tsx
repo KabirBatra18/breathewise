@@ -10,8 +10,8 @@ import { Decimal } from "@/lib/pricing/decimal";
 import { formatIndianNumber } from "@/lib/pricing/format";
 import { amountInWords } from "@/lib/pricing/words";
 import {
-  INVOICE_TERMS,
   INVOICE_TERMS_HEADER,
+  invoiceTermsForVertical,
 } from "@/lib/invoice-terms";
 
 /**
@@ -403,6 +403,10 @@ export interface TaxInvoicePdfData {
   supplier: {
     legalName: string;
     brandName?: string | null;
+    // Vertical slug (e.g. "breathewise", "uths_security"). Used to
+    // pick the right vertical-specific T&C clauses on the invoice
+    // PDF — see lib/invoice-terms.ts:invoiceTermsForVertical().
+    verticalSlug?: string | null;
     address?: string | null;
     state?: string | null;
     stateCode?: string | null;
@@ -851,7 +855,9 @@ function InvoicePage({
         <View style={styles.termsBlock} wrap>
           <Text style={styles.termsHeader}>Terms &amp; Conditions</Text>
           <Text style={styles.termsSubHeader}>{INVOICE_TERMS_HEADER}</Text>
-          {INVOICE_TERMS.map((t, i) => (
+          {invoiceTermsForVertical(
+            data.supplier.verticalSlug ?? undefined,
+          ).map((t, i) => (
             <View key={t.title} style={styles.termsRow} wrap={false}>
               <Text style={styles.termsNum}>{i + 1}.</Text>
               <View style={styles.termsBodyCol}>

@@ -490,7 +490,12 @@ export const companySettings = pgTable("company_settings", {
   defaultRoughDiscountPercent: percent("default_rough_discount_percent").notNull().default("5.00"),
   defaultPreciseTiers: percent("default_precise_tiers").array().notNull().default(sql`ARRAY[5.00, 10.00, 15.00]::numeric(5,2)[]`),
   defaultValidityDays: integer("default_validity_days").notNull().default(15),
-  quoteNumberPrefix: text("quote_number_prefix").notNull().default("BW"),
+  // Default flipped from "BW" to "UTHS" by migration 0016. The
+  // existing singleton row was UPDATEd at the same time; this default
+  // only matters if the row is ever re-created (which it shouldn't
+  // be — company_settings is a singleton). Keeps schema-as-source-of-
+  // truth aligned with the migration.
+  quoteNumberPrefix: text("quote_number_prefix").notNull().default("UTHS"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

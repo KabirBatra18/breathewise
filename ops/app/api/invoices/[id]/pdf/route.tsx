@@ -134,7 +134,10 @@ export async function GET(
       // the per-invoice primary vertical so a UTHS Security invoice
       // shows "UTHS Security" in the PDF header while the legal name
       // (inv.supplierLegalName) stays "Urban Tech Home Solutions".
-      brandName: vertical?.brandName ?? "BreatheWise",
+      brandName: vertical?.brandName ?? inv.supplierLegalName,
+      // Passed to the PDF so it can pick the right vertical-specific
+      // T&C clauses (e.g. ventilation Performance Scope is BW-only).
+      verticalSlug: vertical?.slug ?? null,
       address: inv.supplierAddress,
       state: inv.supplierState,
       stateCode: inv.supplierStateCode,

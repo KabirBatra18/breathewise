@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { format } from "date-fns";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clients, quotes } from "@/db/schema";
+import { clients, quotes, verticals } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { fillTemplate, type OverlayField } from "@/lib/pdf-templates/overlay";
+import { VERTICAL_IDS } from "@/lib/verticals/constants";
 
 /**
  * Project Services Agreement — pdf-lib overlay on the source template.
@@ -37,6 +38,28 @@ export async function GET(
   const qRows = await db.select().from(quotes).where(eq(quotes.id, params.id));
   const q = qRows[0];
   if (!q) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+
+  // The current Services Agreement PDF template is BreatheWise-specific
+  // (ventilation-flavoured warranty language, day-1 labour payment to
+  // UTHS for installation supervision, etc.). Refuse to render it for
+  // non-BreatheWise quotes — issuing the document with the wrong brand
+  // and ventilation-only language would be a legal liability. Per-
+  // vertical templates are a future Phase 7 work-item; until then a
+  // UTHS Security quote needs a manual Services Agreement.
+  if (q.primaryVerticalId !== VERTICAL_IDS.BREATHEWISE) {
+    const vRows = await db
+      .select({ brandName: verticals.brandName })
+      .from(verticals)
+      .where(eq(verticals.id, q.primaryVerticalId))
+      .limit(1);
+    const brand = vRows[0]?.brandName ?? "non-BreatheWise";
+    return NextResponse.json(
+      {
+        error: `The Services Agreement template is ventilation-specific (BreatheWise) and cannot be auto-generated for a ${brand} quote. Please draft a vertical-appropriate agreement manually until per-vertical templates are added.`,
+      },
+      { status: 409 },
+    );
+  }
 
   const cRows = await db.select().from(clients).where(eq(clients.id, q.clientId));
   const c = cRows[0];

@@ -9,6 +9,13 @@
  * the next time someone clicks Download (we don't snapshot T&Cs
  * onto the invoice row — they're a static legal recital, not a
  * per-invoice term).
+ *
+ * Phase 2 of the multi-vertical work (commit 573d433): universal
+ * clauses now reference "Urban Tech Home Solutions" (the legal
+ * entity) rather than the BreatheWise brand. Ventilation-specific
+ * clauses are gated via `verticalSlug` so they appear only on
+ * BreatheWise invoices — a UTHS Security smart-lock invoice would
+ * otherwise carry irrelevant fresh-air language.
  */
 
 export const INVOICE_TERMS_HEADER =
@@ -17,26 +24,32 @@ export const INVOICE_TERMS_HEADER =
 export interface InvoiceTerm {
   title: string;
   body: string;
+  // Restrict this clause to invoices whose primary vertical matches
+  // this slug. Undefined = universal (appears on every invoice).
+  verticalSlug?: string;
 }
 
-export const INVOICE_TERMS: InvoiceTerm[] = [
+const ALL_INVOICE_TERMS: InvoiceTerm[] = [
   {
     title: "Payment",
     body: "Amounts payable as per the agreed payment schedule. Any payment delayed beyond 7 days from the invoice date attracts interest at 18% per annum.",
   },
   {
     title: "Scope",
-    body: "This invoice covers services described in the referenced Quotation and Project Services Agreement. Unlisted ducting fittings and installation consumables are billed separately at actuals.",
+    body: "This invoice covers services described in the referenced Quotation and Project Services Agreement. Unlisted fittings and installation consumables are billed separately at actuals.",
   },
   {
     title: "Equipment warranty",
     body:
-      "All installed equipment is manufactured by third-party companies and carries the manufacturer's standard warranty, which passes through to the Client. BreatheWise does not manufacture, quality-control or independently warrant the equipment. Any product defect, malfunction or internal fault is the responsibility of the manufacturer or authorised importer; we coordinate claims.",
+      "All installed equipment is manufactured by third-party companies and carries the manufacturer's standard warranty, which passes through to the Client. Urban Tech Home Solutions does not manufacture, quality-control or independently warrant the equipment. Any product defect, malfunction or internal fault is the responsibility of the manufacturer or authorised importer; we coordinate claims.",
   },
   {
+    // Ventilation-only: warranty language about fresh-air CMH at the
+    // diffuser is meaningless for security or automation work.
     title: "Performance scope",
+    verticalSlug: "breathewise",
     body:
-      "The warranted deliverable is filtered fresh air supplied at the designed CMH at each diffuser. Overall indoor PM2.5 / AQI depends on the building envelope and occupant use (open doors, jaali, windows, etc.) and is not warranted by BreatheWise.",
+      "The warranted deliverable is filtered fresh air supplied at the designed CMH at each diffuser. Overall indoor PM2.5 / AQI depends on the building envelope and occupant use (open doors, jaali, windows, etc.) and is not warranted.",
   },
   {
     title: "Out of scope",
@@ -51,12 +64,12 @@ export const INVOICE_TERMS: InvoiceTerm[] = [
   {
     title: "Limitation of liability",
     body:
-      "BreatheWise's aggregate liability is capped at the total engineering and labour fees received for the project. No liability for indirect, consequential or incidental damages.",
+      "Urban Tech Home Solutions' aggregate liability is capped at the total engineering and labour fees received for the project. No liability for indirect, consequential or incidental damages.",
   },
   {
     title: "Maintenance",
     body:
-      "Filter cleaning every 3 to 6 months and routine inspection are the Client's responsibility after handover. An optional Annual Maintenance Contract is available on request.",
+      "Routine cleaning, inspection and consumable replacement (e.g. air filters, batteries) are the Client's responsibility after handover. An optional Annual Maintenance Contract is available on request.",
   },
   {
     title: "Goods once sold",
@@ -79,3 +92,28 @@ export const INVOICE_TERMS: InvoiceTerm[] = [
       "Payment of this invoice constitutes acceptance of these terms and the referenced Project Services Agreement in full.",
   },
 ];
+
+/**
+ * Returns the list of T&C clauses applicable to an invoice issued
+ * under the given vertical. Universal clauses are always included;
+ * vertical-scoped clauses (e.g. ventilation-specific Performance
+ * scope) appear only when the slug matches.
+ *
+ * Pass undefined when the calling site doesn't yet have vertical
+ * context — defensive: returns only the universal clauses, which
+ * is a safe superset for any vertical.
+ */
+export function invoiceTermsForVertical(verticalSlug: string | undefined): InvoiceTerm[] {
+  return ALL_INVOICE_TERMS.filter(
+    (t) => t.verticalSlug == null || t.verticalSlug === verticalSlug,
+  );
+}
+
+/**
+ * Back-compat export for any consumer that hasn't switched to the
+ * function form yet. Returns the universal-only set (no vertical
+ * specifics). New consumers should use invoiceTermsForVertical().
+ */
+export const INVOICE_TERMS: InvoiceTerm[] = ALL_INVOICE_TERMS.filter(
+  (t) => t.verticalSlug == null,
+);
