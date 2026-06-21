@@ -34,6 +34,11 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   ownerOnly?: boolean;
+  // Audit-fix 2026-06-22: VIEWER role shouldn't see attendance punch
+  // links (they're read-only — cannot legitimately punch). Use this
+  // when a route is fine for OWNER + EMPLOYEE but inappropriate for
+  // VIEWER. Compose with ownerOnly for finer-grained access.
+  hideForRoles?: Role[];
 }
 
 const NAV: NavItem[] = [
@@ -43,8 +48,18 @@ const NAV: NavItem[] = [
   { href: "/invoices", label: "Invoices", icon: FileCheck },
   { href: "/products", label: "Products", icon: Package },
   { href: "/payments", label: "Payments", icon: BadgeIndianRupee },
-  { href: "/attendance", label: "Attendance", icon: Clock },
-  { href: "/my-attendance", label: "My attendance", icon: Clock },
+  {
+    href: "/attendance",
+    label: "Attendance",
+    icon: Clock,
+    hideForRoles: ["VIEWER"],
+  },
+  {
+    href: "/my-attendance",
+    label: "My attendance",
+    icon: Clock,
+    hideForRoles: ["VIEWER"],
+  },
   { href: "/payroll", label: "Payroll", icon: BadgeIndianRupee, ownerOnly: true },
   { href: "/gst", label: "GST", icon: Receipt, ownerOnly: true },
   { href: "/terms", label: "Terms", icon: ScrollText, ownerOnly: true },
@@ -73,7 +88,11 @@ function SidebarBody({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const items = NAV.filter((i) => !i.ownerOnly || role === "OWNER");
+  const items = NAV.filter((i) => {
+    if (i.ownerOnly && role !== "OWNER") return false;
+    if (i.hideForRoles?.includes(role)) return false;
+    return true;
+  });
 
   // Optimistic-nav state: when the user clicks a link, mark that
   // target as the "navigating-to" destination IMMEDIATELY so the

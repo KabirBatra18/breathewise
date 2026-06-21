@@ -66,6 +66,15 @@ export type PunchResult =
 
 export async function punchAction(input: PunchInput): Promise<PunchResult> {
   const actor = await requireAuth();
+  // Audit-fix 2026-06-22: VIEWER role is a read-only account (cannot
+  // legitimately punch). Reject server-side so even a crafted API
+  // call from a stolen viewer session can't generate attendance.
+  if (actor.role === "VIEWER") {
+    return {
+      ok: false,
+      error: "Viewer accounts cannot record attendance.",
+    };
+  }
   const parsed = punchSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -307,6 +316,13 @@ export async function recordConsentAction(): Promise<
   { ok: true } | { ok: false; error: string }
 > {
   const actor = await requireAuth();
+  // Same rationale as punchAction — VIEWER accounts don't punch.
+  if (actor.role === "VIEWER") {
+    return {
+      ok: false,
+      error: "Viewer accounts cannot record attendance.",
+    };
+  }
   if (actor.attendanceConsentAt) {
     // Idempotent — they've already accepted. No-op.
     return { ok: true };

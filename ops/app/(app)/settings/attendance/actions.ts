@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { attendanceSettings } from "@/db/schema";
@@ -41,20 +40,29 @@ export async function saveAttendanceSettingsAction(
   }
   const data = parsed.data;
 
+  // Audit-fix 2026-06-22: use INSERT ... ON CONFLICT UPDATE so this
+  // works even if the singleton row is somehow missing (manual DB
+  // cleanup, partial migration). Previously a bare UPDATE would
+  // silently 0-rows-affected and the form would say "saved" while
+  // nothing changed.
+  const settingsValues = {
+    officeLatitude:
+      data.officeLatitude != null ? String(data.officeLatitude) : null,
+    officeLongitude:
+      data.officeLongitude != null ? String(data.officeLongitude) : null,
+    officeRadiusMeters: data.officeRadiusMeters,
+    accuracyRejectThresholdM: data.accuracyRejectThresholdM,
+    expectedHoursPerDay: data.expectedHoursPerDay.toFixed(1),
+    weeklyOffsPerWeek: data.weeklyOffsPerWeek,
+    paidLeavesPerMonth: data.paidLeavesPerMonth.toFixed(1),
+  };
   await db
-    .update(attendanceSettings)
-    .set({
-      officeLatitude:
-        data.officeLatitude != null ? String(data.officeLatitude) : null,
-      officeLongitude:
-        data.officeLongitude != null ? String(data.officeLongitude) : null,
-      officeRadiusMeters: data.officeRadiusMeters,
-      accuracyRejectThresholdM: data.accuracyRejectThresholdM,
-      expectedHoursPerDay: data.expectedHoursPerDay.toFixed(1),
-      weeklyOffsPerWeek: data.weeklyOffsPerWeek,
-      paidLeavesPerMonth: data.paidLeavesPerMonth.toFixed(1),
-    })
-    .where(eq(attendanceSettings.id, 1));
+    .insert(attendanceSettings)
+    .values({ id: 1, ...settingsValues })
+    .onConflictDoUpdate({
+      target: attendanceSettings.id,
+      set: settingsValues,
+    });
 
   await audit({
     actorId: actor.id,
