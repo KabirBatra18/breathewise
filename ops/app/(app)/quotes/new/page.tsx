@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { clients, companySettings, products, termsClauses } from "@/db/schema";
+import { clients, companySettings, products, termsClauses, verticals } from "@/db/schema";
 import { requireEmployeeOrAbove } from "@/lib/auth/server";
 import { QuoteBuilder } from "@/components/quotes/quote-builder";
 
@@ -20,7 +20,7 @@ export default async function NewQuotePage({
 
   const me = await requireEmployeeOrAbove();
 
-  const [clientRows, productRows, termsRows, settingsRow] = await Promise.all([
+  const [clientRows, productRows, termsRows, settingsRow, verticalRows] = await Promise.all([
     db
       .select()
       .from(clients)
@@ -44,6 +44,15 @@ export default async function NewQuotePage({
       .where(isNull(termsClauses.deletedAt))
       .orderBy(asc(termsClauses.sortOrder)),
     db.select().from(companySettings).where(eq(companySettings.id, 1)),
+    db
+      .select({
+        id: verticals.id,
+        brandName: verticals.brandName,
+        tagline: verticals.tagline,
+      })
+      .from(verticals)
+      .where(eq(verticals.isActive, true))
+      .orderBy(asc(verticals.displayOrder)),
   ]);
 
   const settings = settingsRow[0];
@@ -84,6 +93,7 @@ export default async function NewQuotePage({
           title: t.title,
           isDefault: t.isDefault,
         }))}
+        verticals={verticalRows}
       />
     </div>
   );

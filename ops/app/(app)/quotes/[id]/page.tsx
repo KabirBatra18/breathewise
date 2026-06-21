@@ -17,6 +17,7 @@ import {
   quoteTierFinancials,
   quotes,
   termsClauses,
+  verticals,
 } from "@/db/schema";
 import {
   outstanding,
@@ -211,7 +212,7 @@ export default async function QuoteDetailPage({
   }
 
   if (quote.status === "DRAFT" && (me.role === "OWNER" || me.role === "EMPLOYEE")) {
-    const [allClients, allProducts, allTerms, settings] = await Promise.all([
+    const [allClients, allProducts, allTerms, settings, allVerticals] = await Promise.all([
       db
         .select()
         .from(clients)
@@ -238,6 +239,15 @@ export default async function QuoteDetailPage({
         .where(isNull(termsClauses.deletedAt))
         .orderBy(asc(termsClauses.sortOrder)),
       db.select().from(companySettings).where(eq(companySettings.id, 1)),
+      db
+        .select({
+          id: verticals.id,
+          brandName: verticals.brandName,
+          tagline: verticals.tagline,
+        })
+        .from(verticals)
+        .where(eq(verticals.isActive, true))
+        .orderBy(asc(verticals.displayOrder)),
     ]);
 
     const initial = {
@@ -295,6 +305,7 @@ export default async function QuoteDetailPage({
       selectedTermIds: snapshotTerms.map((t) => t.clauseId).filter((id): id is string => Boolean(id)),
       showSavingsOnPdf: quote.showSavingsOnPdf,
       discountTargetSaving: quote.discountTargetSaving,
+      primaryVerticalId: quote.primaryVerticalId,
     };
 
     return (
@@ -353,6 +364,7 @@ export default async function QuoteDetailPage({
             title: t.title,
             isDefault: t.isDefault,
           }))}
+          verticals={allVerticals}
           initial={initial}
         />
 

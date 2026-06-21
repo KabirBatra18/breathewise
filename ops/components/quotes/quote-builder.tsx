@@ -120,6 +120,7 @@ export function QuoteBuilder({
   defaultDiscount,
   defaultValidityDays,
   termsClauses,
+  verticals,
   initial,
 }: {
   role: Role;
@@ -128,6 +129,7 @@ export function QuoteBuilder({
   defaultDiscount: string;
   defaultValidityDays: number;
   termsClauses: TermsOption[];
+  verticals: { id: string; brandName: string; tagline: string | null }[];
   initial?: {
     id: string;
     quoteNumber: string;
@@ -142,6 +144,7 @@ export function QuoteBuilder({
     sections: SectionState[];
     selectedTermIds: string[];
     showSavingsOnPdf: boolean;
+    primaryVerticalId: string;
   };
 }) {
   const router = useRouter();
@@ -149,6 +152,17 @@ export function QuoteBuilder({
   const isOwner = role === "OWNER";
 
   const [clientId, setClientId] = useState(initial?.clientId ?? "");
+  // Primary vertical for the quote — drives the PDF header brand,
+  // WhatsApp signature, and (once Phase 5 ships) the default T&C
+  // clause set. Defaults to the first active vertical (BreatheWise
+  // by display_order). The per-line vertical override is handled at
+  // line level: a product with default_vertical_id auto-tags its
+  // line; the user can later override per-line in the line editor
+  // (planned for a follow-up phase — the data model already
+  // supports it).
+  const [primaryVerticalId, setPrimaryVerticalId] = useState(
+    initial?.primaryVerticalId ?? verticals[0]?.id ?? "",
+  );
   const [issueDate, setIssueDate] = useState(initial?.issueDate ?? todayIST());
   const [validityDays, setValidityDays] = useState(
     initial?.validityDays ?? defaultValidityDays,
@@ -514,9 +528,15 @@ export function QuoteBuilder({
       }
     }
 
+    if (!primaryVerticalId) {
+      toast.error("Pick which vertical this quote belongs to.");
+      return null;
+    }
+
     return {
       id: initial?.id,
       clientId,
+      primaryVerticalId,
       quoteType: "ROUGH",
       issueDate,
       validityDays: Number(validityDays) || defaultValidityDays,
@@ -612,6 +632,39 @@ export function QuoteBuilder({
             <CardDescription>Who, when, and the discount across this quote.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
+            {/* Vertical picker — drives the PDF brand header, the WhatsApp
+                signature, and (once Phase 5 ships) the default T&C set
+                that auto-loads into the Terms section below. The legal
+                supplier on the invoice is always UTHS regardless. */}
+            <div className="space-y-2 md:col-span-2">
+              <Label>
+                Vertical{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  — which brand this quote is issued under
+                </span>
+              </Label>
+              <Select
+                value={primaryVerticalId}
+                onValueChange={(v) => setPrimaryVerticalId(v ?? "")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a vertical" />
+                </SelectTrigger>
+                <SelectContent>
+                  {verticals.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.brandName}
+                      {v.tagline ? ` · ${v.tagline}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                The customer-facing brand on the proforma PDF and on
+                WhatsApp messages. The legal supplier (Urban Tech Home
+                Solutions, GSTIN) is the same on every quote.
+              </p>
+            </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Client</Label>
               <Select value={clientId} onValueChange={(v) => setClientId(v ?? "")}>

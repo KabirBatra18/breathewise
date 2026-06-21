@@ -51,6 +51,11 @@ const sectionSchema = z.object({
 const saveSchema = z.object({
   id: z.string().uuid().optional(),
   clientId: z.string().uuid(),
+  // Phase 3: which vertical (BreatheWise / UTHS Security / …) this
+  // quote is being issued under. Required for new quotes; falls back
+  // to BreatheWise on the server if missing (defensive — the picker
+  // in the builder enforces a choice client-side).
+  primaryVerticalId: z.string().uuid().optional(),
   quoteType: z.literal("ROUGH"),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   validityDays: z.number().int().min(1).max(365),
@@ -223,11 +228,11 @@ export async function saveRoughQuoteAction(
           issueDate: data.issueDate,
           showSavingsOnPdf: data.showSavingsOnPdf,
           createdBy: actor.id,
-          // Phase 1: default to BreatheWise (all historical quotes are BW).
-          // Phase 3 will introduce the picker that lets the user choose
-          // primary vertical at creation; this fallback then becomes the
-          // default that the picker pre-selects.
-          primaryVerticalId: VERTICAL_IDS.BREATHEWISE,
+          // Phase 3: read from the builder's picker. Fall back to
+          // BreatheWise on the server if the client somehow omits it
+          // (the picker enforces a choice in the UI, but defensive
+          // server-side default in case of API misuse).
+          primaryVerticalId: data.primaryVerticalId ?? VERTICAL_IDS.BREATHEWISE,
         })
         .returning({ id: quotes.id });
       quoteId = row.id;
