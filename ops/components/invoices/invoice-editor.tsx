@@ -120,12 +120,14 @@ export function InvoiceEditor({
   //   metaPending      — set during saveMeta / reverseCharge toggle
   //   lifecyclePending — set during finalize / discard
   // Buttons gate only on their own area; cross-area work doesn't freeze them.
-  const [linePending, startLineTransition] = useTransition();
-  const [metaPending, startMetaTransition] = useTransition();
+  // Only lifecyclePending is read (by the Finalize/Discard button
+  // gates). Line and meta in-flight flags are intentionally NOT read
+  // anywhere — that's the whole point of splitting them apart from
+  // the lifecycle work. Hence the destructuring holes for the
+  // isPending elements: we still need each startTransition function.
+  const [, startLineTransition] = useTransition();
+  const [, startMetaTransition] = useTransition();
   const [lifecyclePending, startLifecycleTransition] = useTransition();
-  // Keep `pending` as a backwards-compatible alias for any code path
-  // that needs "anything in flight" (e.g. an outer-form guard).
-  const pending = linePending || metaPending || lifecyclePending;
   // Single AlertDialog instance, driven by state. Each destructive
   // action sets pendingConfirm with its own title/handler — much nicer
   // than three separate AlertDialog components or native confirm().
