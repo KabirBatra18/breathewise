@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { MobileNavBar, Sidebar } from "@/components/app/sidebar";
 import { CommandPalette } from "@/components/app/command-palette";
+import { SplashScreen } from "@/components/app/splash-screen";
 import { requireAuth } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,10 @@ export default async function AppLayout({
         <div className="flex-1">{children}</div>
       </main>
       <CommandPalette />
+      {/* First-load brand splash. Self-dismisses after ~1.3s; only
+          plays once per browser tab session. See the component for
+          the storage-key + lifecycle details. */}
+      <SplashScreen />
     </div>
   );
 }

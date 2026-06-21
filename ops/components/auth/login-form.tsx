@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,19 @@ function SubmitButton() {
 
 export function LoginForm() {
   const [state, formAction] = useFormState(loginAction, initial);
+
+  // Clear the splash-screen flag on every login-page mount so that
+  // logging in again (after logout, or with a different account in
+  // the same tab) replays the brand splash. Without this the splash
+  // would only ever show on the first login per browser tab.
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem("uths-splash-shown");
+    } catch {
+      /* sessionStorage unavailable — splash will still play on next
+         fresh tab, just not after a same-tab logout. Acceptable. */
+    }
+  }, []);
 
   return (
     <form action={formAction} className="space-y-4">
