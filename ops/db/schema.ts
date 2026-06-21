@@ -57,6 +57,13 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").notNull().default(true),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   mustChangePassword: boolean("must_change_password").notNull().default(false),
+  // Set the moment the user first accepts the attendance/location
+  // capture consent banner. Migration 0017 added this; UI gates the
+  // attendance Check In button on this being non-null. NULL = consent
+  // not yet given. Required under India's DPDP Act.
+  attendanceConsentAt: timestamp("attendance_consent_at", {
+    withTimezone: true,
+  }),
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -501,3 +508,145 @@ export const companySettings = pgTable("company_settings", {
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+// ============================================================
+// Attendance + payroll (migration 0017).
+// Architecture: memory/project_attendance_architecture.md
+//
+// One row per employee per date in attendance_days. Every IN/OUT
+// punch also appends an immutable row to attendance_punches.
+// ============================================================
+export const attendanceSettings = pgTable("attendance_settings", {
+  id: integer("id").primaryKey().default(1),
+  officeLatitude: numeric("office_latitude", { precision: 10, scale: 7 }),
+  officeLongitude: numeric("office_longitude", { precision: 10, scale: 7 }),
+  officeRadiusMeters: integer("office_radius_meters").notNull().default(200),
+  accuracyRejectThresholdM: integer("accuracy_reject_threshold_m")
+    .notNull()
+    .default(500),
+  expectedHoursPerDay: numeric("expected_hours_per_day", {
+    precision: 3,
+    scale: 1,
+  })
+    .notNull()
+    .default("4.0"),
+  weeklyOffsPerWeek: integer("weekly_offs_per_week").notNull().default(1),
+  paidLeavesPerMonth: numeric("paid_leaves_per_month", {
+    precision: 3,
+    scale: 1,
+  })
+    .notNull()
+    .default("1.0"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const attendancePublicHolidays = pgTable("attendance_public_holidays", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: date("date").notNull().unique(),
+  name: text("name").notNull(),
+  declaredBy: uuid("declared_by").references(() => users.id),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const attendanceDays = pgTable(
+  "attendance_days",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    date: date("date").notNull(),
+    // Check-in fields — nullable until punched.
+    checkInAt: timestamp("check_in_at", { withTimezone: true }),
+    checkInLat: numeric("check_in_lat", { precision: 10, scale: 7 }),
+    checkInLng: numeric("check_in_lng", { precision: 10, scale: 7 }),
+    checkInAccuracyM: integer("check_in_accuracy_m"),
+    checkInDistanceM: integer("check_in_distance_m"),
+    checkInStatus: text("check_in_status"),
+    checkInOffsiteNote: text("check_in_offsite_note"),
+    // Check-out fields — nullable until punched.
+    checkOutAt: timestamp("check_out_at", { withTimezone: true }),
+    checkOutLat: numeric("check_out_lat", { precision: 10, scale: 7 }),
+    checkOutLng: numeric("check_out_lng", { precision: 10, scale: 7 }),
+    checkOutAccuracyM: integer("check_out_accuracy_m"),
+    checkOutDistanceM: integer("check_out_distance_m"),
+    checkOutStatus: text("check_out_status"),
+    checkOutOffsiteNote: text("check_out_offsite_note"),
+    // Derived at checkout time, frozen onto the row.
+    hoursWorked: numeric("hours_worked", { precision: 6, scale: 2 }),
+    dayCredit: numeric("day_credit", { precision: 3, scale: 1 }),
+    // OWNER overrides — for leaves, holidays, manual fixes.
+    overrideKind: text("override_kind"),
+    overrideCredit: numeric("override_credit", { precision: 3, scale: 1 }),
+    overrideNote: text("override_note"),
+    overrideBy: uuid("override_by").references(() => users.id),
+    overrideAt: timestamp("override_at", { withTimezone: true }),
+    // Set when OWNER approves/rejects a PENDING off-site punch.
+    approvedBy: uuid("approved_by").references(() => users.id),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvalNote: text("approval_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    userDate: unique("attendance_days_user_id_date_key").on(t.userId, t.date),
+    userDateIdx: index("idx_attendance_days_user_date").on(
+      t.userId,
+      t.date,
+    ),
+  }),
+);
+
+export const attendancePunches = pgTable("attendance_punches", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  dayId: uuid("day_id")
+    .notNull()
+    .references(() => attendanceDays.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  kind: text("kind").notNull(),
+  capturedAt: timestamp("captured_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  capturedClientTime: timestamp("captured_client_time", { withTimezone: true }),
+  lat: numeric("lat", { precision: 10, scale: 7 }),
+  lng: numeric("lng", { precision: 10, scale: 7 }),
+  accuracyM: integer("accuracy_m"),
+  distanceFromOfficeM: integer("distance_from_office_m"),
+  resultingStatus: text("resulting_status").notNull(),
+  deviceFingerprint: text("device_fingerprint"),
+});
+
+export const employeePayrollSettings = pgTable("employee_payroll_settings", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id),
+  monthlySalary: numeric("monthly_salary", { precision: 12, scale: 2 })
+    .notNull()
+    .default("0"),
+  joinedOn: date("joined_on"),
+  leaveBalance: numeric("leave_balance", { precision: 4, scale: 1 })
+    .notNull()
+    .default("0"),
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
