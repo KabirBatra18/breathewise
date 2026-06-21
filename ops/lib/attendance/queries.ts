@@ -39,6 +39,10 @@ export interface DayCell {
   isPublicHoliday: boolean;
   publicHolidayName: string | null;
   hasPending: boolean;
+  // Anti-fraud commit 3 (2026-06-22) — surface overtime state so UI can
+  // badge pending-overtime days. true when raw dayCredit > 1.0 AND
+  // OWNER hasn't yet approved the overtime for this date.
+  hasPendingOvertime: boolean;
 }
 
 export interface MonthlyAttendance {
@@ -125,18 +129,25 @@ export async function loadMonthlyAttendance(
       row?.overrideCredit != null ? Number(row.overrideCredit) : null;
     const dayCredit =
       row?.dayCredit != null ? Number(row.dayCredit) : null;
+    const overtimeApprovedAt = row?.overtimeApprovedAt ?? null;
 
     // Priority: OWNER override beats public holiday beats raw day_credit.
-    // Audit-fix 2026-06-22: previously holiday took precedence even over
-    // an UNPAID_LEAVE override, which gave employees a 1.0-credit windfall
-    // on holidays they were also marked absent for. Now the OWNER's
-    // explicit decision (override) wins. If OWNER wants a holiday to
-    // grant credit despite an override, they remove the override.
+    // raw day_credit > 1.0 caps at 1.0 unless OWNER approved overtime.
     const effective = overrideKind
-      ? effectiveDayCredit({ dayCredit, overrideKind, overrideCredit })
+      ? effectiveDayCredit({
+          dayCredit,
+          overrideKind,
+          overrideCredit,
+          overtimeApprovedAt,
+        })
       : holiday
         ? 1.0
-        : effectiveDayCredit({ dayCredit, overrideKind: null, overrideCredit: null });
+        : effectiveDayCredit({
+            dayCredit,
+            overrideKind: null,
+            overrideCredit: null,
+            overtimeApprovedAt,
+          });
 
     actualCredits += effective;
 
@@ -158,6 +169,8 @@ export async function loadMonthlyAttendance(
       publicHolidayName: holiday?.name ?? null,
       hasPending:
         row?.checkInStatus === "PENDING" || row?.checkOutStatus === "PENDING",
+      hasPendingOvertime:
+        dayCredit != null && dayCredit > 1.0 && !overtimeApprovedAt,
     });
   }
 

@@ -167,6 +167,78 @@ describe("computeHoursWorked", () => {
   });
 });
 
+describe("effectiveDayCredit — overtime cap (anti-fraud commit 3)", () => {
+  it("dayCredit=2.0 with no overtime_approved_at → capped at 1.0", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "2.0",
+        overrideKind: null,
+        overrideCredit: null,
+        overtimeApprovedAt: null,
+      }),
+    ).toBe(1.0);
+  });
+  it("dayCredit=1.5 with no overtime_approved_at → capped at 1.0", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "1.5",
+        overrideKind: null,
+        overrideCredit: null,
+        overtimeApprovedAt: null,
+      }),
+    ).toBe(1.0);
+  });
+  it("dayCredit=3.0 with overtime_approved_at set → full 3.0", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "3.0",
+        overrideKind: null,
+        overrideCredit: null,
+        overtimeApprovedAt: new Date("2026-06-22"),
+      }),
+    ).toBe(3.0);
+  });
+  it("dayCredit=1.0 → unchanged (no overtime to cap)", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "1.0",
+        overrideKind: null,
+        overrideCredit: null,
+        overtimeApprovedAt: null,
+      }),
+    ).toBe(1.0);
+  });
+  it("dayCredit=0.5 (half-day penalty) → unchanged regardless of overtime", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "0.5",
+        overrideKind: null,
+        overrideCredit: null,
+        overtimeApprovedAt: null,
+      }),
+    ).toBe(0.5);
+  });
+  it("override beats overtime cap — PAID_LEAVE on overtime day still pays 1.0", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "2.5",
+        overrideKind: "PAID_LEAVE",
+        overrideCredit: null,
+        overtimeApprovedAt: null,
+      }),
+    ).toBe(1.0);
+  });
+  it("missing overtimeApprovedAt arg (back-compat) → caps if dayCredit > 1.0", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "2.0",
+        overrideKind: null,
+        overrideCredit: null,
+      }),
+    ).toBe(1.0);
+  });
+});
+
 describe("effectiveDayCredit — overrides take precedence", () => {
   it("PAID_LEAVE with no override_credit defaults to 1.0", () => {
     expect(
@@ -204,12 +276,34 @@ describe("effectiveDayCredit — overrides take precedence", () => {
       }),
     ).toBe(1.0);
   });
-  it("no override — uses day_credit as-is", () => {
+  it("no override — uses day_credit as-is (when ≤ 1.0)", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "1.0",
+        overrideKind: null,
+        overrideCredit: null,
+      }),
+    ).toBe(1.0);
+  });
+  it("no override — dayCredit > 1.0 caps to 1.0 by anti-fraud overtime rule (commit 3)", () => {
+    // Updated 2026-06-22: previously day_credit was returned raw; now
+    // dayCredit > 1.0 caps to 1.0 unless OWNER explicitly approves
+    // overtime for that day. See "overtime cap" describe-block above.
     expect(
       effectiveDayCredit({
         dayCredit: "1.5",
         overrideKind: null,
         overrideCredit: null,
+      }),
+    ).toBe(1.0);
+  });
+  it("no override — dayCredit > 1.0 with overtime approved → full value", () => {
+    expect(
+      effectiveDayCredit({
+        dayCredit: "1.5",
+        overrideKind: null,
+        overrideCredit: null,
+        overtimeApprovedAt: new Date(),
       }),
     ).toBe(1.5);
   });

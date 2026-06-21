@@ -159,6 +159,95 @@ export async function rejectDayPunchAction(
   return { ok: true };
 }
 
+// ─── approveOvertimeAction (anti-fraud commit 3, 2026-06-22) ───────────
+// When an employee's day_credit comes out > 1.0 (e.g. they worked 8h on
+// a 4h-expected day, earning a 2.0 day_credit), that extra credit is
+// CAPPED at 1.0 until OWNER explicitly approves overtime for the day.
+// This closes the "punch in at office then leave for 8 hours" exploit
+// — extra credit is no longer auto-granted.
+//
+// approveOvertime → sets overtime_approved_at on the row; effective
+//   credit becomes the full day_credit value (1.5 / 2.0 / 2.5 / 3.0).
+// revokeOvertime → nulls the field; cap re-applies.
+const overtimeSchema = z.object({
+  dayId: z.string().uuid(),
+  note: z.string().trim().max(500).optional(),
+});
+
+export async function approveOvertimeAction(
+  input: z.input<typeof overtimeSchema>,
+): Promise<ActionResult> {
+  const actor = await requireOwner();
+  const parsed = overtimeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
+  }
+  const data = parsed.data;
+
+  const [day] = await db
+    .select()
+    .from(attendanceDays)
+    .where(eq(attendanceDays.id, data.dayId))
+    .limit(1);
+  if (!day) return { ok: false, error: "Day not found." };
+  if (day.dayCredit == null || Number(day.dayCredit) <= 1.0) {
+    return {
+      ok: false,
+      error: "Nothing to approve — this day's credit is ≤ 1.0, no overtime.",
+    };
+  }
+
+  await db
+    .update(attendanceDays)
+    .set({
+      overtimeApprovedBy: actor.id,
+      overtimeApprovedAt: new Date(),
+      overtimeApprovalNote: data.note ?? null,
+    })
+    .where(eq(attendanceDays.id, data.dayId));
+
+  await audit({
+    actorId: actor.id,
+    action: "ATTENDANCE_OVERTIME_APPROVE",
+    entityType: "attendance_day",
+    entityId: data.dayId,
+    metadata: { dayCredit: day.dayCredit, note: data.note ?? null },
+  });
+  revalidatePath("/attendance/admin");
+  revalidatePath("/attendance/admin/grid");
+  revalidatePath("/attendance/admin/overtime");
+  revalidatePath("/payroll");
+  return { ok: true };
+}
+
+export async function revokeOvertimeAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const actor = await requireOwner();
+  const idParse = z.string().uuid().safeParse(formData.get("dayId"));
+  if (!idParse.success) return { ok: false, error: "Invalid id." };
+  const id = idParse.data;
+  await db
+    .update(attendanceDays)
+    .set({
+      overtimeApprovedBy: null,
+      overtimeApprovedAt: null,
+      overtimeApprovalNote: null,
+    })
+    .where(eq(attendanceDays.id, id));
+  await audit({
+    actorId: actor.id,
+    action: "ATTENDANCE_OVERTIME_REVOKE",
+    entityType: "attendance_day",
+    entityId: id,
+    metadata: {},
+  });
+  revalidatePath("/attendance/admin/overtime");
+  revalidatePath("/attendance/admin/grid");
+  revalidatePath("/payroll");
+  return { ok: true };
+}
+
 // ─── editDayCheckoutAction ──────────────────────────────────────────────
 // When the employee forgot to punch out. OWNER types in the actual time
 // they left and the system recomputes hours_worked + day_credit.

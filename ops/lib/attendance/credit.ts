@@ -54,26 +54,33 @@ export function computeHoursWorked(
 }
 
 /**
- * Returns the effective credit for a day row, accounting for OWNER overrides.
+ * Returns the effective credit for a day row, accounting for OWNER overrides
+ * and the overtime-approval cap.
  *
  * Priority order:
  *   1. If override_kind is set, use the override_credit (or the default
- *      for that kind if override_credit is null).
- *   2. Otherwise return day_credit as stored (server already computed
- *      this at checkout time via dayCredit() above).
- *   3. If the day has no punches and no override, return 0 — treated as
- *      a weekly off / absent at the monthly-roll-up layer.
+ *      for that kind if override_credit is null). Override beats overtime
+ *      cap — OWNER explicit decision is final.
+ *   2. Otherwise return day_credit, but CAPPED at 1.0 if day_credit > 1.0
+ *      AND overtimeApprovedAt is null. This is the anti-fraud cap that
+ *      closes the "punch in at office then leave for 8 hours" exploit.
+ *      OWNER must explicitly approve each overtime day before the
+ *      extra credit lands.
+ *   3. If the day has no punches and no override, return 0.
  */
 export function effectiveDayCredit(day: {
   dayCredit: number | string | null;
   overrideKind: string | null;
   overrideCredit: number | string | null;
+  // Anti-fraud commit 3 (2026-06-22). Optional for back-compat with
+  // existing call sites; absent means "treat as unapproved" which is
+  // the safer default for newer rows.
+  overtimeApprovedAt?: Date | string | null;
 }): number {
   if (day.overrideKind) {
     if (day.overrideCredit != null) {
       return Number(day.overrideCredit);
     }
-    // Defaults per override kind when override_credit is not specified.
     switch (day.overrideKind) {
       case "PAID_LEAVE":
       case "PUBLIC_HOLIDAY":
@@ -85,7 +92,14 @@ export function effectiveDayCredit(day: {
         return 0.0;
     }
   }
-  if (day.dayCredit != null) return Number(day.dayCredit);
+  if (day.dayCredit != null) {
+    const raw = Number(day.dayCredit);
+    // Overtime cap: if the employee worked > 1 day's worth of hours but
+    // OWNER hasn't approved the overtime, cap at 1.0. This makes the
+    // "punch in then leave" exploit a non-payday by default.
+    if (raw > 1.0 && !day.overtimeApprovedAt) return 1.0;
+    return raw;
+  }
   return 0;
 }
 

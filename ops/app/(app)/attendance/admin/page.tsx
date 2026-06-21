@@ -97,10 +97,18 @@ export default async function AttendanceAdminPage() {
             public holidays.
           </p>
         </div>
-        <Button variant="outline" size="sm" render={<Link href="/settings/attendance" />}>
-          <Settings className="h-3.5 w-3.5" />
-          Settings
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" render={<Link href="/attendance/admin/overtime" />}>
+            Overtime queue
+          </Button>
+          <Button variant="outline" size="sm" render={<Link href="/attendance/admin/grid" />}>
+            Monthly grid
+          </Button>
+          <Button variant="outline" size="sm" render={<Link href="/settings/attendance" />}>
+            <Settings className="h-3.5 w-3.5" />
+            Settings
+          </Button>
+        </div>
       </div>
 
       <Card>
