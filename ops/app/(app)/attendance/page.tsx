@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { attendanceDays, attendanceSettings } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
@@ -11,10 +11,11 @@ export const metadata = { title: "Attendance" };
 export default async function AttendancePage() {
   const me = await requireAuth();
 
-  // Today's row (may not exist yet). Loads in parallel with settings
-  // because the page header reads from settings (radius, expected hours).
+  // Today's row + the most recent prior open shift (audit-fix 2026-06-22:
+  // employees who forgot to check out yesterday had no way to know until
+  // OWNER flagged it; now we surface a sticky banner).
   const today = istDateString(new Date());
-  const [todayRows, settingsRows] = await Promise.all([
+  const [todayRows, settingsRows, openPriorRows] = await Promise.all([
     db
       .select()
       .from(attendanceDays)
@@ -27,9 +28,29 @@ export default async function AttendancePage() {
       .from(attendanceSettings)
       .where(eq(attendanceSettings.id, 1))
       .limit(1),
+    // Most recent open shift before today: has check_in but no check_out.
+    // Limit 1 — only show the most recent unresolved one so OWNER isn't
+    // overwhelmed if multiple days are stale (rare in practice).
+    db
+      .select({
+        date: attendanceDays.date,
+        checkInAt: attendanceDays.checkInAt,
+      })
+      .from(attendanceDays)
+      .where(
+        and(
+          eq(attendanceDays.userId, me.id),
+          lt(attendanceDays.date, today),
+          isNotNull(attendanceDays.checkInAt),
+          isNull(attendanceDays.checkOutAt),
+        ),
+      )
+      .orderBy(desc(attendanceDays.date))
+      .limit(1),
   ]);
   const todayRow = todayRows[0] ?? null;
   const settings = settingsRows[0];
+  const openPrior = openPriorRows[0] ?? null;
 
   // The client component takes plain JSON so we serialise dates to
   // strings here (server-rendered) rather than relying on Next's
@@ -44,6 +65,14 @@ export default async function AttendancePage() {
         }
         expectedHoursPerDay={Number(settings?.expectedHoursPerDay ?? 4)}
         officeRadiusM={settings?.officeRadiusMeters ?? 200}
+        openPriorShift={
+          openPrior
+            ? {
+                date: openPrior.date as unknown as string,
+                checkInAt: openPrior.checkInAt!.toISOString(),
+              }
+            : null
+        }
         today={
           todayRow
             ? {

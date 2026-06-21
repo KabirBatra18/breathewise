@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   Building2,
   Check,
   Loader2,
@@ -69,17 +70,19 @@ export function AttendancePanel({
   expectedHoursPerDay,
   officeRadiusM,
   today,
+  openPriorShift,
 }: {
   consented: boolean;
   officeConfigured: boolean;
   expectedHoursPerDay: number;
   officeRadiusM: number;
   today: TodayState | null;
+  openPriorShift: { date: string; checkInAt: string } | null;
 }) {
   const [pending, startTransition] = useTransition();
-  const [phase, setPhase] = useState<"idle" | "locating" | "needs-note">(
-    "idle",
-  );
+  const [phase, setPhase] = useState<
+    "idle" | "locating" | "needs-note" | "denied"
+  >("idle");
   const [pendingPunch, setPendingPunch] = useState<{
     kind: "CHECK_IN" | "CHECK_OUT";
     lat: number;
@@ -122,17 +125,21 @@ export function AttendancePanel({
         attemptPunch(kind, coords);
       },
       (err) => {
-        setPhase("idle");
         if (err.code === err.PERMISSION_DENIED) {
-          toast.error(
-            "Location access denied. Open browser settings, allow location for this site, and try again.",
-          );
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          toast.error(
-            "Couldn't get your GPS location. Step outside or near a window and try again.",
-          );
+          // Audit-fix 2026-06-22: switch to a persistent in-card error
+          // block with device-specific instructions instead of a single
+          // ephemeral toast. Non-technical employees on Android Chrome
+          // get a clear "How to enable" path.
+          setPhase("denied");
         } else {
-          toast.error("Location request timed out. Try again.");
+          setPhase("idle");
+          if (err.code === err.POSITION_UNAVAILABLE) {
+            toast.error(
+              "Couldn't get your GPS location. Step outside or near a window and try again.",
+            );
+          } else {
+            toast.error("Location request timed out. Try again.");
+          }
         }
       },
       { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
@@ -237,10 +244,42 @@ export function AttendancePanel({
         </div>
       ) : null}
 
+      {/* Audit-fix 2026-06-22: surface a previous-day open shift so the
+          employee knows they forgot to check out yesterday. Without this,
+          the day silently sits with 0 credit and only the OWNER notices
+          via the grid. */}
+      {openPriorShift ? (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-400 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">
+              You didn&apos;t check out on{" "}
+              {formatPriorDate(openPriorShift.date)}.
+            </p>
+            <p className="mt-1">
+              That day will count as 0 credit until your owner fills in
+              the time you actually left. Ping them to fix it on{" "}
+              <code className="rounded bg-amber-200 px-1 dark:bg-amber-900">
+                /attendance/admin
+              </code>
+              .
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <Card className="overflow-hidden">
         <CardContent className="space-y-4 p-6">
-          {/* Main punch button or the note-entry interstitial */}
-          {phase === "needs-note" ? (
+          {/* Main punch button or one of the interstitial states */}
+          {phase === "denied" ? (
+            <DeniedRecovery
+              onTryAgain={() => {
+                setPhase("idle");
+                // The user has (presumably) just changed permissions in
+                // browser settings. The next button tap will re-prompt.
+              }}
+            />
+          ) : phase === "needs-note" ? (
             <div className="space-y-3">
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
                 <MapPin className="-mt-0.5 mr-1 inline h-3.5 w-3.5" />
@@ -254,14 +293,31 @@ export function AttendancePanel({
                 rows={3}
                 autoFocus
               />
-              <div className="flex gap-2">
+              {/* Cancel is intentionally smaller + ghost-styled (was 50/50
+                  outline) so it's harder to mistap on mobile. Audit-fix
+                  2026-06-22: previously a mistap silently wiped a typed
+                  reason; now if a note >5 chars is typed, Cancel prompts
+                  for confirmation. The typed note is preserved across
+                  the "go back, GPS fix, re-prompt" flow so re-opening
+                  this view doesn't lose work. */}
+              <div className="flex items-center gap-2">
                 <Button
-                  variant="outline"
-                  className="flex-1"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
+                    if (
+                      offsiteNote.trim().length > 5 &&
+                      !window.confirm(
+                        "Discard the reason you typed and go back?",
+                      )
+                    ) {
+                      return;
+                    }
                     setPhase("idle");
                     setPendingPunch(null);
-                    setOffsiteNote("");
+                    // Keep offsiteNote in state — if the user re-tries
+                    // the punch, the textarea repopulates. This also
+                    // covers GPS-retry round-trips.
                   }}
                   disabled={pending}
                 >
@@ -318,6 +374,18 @@ export function AttendancePanel({
               )}
             </Button>
           )}
+          {/* Audit-fix 2026-06-22: in-button hint sets expectation BEFORE
+              the OS permission dialog appears, replacing the "browser
+              suddenly asks for location with no context" first-time-user
+              surprise. Stays visible at all times so it's not a
+              one-time dismissable banner. */}
+          {phase === "idle" && !checkedOut ? (
+            <p className="text-center text-[11px] text-muted-foreground">
+              Tapping {nextKind === "CHECK_IN" ? "Check in" : "Check out"} will
+              ask your browser for location access — tap{" "}
+              <strong>Allow</strong> when prompted.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -511,4 +579,78 @@ function formatTime(iso: string): string {
     hour12: true,
     timeZone: "Asia/Kolkata",
   }).format(new Date(iso));
+}
+
+function formatPriorDate(yyyymmdd: string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Kolkata",
+  }).format(new Date(`${yyyymmdd}T00:00:00+05:30`));
+}
+
+/**
+ * Persistent in-card recovery block when geolocation permission has
+ * been denied. Audit-fix 2026-06-22: previously the denial just
+ * raised a one-line toast which non-technical employees couldn't act
+ * on. Now we surface platform-specific instructions inline + a
+ * "Try again" button.
+ *
+ * isIOS / isAndroid sniffing is intentionally light — we only need
+ * to pick one of two instruction blocks. Edge cases (Firefox,
+ * Samsung Internet) get the Android block which is the closest
+ * functional match.
+ */
+function DeniedRecovery({ onTryAgain }: { onTryAgain: () => void }) {
+  const isIOS =
+    typeof navigator !== "undefined" &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent);
+  return (
+    <div className="space-y-3">
+      <div className="rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100">
+        <p className="flex items-center gap-1.5 font-medium">
+          <Shield className="h-3.5 w-3.5" />
+          Location access denied
+        </p>
+        <p className="mt-1.5">
+          To check in, your browser needs permission to share your
+          location. Here&apos;s how:
+        </p>
+        {isIOS ? (
+          <ol className="ml-4 mt-2 list-decimal space-y-1">
+            <li>Open <strong>Settings</strong> on your iPhone</li>
+            <li>Scroll to <strong>Safari</strong></li>
+            <li>Tap <strong>Location</strong></li>
+            <li>
+              Choose <strong>While Using the App</strong> (or{" "}
+              <strong>Ask</strong>)
+            </li>
+            <li>Come back here and tap <strong>Try again</strong></li>
+          </ol>
+        ) : (
+          <ol className="ml-4 mt-2 list-decimal space-y-1">
+            <li>
+              Tap the <strong>padlock icon</strong> (or info icon) next to{" "}
+              <code className="rounded bg-rose-200/60 px-1 dark:bg-rose-900/60">
+                hub.breathe-wise.in
+              </code>{" "}
+              in your browser&apos;s address bar
+            </li>
+            <li>
+              Tap <strong>Permissions</strong>, then <strong>Location</strong>
+            </li>
+            <li>
+              Change from <strong>Block</strong> to <strong>Allow</strong> (or{" "}
+              <strong>Ask</strong>)
+            </li>
+            <li>Come back here and tap <strong>Try again</strong></li>
+          </ol>
+        )}
+      </div>
+      <Button className="w-full" onClick={onTryAgain}>
+        Try again
+      </Button>
+    </div>
+  );
 }
