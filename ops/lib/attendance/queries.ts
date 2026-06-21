@@ -57,7 +57,7 @@ export async function loadMonthlyAttendance(
   yearMonth: string,
 ): Promise<MonthlyAttendance> {
   const { first, last, daysInMonth } = istMonthRange(yearMonth);
-  const [dayRows, holidayRows, settingsRows] = await Promise.all([
+  const [dayRows, holidayRows, settingsRows, payrollRows] = await Promise.all([
     db
       .select()
       .from(attendanceDays)
@@ -78,9 +78,21 @@ export async function loadMonthlyAttendance(
       .from(attendanceSettings)
       .where(eq(attendanceSettings.id, 1))
       .limit(1),
+    // Audit-fix 2026-06-22: pull the employee's joined_on so we can
+    // pro-rate expectedCredits for mid-month joiners. Without this, an
+    // employee joining on the 15th of a 30-day month appeared as
+    // 13/26 instead of 13/13 — halving their salary on /payroll.
+    db
+      .select({ joinedOn: employeePayrollSettings.joinedOn })
+      .from(employeePayrollSettings)
+      .where(eq(employeePayrollSettings.userId, userId))
+      .limit(1),
   ]);
   const settings = settingsRows[0];
   if (!settings) throw new Error("Attendance settings not initialised");
+  const joinedOn = payrollRows[0]?.joinedOn
+    ? (payrollRows[0].joinedOn as unknown as string)
+    : null;
 
   // Index by date for cell building.
   const byDate = new Map(
@@ -114,13 +126,17 @@ export async function loadMonthlyAttendance(
     const dayCredit =
       row?.dayCredit != null ? Number(row.dayCredit) : null;
 
-    const effective = holiday
-      ? 1.0
-      : effectiveDayCredit({
-          dayCredit,
-          overrideKind,
-          overrideCredit,
-        });
+    // Priority: OWNER override beats public holiday beats raw day_credit.
+    // Audit-fix 2026-06-22: previously holiday took precedence even over
+    // an UNPAID_LEAVE override, which gave employees a 1.0-credit windfall
+    // on holidays they were also marked absent for. Now the OWNER's
+    // explicit decision (override) wins. If OWNER wants a holiday to
+    // grant credit despite an override, they remove the override.
+    const effective = overrideKind
+      ? effectiveDayCredit({ dayCredit, overrideKind, overrideCredit })
+      : holiday
+        ? 1.0
+        : effectiveDayCredit({ dayCredit, overrideKind: null, overrideCredit: null });
 
     actualCredits += effective;
 
@@ -149,6 +165,12 @@ export async function loadMonthlyAttendance(
     daysInMonth,
     weeklyOffsPerWeek: settings.weeklyOffsPerWeek,
     publicHolidaysInMonth: holidayRows.length,
+    // Pro-rate the expectation for mid-month joiners. A user joining
+    // on the 15th of a 30-day month has expected ≈ 14 (joined late),
+    // not 26 (full month) — matches their actual delivery rate
+    // instead of halving their salary on /payroll.
+    joinedOn,
+    yearMonth,
   });
 
   return {

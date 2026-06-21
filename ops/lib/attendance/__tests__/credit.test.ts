@@ -271,6 +271,88 @@ describe("expectedCreditsForMonth", () => {
       }),
     ).toBe(30);
   });
+
+  // ─── Mid-month joiner regression tests (audit-fix 2026-06-22) ─────
+  it("joinedOn = 1st → full month counted (back-compat)", () => {
+    expect(
+      expectedCreditsForMonth({
+        daysInMonth: 30,
+        weeklyOffsPerWeek: 1,
+        publicHolidaysInMonth: 0,
+        joinedOn: "2026-06-01",
+        yearMonth: "2026-06",
+      }),
+    ).toBe(26);
+  });
+  it("joinedOn = 15th of a 30-day month → 16 active days, ~14 expected", () => {
+    // Days active: 30 - 15 + 1 = 16
+    // weeklyOffs: floor(16/7) × 1 = 2
+    // expected: 16 - 2 - 0 = 14
+    expect(
+      expectedCreditsForMonth({
+        daysInMonth: 30,
+        weeklyOffsPerWeek: 1,
+        publicHolidaysInMonth: 0,
+        joinedOn: "2026-06-15",
+        yearMonth: "2026-06",
+      }),
+    ).toBe(14);
+  });
+  it("joinedOn in a previous month → counts whole current month", () => {
+    expect(
+      expectedCreditsForMonth({
+        daysInMonth: 30,
+        weeklyOffsPerWeek: 1,
+        publicHolidaysInMonth: 0,
+        joinedOn: "2026-01-15",
+        yearMonth: "2026-06",
+      }),
+    ).toBe(26);
+  });
+  it("joinedOn AFTER month end → 0 expected credits", () => {
+    expect(
+      expectedCreditsForMonth({
+        daysInMonth: 30,
+        weeklyOffsPerWeek: 1,
+        publicHolidaysInMonth: 0,
+        joinedOn: "2026-07-05",
+        yearMonth: "2026-06",
+      }),
+    ).toBe(0);
+  });
+  it("joinedOn = last day of month → 1 active day, 1 expected", () => {
+    expect(
+      expectedCreditsForMonth({
+        daysInMonth: 30,
+        weeklyOffsPerWeek: 1,
+        publicHolidaysInMonth: 0,
+        joinedOn: "2026-06-30",
+        yearMonth: "2026-06",
+      }),
+    ).toBe(1);
+  });
+  it("joinedOn null → whole month counted (existing behaviour)", () => {
+    expect(
+      expectedCreditsForMonth({
+        daysInMonth: 30,
+        weeklyOffsPerWeek: 1,
+        publicHolidaysInMonth: 0,
+        joinedOn: null,
+        yearMonth: "2026-06",
+      }),
+    ).toBe(26);
+  });
+  it("invalid joinedOn string → falls back to full month", () => {
+    expect(
+      expectedCreditsForMonth({
+        daysInMonth: 30,
+        weeklyOffsPerWeek: 1,
+        publicHolidaysInMonth: 0,
+        joinedOn: "garbage",
+        yearMonth: "2026-06",
+      }),
+    ).toBe(26);
+  });
 });
 
 describe("computeMonthlySalary — symmetric pro-rating", () => {

@@ -110,12 +110,17 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
     pointLat: data.lat,
     pointLng: data.lng,
     pointAccuracyM: data.accuracy,
-    officeLat: settings.officeLatitude
-      ? Number(settings.officeLatitude)
-      : null,
-    officeLng: settings.officeLongitude
-      ? Number(settings.officeLongitude)
-      : null,
+    // Use != null (not truthiness) — an office at the equator (lat 0.0)
+    // would otherwise be silently treated as unconfigured because 0 is
+    // falsy. Audit-fix from 2026-06-22.
+    officeLat:
+      settings.officeLatitude != null
+        ? Number(settings.officeLatitude)
+        : null,
+    officeLng:
+      settings.officeLongitude != null
+        ? Number(settings.officeLongitude)
+        : null,
     officeRadiusM: settings.officeRadiusMeters,
     accuracyRejectThresholdM: settings.accuracyRejectThresholdM,
   });

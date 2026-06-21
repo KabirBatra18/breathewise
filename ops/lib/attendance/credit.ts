@@ -92,19 +92,63 @@ export function effectiveDayCredit(day: {
 /**
  * Monthly expected credits — what an employee SHOULD deliver in a given
  * month for full salary. Subtracts weekly offs and declared public
- * holidays from the calendar day count.
+ * holidays from the calendar day count, AND scales for mid-month
+ * joiners so a partial month doesn't appear as a half-empty
+ * actual/expected ratio.
  *
- * Approximation: (days_in_month / 7) × weekly_offs_per_week. For a
- * 30-day month with 1 weekly off, gives ~4.28 → rounded to 4, leaving
- * 26 expected credits. Public holidays declared by OWNER also subtract.
+ * Approximation: (days_active_in_month / 7) × weekly_offs_per_week.
+ * For a 30-day month with 1 weekly off, gives ~4.28 → 4, leaving 26
+ * expected credits. Public holidays declared by OWNER also subtract.
+ *
+ * Mid-month joiner (audit-fix 2026-06-22): if `joinedOn` falls inside
+ * the month, only the days from joined_on onwards count. A 30-day
+ * month where the employee joined on the 15th has 16 active days,
+ * which produces ~14 expected credits — matching their actual
+ * delivery rather than appearing as 14/26 (half their salary).
+ *
+ * joinedOn after the month end → 0 expected credits.
+ * joinedOn null → counts the whole month (back-compat).
  */
 export function expectedCreditsForMonth(args: {
   daysInMonth: number;
   weeklyOffsPerWeek: number;
   publicHolidaysInMonth: number;
+  // Optional. Format "YYYY-MM-DD" — the IST local date the employee
+  // joined. Pass undefined for employees with no joined_on configured
+  // (treated as "joined before this month").
+  joinedOn?: string | null;
+  // Optional. "YYYY-MM" — the month we're computing for. Required if
+  // joinedOn is provided; ignored otherwise.
+  yearMonth?: string;
 }): number {
-  const weeklyOffs = Math.floor(args.daysInMonth / 7) * args.weeklyOffsPerWeek;
-  const expected = args.daysInMonth - weeklyOffs - args.publicHolidaysInMonth;
+  // Resolve the effective number of active days in the month for this
+  // employee. Without joinedOn, this is the full daysInMonth.
+  let activeDays = args.daysInMonth;
+  if (args.joinedOn && args.yearMonth) {
+    const [y, m] = args.yearMonth.split("-").map(Number);
+    const [jy, jm, jd] = args.joinedOn.split("-").map(Number);
+    if (
+      Number.isInteger(y) &&
+      Number.isInteger(m) &&
+      Number.isInteger(jy) &&
+      Number.isInteger(jm) &&
+      Number.isInteger(jd)
+    ) {
+      const joinedYM = jy * 12 + (jm - 1);
+      const monthYM = y * 12 + (m - 1);
+      if (joinedYM > monthYM) {
+        return 0; // joined after this month ended
+      }
+      if (joinedYM === monthYM) {
+        // Joined inside this month — only days from jd onwards count.
+        activeDays = Math.max(0, args.daysInMonth - jd + 1);
+      }
+      // joinedYM < monthYM → joined before this month → whole month
+      // counts (activeDays unchanged).
+    }
+  }
+  const weeklyOffs = Math.floor(activeDays / 7) * args.weeklyOffsPerWeek;
+  const expected = activeDays - weeklyOffs - args.publicHolidaysInMonth;
   return Math.max(0, expected);
 }
 
