@@ -42,7 +42,10 @@ export function CommandPalette() {
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef(false);
 
-  // Cmd/Ctrl+K toggle (and Esc to close).
+  // Cmd/Ctrl+K toggle (and Esc to close). Also listen for an
+  // 'open-command-palette' custom event so the mobile top bar can
+  // open this without a keyboard shortcut (touchscreens have no Cmd
+  // or Ctrl key — see MobileNavBar in sidebar.tsx).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
@@ -52,8 +55,15 @@ export function CommandPalette() {
         setOpen(false);
       }
     }
+    function onCustomOpen() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("open-command-palette", onCustomOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("open-command-palette", onCustomOpen);
+    };
   }, [open]);
 
   // Reset on open + lazy-load index the first time.

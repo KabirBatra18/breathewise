@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/app/sidebar";
+import { MobileNavBar, Sidebar } from "@/components/app/sidebar";
 import { CommandPalette } from "@/components/app/command-palette";
 import { requireAuth } from "@/lib/auth/server";
 
@@ -34,10 +34,20 @@ export default async function AppLayout({
   // This single change is the biggest contributor to the perceived
   // "snappy" behaviour the 2026-06-21 audit was after.
 
+  const role = user.role as "OWNER" | "EMPLOYEE" | "VIEWER";
+
   return (
     <div className="flex min-h-svh">
-      <Sidebar role={user.role as "OWNER" | "EMPLOYEE" | "VIEWER"} name={user.fullName} />
-      <main className="flex-1 overflow-auto">{children}</main>
+      {/* Desktop persistent sidebar — hidden on mobile via md: in
+          the Sidebar component itself. */}
+      <Sidebar role={role} name={user.fullName} />
+      <main className="flex min-h-svh flex-1 flex-col overflow-auto">
+        {/* Mobile top bar with hamburger + search — md:hidden so it
+            doesn't show on desktop. Sticky so it stays accessible
+            while the user scrolls. */}
+        <MobileNavBar role={role} name={user.fullName} />
+        <div className="flex-1">{children}</div>
+      </main>
       <CommandPalette />
     </div>
   );

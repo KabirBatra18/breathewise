@@ -17,6 +17,9 @@ import {
   KeyRound,
   LogOut,
   Loader2,
+  Menu,
+  Search,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,7 +47,24 @@ const NAV: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({ role, name }: { role: Role; name: string }) {
+/**
+ * The actual nav body — used by both the desktop persistent sidebar
+ * AND the mobile slide-in drawer. Keep the layout self-contained so
+ * both wrappers can drop it in and get the same visual.
+ *
+ * onNavigate is called after a click navigates; the mobile drawer
+ * uses it to close itself so the user lands on the new page with
+ * the drawer dismissed.
+ */
+function SidebarBody({
+  role,
+  name,
+  onNavigate,
+}: {
+  role: Role;
+  name: string;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const items = NAV.filter((i) => !i.ownerOnly || role === "OWNER");
@@ -52,27 +72,25 @@ export function Sidebar({ role, name }: { role: Role; name: string }) {
   // Optimistic-nav state: when the user clicks a link, mark that
   // target as the "navigating-to" destination IMMEDIATELY so the
   // clicked row highlights + shows a spinner before the server
-  // returns. Without this, a click felt dead until the new page
-  // mounted (~400-700ms of nothing happening). Resolves the audit's
-  // #1 "did my click work?" finding.
+  // returns. Resolves the audit's #1 "did my click work?" finding.
   const [isPending, startTransition] = useTransition();
   const [navTarget, setNavTarget] = useState<string | null>(null);
 
   function navigate(href: string) {
-    if (href === pathname) return;
+    if (href === pathname) {
+      onNavigate?.();
+      return;
+    }
     setNavTarget(href);
     startTransition(() => {
       router.push(href);
     });
+    onNavigate?.();
   }
 
-  // True if the link should currently render as "active".
-  // While a click-driven navigation is in flight, the navTarget wins
-  // (instant feedback). Once navigation settles, fall back to the
-  // actual pathname so deep-link landings still highlight correctly.
   function isActive(href: string): boolean {
     if (isPending && navTarget === href) return true;
-    if (isPending) return false; // suppress old active during nav
+    if (isPending) return false;
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -81,12 +99,14 @@ export function Sidebar({ role, name }: { role: Role; name: string }) {
   }
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r bg-background">
+    <>
       <div className="border-b px-4 py-5">
         <p className="text-sm font-semibold">BreatheWise Ops</p>
         <p className="mt-2 truncate text-sm">{name}</p>
         <p className="text-xs text-muted-foreground">{role}</p>
-        <p className="mt-3 flex items-center gap-1 text-[10px] text-muted-foreground">
+        {/* The Cmd+K hint only matters on desktop; mobile has its
+            own visible Search button in the top bar. */}
+        <p className="mt-3 hidden items-center gap-1 text-[10px] text-muted-foreground md:flex">
           Search
           <kbd className="rounded border bg-muted px-1 py-0.5 font-mono">⌘K</kbd>
           <span className="text-muted-foreground/60">/</span>
@@ -107,7 +127,10 @@ export function Sidebar({ role, name }: { role: Role; name: string }) {
                 navigate(item.href);
               }}
               className={cn(
-                "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors active:scale-[0.985]",
+                // min-h-9 ensures iOS/Android touch-target minimum on
+                // mobile while keeping a tight visual on desktop where
+                // it doesn't matter.
+                "flex min-h-9 items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors active:scale-[0.985]",
                 active
                   ? "bg-muted font-medium text-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -131,7 +154,7 @@ export function Sidebar({ role, name }: { role: Role; name: string }) {
             navigate("/settings/change-password");
           }}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors active:scale-[0.985]",
+            "flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors active:scale-[0.985]",
             isActive("/settings/change-password")
               ? "bg-muted font-medium text-foreground"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -156,6 +179,96 @@ export function Sidebar({ role, name }: { role: Role; name: string }) {
           </Button>
         </form>
       </div>
+    </>
+  );
+}
+
+/**
+ * Desktop sidebar. Hidden below the md breakpoint — on mobile the
+ * MobileNavBar (rendered separately in the (app) layout) provides a
+ * slide-in drawer with the same SidebarBody contents.
+ */
+export function Sidebar({ role, name }: { role: Role; name: string }) {
+  return (
+    <aside className="hidden w-56 shrink-0 flex-col border-r bg-background md:flex">
+      <SidebarBody role={role} name={name} />
     </aside>
+  );
+}
+
+/**
+ * Mobile top bar — visible only below md. Provides:
+ *   • Hamburger button → opens the SidebarBody in a left-side Sheet
+ *   • App brand
+ *   • Search button → dispatches an 'open-command-palette' event that
+ *     the CommandPalette listens for. Mobile users have no keyboard
+ *     shortcut to reach Cmd+K otherwise.
+ */
+export function MobileNavBar({ role, name }: { role: Role; name: string }) {
+  const [open, setOpen] = useState(false);
+
+  function openSearch() {
+    window.dispatchEvent(new CustomEvent("open-command-palette"));
+  }
+
+  return (
+    <>
+      <header className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b bg-background px-3 md:hidden">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => setOpen(true)}
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+        <p className="text-sm font-semibold">BreatheWise Ops</p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={openSearch}
+          aria-label="Search"
+        >
+          <Search className="h-5 w-5" />
+        </Button>
+      </header>
+      {/* Slide-in drawer. We render a minimal Sheet by hand rather
+          than importing the UI primitive so we keep this file
+          self-contained and don't have to deal with the Base UI
+          Dialog backdrop ergonomics here. */}
+      {open ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation"
+          className="fixed inset-0 z-50 md:hidden"
+        >
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setOpen(false)}
+          />
+          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-background shadow-xl">
+            <div className="flex h-12 items-center justify-end border-b px-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(false)}
+                aria-label="Close navigation"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <SidebarBody
+              role={role}
+              name={name}
+              onNavigate={() => setOpen(false)}
+            />
+          </aside>
+        </div>
+      ) : null}
+    </>
   );
 }
