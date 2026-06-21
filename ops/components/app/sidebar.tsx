@@ -44,6 +44,8 @@ const NAV: NavItem[] = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/payments", label: "Payments", icon: BadgeIndianRupee },
   { href: "/attendance", label: "Attendance", icon: Clock },
+  { href: "/my-attendance", label: "My attendance", icon: Clock },
+  { href: "/payroll", label: "Payroll", icon: BadgeIndianRupee, ownerOnly: true },
   { href: "/gst", label: "GST", icon: Receipt, ownerOnly: true },
   { href: "/terms", label: "Terms", icon: ScrollText, ownerOnly: true },
   { href: "/settings/users", label: "Users", icon: UserCog, ownerOnly: true },
