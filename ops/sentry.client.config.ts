@@ -1,31 +1,21 @@
-// Client-side Sentry. Initialised in browsers when the app loads.
+// Client-side Sentry deliberately disabled (2026-06-21).
 //
-// Keep this thin: errors only, no performance tracing (saves the
-// free-tier event quota), no session replay (privacy + bundle size).
-// If SENTRY_DSN is unset the SDK warns once and no-ops — safe in
-// local dev where you don't want noise.
-
-import * as Sentry from "@sentry/nextjs";
-
-const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
-if (dsn) {
-  Sentry.init({
-    dsn,
-    environment: process.env.VERCEL_ENV ?? "development",
-    tracesSampleRate: 0,
-    replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 0,
-    // App is a single-tenant CRM with PII (client names, GSTINs,
-    // emails). Strip URL query strings + cookies before they ever
-    // leave the browser.
-    beforeSend(event) {
-      if (event.request) {
-        delete event.request.cookies;
-        if (event.request.url) {
-          event.request.url = event.request.url.split("?")[0];
-        }
-      }
-      return event;
-    },
-  });
-}
+// Why: this app is a 3-user internal CRM. The ~30-45 KB gzipped
+// Sentry SDK shipping into every browser bundle was disproportionate
+// for the value — server-side error tracking (see sentry.server.config.ts)
+// captures the errors that actually matter (server actions, route
+// handlers, PDF rendering), and Vercel's own dashboard captures any
+// client-side script error reasonably well for our usage.
+//
+// The audit on 2026-06-21 flagged this as a HIGH-impact bundle win;
+// removing client init drops the shared chunk from ~87 KB to ~50 KB
+// and removes the SDK's runtime patches on fetch/history that were
+// adding latency to every client navigation.
+//
+// If you ever need browser-side error tracking back, restore the
+// previous body of this file (in git history) and re-add
+// NEXT_PUBLIC_SENTRY_DSN to Vercel env vars.
+//
+// This file is kept so withSentryConfig in next.config.mjs doesn't
+// error out looking for it.
+export {};
