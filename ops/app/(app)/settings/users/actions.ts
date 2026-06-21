@@ -1,10 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { users } from "@/db/schema";
+import {
+  auditLog,
+  clients,
+  invoices,
+  payments,
+  productCostHistory,
+  productCosts,
+  quotes,
+  quoteSends,
+  users,
+} from "@/db/schema";
 import { requireOwner } from "@/lib/auth/server";
 import { hashPassword } from "@/lib/auth/password";
 import { audit } from "@/lib/audit/log";
@@ -128,4 +138,127 @@ export async function toggleActiveAction(formData: FormData): Promise<void> {
     metadata: { username: target.username },
   });
   revalidatePath("/settings/users");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Emergency takeover — combines deactivate + password reset in one
+// atomic action. The OWNER chooses the new password (we display it
+// back exactly once so OWNER can record it). The user is also marked
+// `isActive = false` so they cannot use the password to log in — it
+// only becomes useful if OWNER later reactivates them, in which case
+// `mustChangePassword = true` forces another reset.
+//
+// Threat model: a hostile employee. OWNER hits Emergency Takeover,
+// types a new password, instantly the old credentials are dead AND
+// the account is disabled. All historical work created by that user
+// remains visible to OWNER as before — this app has no per-user data
+// partition.
+// ─────────────────────────────────────────────────────────────────────
+const emergencySchema = z.object({
+  userId: z.string().uuid(),
+  newPassword: z.string().min(6, "At least 6 characters").max(256),
+});
+
+export async function emergencyTakeoverAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const actor = await requireOwner();
+  const parsed = emergencySchema.safeParse({
+    userId: formData.get("userId"),
+    newPassword: formData.get("newPassword"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  if (parsed.data.userId === actor.id) {
+    return { ok: false, error: "You can't take over your own account." };
+  }
+  const target = await db.query.users.findFirst({
+    where: eq(users.id, parsed.data.userId),
+  });
+  if (!target) return { ok: false, error: "User not found." };
+
+  const passwordHash = await hashPassword(parsed.data.newPassword);
+  await db
+    .update(users)
+    .set({
+      passwordHash,
+      isActive: false,
+      mustChangePassword: true,
+    })
+    .where(eq(users.id, parsed.data.userId));
+
+  await audit({
+    actorId: actor.id,
+    action: "USER_EMERGENCY_TAKEOVER",
+    entityType: "user",
+    entityId: parsed.data.userId,
+    metadata: { username: target.username },
+  });
+
+  revalidatePath("/settings/users");
+  return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Hard delete — only allowed when the user has touched NOTHING. The
+// moment they've created a quote, invoice, payment, etc. the FK
+// constraint would either fail outright or orphan the audit trail.
+// In that case OWNER must use Deactivate / Block instead.
+//
+// Self-delete is also blocked; lockout-of-self is meaningless.
+// ─────────────────────────────────────────────────────────────────────
+export async function deleteUserAction(formData: FormData): Promise<ActionResult> {
+  const actor = await requireOwner();
+  const userId = z.string().uuid().parse(formData.get("userId"));
+  if (userId === actor.id) {
+    return { ok: false, error: "You can't delete your own account." };
+  }
+  const target = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!target) return { ok: false, error: "User not found." };
+  if (target.role === "OWNER") {
+    return { ok: false, error: "Owner accounts can't be deleted from the UI." };
+  }
+
+  // Count references across every table that points at users.id. Any
+  // non-zero count means hard delete would break audit trails — refuse.
+  // (auditLog.actorId is intentionally NOT counted: we null it below
+  // so historical actions stay logged with an anonymised actor.)
+  const counts = await Promise.all([
+    db.select({ n: sql<number>`count(*)::int` }).from(productCosts).where(eq(productCosts.updatedBy, userId)),
+    db.select({ n: sql<number>`count(*)::int` }).from(productCostHistory).where(eq(productCostHistory.changedBy, userId)),
+    db.select({ n: sql<number>`count(*)::int` }).from(clients).where(eq(clients.createdBy, userId)),
+    db.select({ n: sql<number>`count(*)::int` }).from(quotes).where(eq(quotes.createdBy, userId)),
+    db.select({ n: sql<number>`count(*)::int` }).from(quoteSends).where(eq(quoteSends.sentBy, userId)),
+    db.select({ n: sql<number>`count(*)::int` }).from(payments).where(eq(payments.recordedBy, userId)),
+    db.select({ n: sql<number>`count(*)::int` }).from(invoices).where(eq(invoices.createdBy, userId)),
+  ]);
+  const totalRefs = counts.reduce((s, c) => s + (c[0]?.n ?? 0), 0);
+  if (totalRefs > 0) {
+    return {
+      ok: false,
+      error: `${target.username} has created ${totalRefs} record${totalRefs === 1 ? "" : "s"} (quotes / invoices / clients / etc.). Hard delete would break the audit trail. Use "Block & lock out" instead — that disables the account permanently and keeps history intact.`,
+    };
+  }
+
+  // Anonymise audit rows for THIS user before deletion (preserve the
+  // history of what happened; just drop the actor pointer).
+  await db
+    .update(auditLog)
+    .set({ actorId: null })
+    .where(eq(auditLog.actorId, userId));
+
+  await db.delete(users).where(eq(users.id, userId));
+
+  await audit({
+    actorId: actor.id,
+    action: "USER_DELETE",
+    entityType: "user",
+    entityId: userId,
+    metadata: { username: target.username, role: target.role },
+  });
+
+  revalidatePath("/settings/users");
+  return { ok: true };
 }

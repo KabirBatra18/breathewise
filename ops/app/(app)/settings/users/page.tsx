@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Info } from "lucide-react";
 import { NewUserForm } from "./new-user-form";
 import { UserRowActions } from "./user-row-actions";
 
@@ -37,6 +38,43 @@ export default async function UsersPage() {
         <p className="text-sm text-muted-foreground">
           Add and manage owner / employee / viewer accounts. Owner-only.
         </p>
+      </div>
+
+      <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+        <div className="flex items-start gap-2">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="space-y-2">
+            <p className="font-medium">
+              About passwords &amp; controlling employee access
+            </p>
+            <ul className="ml-4 list-disc space-y-1 text-xs text-muted-foreground">
+              <li>
+                <strong>Passwords are one-way encrypted.</strong> The plaintext is
+                never stored anywhere &mdash; not even the system itself can
+                reveal what an employee&apos;s current password is. This is
+                standard practice and protects you if the database is ever
+                compromised.
+              </li>
+              <li>
+                <strong>All employee work is already visible to you</strong> on
+                every screen (quotes, invoices, clients, payments). There is
+                no per-user data partition &mdash; you never lacked access to
+                anything they created.
+              </li>
+              <li>
+                To cut off a hostile or departed employee: click{" "}
+                <em>Block &amp; lock out</em> &mdash; their login dies
+                instantly. For a clean restart-with-new-password takeover,
+                use <em>Emergency takeover</em>.
+              </li>
+              <li>
+                <em>Delete user</em> only succeeds if they&apos;ve never
+                created anything. Otherwise use <em>Block &amp; lock out</em>{" "}
+                so the audit trail stays intact.
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       <Card>
