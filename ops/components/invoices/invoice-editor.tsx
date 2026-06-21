@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Check, Loader2, Plus, Trash2, X } from "lucide-react";
 import { InvoiceStatusBadge } from "@/components/ui/status-badge";
 import { HelpHint } from "@/components/ui/help-hint";
 import {
@@ -112,7 +112,20 @@ export function InvoiceEditor({
 }) {
   const router = useRouter();
   const [lines, setLines] = useState<EditorLine[]>(initialLines);
-  const [pending, startTransition] = useTransition();
+  // Three independent in-flight flags. Previously a single useTransition
+  // was shared by line saves, meta saves, finalize, and discard — so a
+  // slow line save would also disable Finalize and Discard, producing
+  // the "faded button can't click" feel the audit flagged.
+  //   linePending      — set during commitLine / removeLine
+  //   metaPending      — set during saveMeta / reverseCharge toggle
+  //   lifecyclePending — set during finalize / discard
+  // Buttons gate only on their own area; cross-area work doesn't freeze them.
+  const [linePending, startLineTransition] = useTransition();
+  const [metaPending, startMetaTransition] = useTransition();
+  const [lifecyclePending, startLifecycleTransition] = useTransition();
+  // Keep `pending` as a backwards-compatible alias for any code path
+  // that needs "anything in flight" (e.g. an outer-form guard).
+  const pending = linePending || metaPending || lifecyclePending;
   // Single AlertDialog instance, driven by state. Each destructive
   // action sets pendingConfirm with its own title/handler — much nicer
   // than three separate AlertDialog components or native confirm().
@@ -193,7 +206,7 @@ export function InvoiceEditor({
   }
 
   function commitLine(line: EditorLine, patch: Partial<EditorLine>) {
-    startTransition(async () => {
+    startLineTransition(async () => {
       const res = await updateInvoiceLineAction({
         lineId: line.id,
         description: patch.description,
@@ -206,8 +219,11 @@ export function InvoiceEditor({
       });
       if (!res.ok) {
         toast.error(res.error);
-        // Revert local state — refetch from server.
-        router.refresh();
+        // Local state is now slightly ahead of server. Toast tells the
+        // user; reloading restores. We deliberately do NOT call
+        // router.refresh() here — it doesn't update useState anyway,
+        // and it triggers the full RSC re-fetch which made every blur
+        // feel heavy. (Audit 2026-06-21.)
         return;
       }
       flashSaved(line.id);
@@ -225,11 +241,12 @@ export function InvoiceEditor({
       destructive: true,
       onConfirm: () => {
         setLines((curr) => curr.filter((l) => l.id !== lineId));
-        startTransition(async () => {
+        startLineTransition(async () => {
           const res = await deleteInvoiceLineAction({ lineId });
           if (!res.ok) {
             toast.error(res.error);
-            router.refresh();
+            // Optimistic remove already happened; toast surfaces the
+            // failure. No router.refresh — see commitLine note.
           }
         });
       },
@@ -271,7 +288,7 @@ export function InvoiceEditor({
 
 
   function saveMeta() {
-    startTransition(async () => {
+    startMetaTransition(async () => {
       const res = await updateInvoiceMetaAction({
         invoiceId: invoice.id,
         issueDate,
@@ -287,7 +304,9 @@ export function InvoiceEditor({
         return;
       }
       toast.success("Saved.");
-      router.refresh();
+      // No router.refresh — the meta fields are local state we already
+      // updated; the server's revalidatePath busts list pages we'd
+      // navigate to next. Avoids the heavy RSC re-fetch.
     });
   }
 
@@ -302,7 +321,7 @@ export function InvoiceEditor({
         "An invoice number will be allocated (e.g. BW/INV/2627/0001) and the document becomes legally binding. After this you can't edit any line, total or party. The PDF will unlock for download.",
       actionLabel: "Finalize & issue",
       onConfirm: () => {
-        startTransition(async () => {
+        startLifecycleTransition(async () => {
           const res = await finalizeInvoiceAction({ invoiceId: invoice.id });
           if (!res.ok) {
             toast.error(res.error);
@@ -323,7 +342,7 @@ export function InvoiceEditor({
       actionLabel: "Discard draft",
       destructive: true,
       onConfirm: () => {
-        startTransition(async () => {
+        startLifecycleTransition(async () => {
           const res = await deleteDraftInvoiceAction({ invoiceId: invoice.id });
           if (!res.ok) {
             toast.error(res.error);
@@ -479,12 +498,15 @@ export function InvoiceEditor({
               checked={reverseCharge}
               onChange={(e) => {
                 setReverseCharge(e.target.checked);
-                startTransition(async () => {
+                startMetaTransition(async () => {
                   await updateInvoiceMetaAction({
                     invoiceId: invoice.id,
                     reverseCharge: e.target.checked,
                   });
-                  router.refresh();
+                  // Local checkbox already reflects the new value.
+                  // Reverse charge is a legal classification only —
+                  // it does not change per-line tax breakdown, so no
+                  // RSC re-fetch is needed.
                 });
               }}
               className="mt-0.5 h-4 w-4 rounded border-input"
@@ -797,27 +819,33 @@ export function InvoiceEditor({
         <CardContent className="flex flex-wrap items-start gap-3">
           <Button
             onClick={finalize}
-            disabled={pending || lines.length === 0}
+            disabled={lifecyclePending || lines.length === 0}
             disabledReason={
-              pending
-                ? "A save is in progress — give it a second."
+              lifecyclePending
+                ? "Finalizing…"
                 : lines.length === 0
                   ? "Add at least one line before finalizing."
                   : undefined
             }
           >
-            <Check className="h-4 w-4" />
-            Finalize &amp; Issue
+            {lifecyclePending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+            {lifecyclePending ? "Finalizing…" : "Finalize & Issue"}
           </Button>
           <Button
             variant="destructive"
             onClick={discard}
-            disabled={pending}
-            disabledReason={
-              pending ? "A save is in progress — give it a second." : undefined
-            }
+            disabled={lifecyclePending}
+            disabledReason={lifecyclePending ? "Working…" : undefined}
           >
-            <X className="h-4 w-4" />
+            {lifecyclePending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <X className="h-4 w-4" />
+            )}
             Discard draft
           </Button>
           <p className="flex-1 text-xs text-muted-foreground">

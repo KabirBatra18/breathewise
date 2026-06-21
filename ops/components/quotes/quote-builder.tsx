@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Minus, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Loader2, Minus, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -820,6 +820,7 @@ export function QuoteBuilder({
         />
         <div className="mt-4 space-y-2">
           <Button onClick={save} disabled={pending} className="w-full">
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {pending ? "Saving…" : initial ? "Save changes" : "Save as draft"}
           </Button>
           <p className="text-center text-xs text-muted-foreground">
