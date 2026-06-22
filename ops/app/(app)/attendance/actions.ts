@@ -76,6 +76,22 @@ export async function punchAction(input: PunchInput): Promise<PunchResult> {
       error: "Viewer accounts cannot record attendance.",
     };
   }
+
+  // Task-log gate (2026-06-22): block CHECK_IN if there's any prior
+  // completed day with no task log. CHECK_OUT is never blocked — the
+  // log is filled AFTER check-out, so the gate would create an
+  // unbreakable loop if it also blocked there.
+  if (input.kind === "CHECK_IN") {
+    const { findUnloggedDays } = await import("./task-log-actions");
+    const todayIst = istDateString(new Date());
+    const unlogged = await findUnloggedDays(actor.id, todayIst);
+    if (unlogged.length > 0) {
+      return {
+        ok: false,
+        error: `Please log your tasks for ${unlogged[0].date} before checking in today. Open it from the banner on /attendance.`,
+      };
+    }
+  }
   const parsed = punchSchema.safeParse(input);
   if (!parsed.success) {
     return {

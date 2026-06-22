@@ -661,6 +661,39 @@ export const attendancePunches = pgTable("attendance_punches", {
   clockSkewMs: integer("clock_skew_ms"),
 });
 
+// ─── Task logs (migration 0020) ─────────────────────────────────────────
+// One row per (day, hour bucket). Filled after Check Out — what the
+// employee did each hour they were on the clock. Required: next-day
+// Check In is blocked until the prior day is logged.
+// Architecture: memory/project_attendance_architecture.md
+export const attendanceTaskLogs = pgTable(
+  "attendance_task_logs",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    dayId: uuid("day_id")
+      .notNull()
+      .references(() => attendanceDays.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    hourStart: timestamp("hour_start", { withTimezone: true }).notNull(),
+    hourEnd: timestamp("hour_end", { withTimezone: true }).notNull(),
+    description: text("description").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    dayBucket: unique("attendance_task_logs_day_id_hour_start_key").on(
+      t.dayId,
+      t.hourStart,
+    ),
+  }),
+);
+
 // ─── Payroll payments (migration 0019) ─────────────────────────────────
 // One row per (employee, paid pay-cycle). Snapshots the credit + salary
 // values at the moment of payment so future retroactive overrides don't

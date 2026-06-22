@@ -1,8 +1,13 @@
 import { and, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { attendanceDays, attendanceSettings } from "@/db/schema";
+import {
+  attendanceDays,
+  attendanceSettings,
+  attendanceTaskLogs,
+} from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { istDateString } from "@/lib/attendance/ist-date";
+import { findUnloggedDays } from "@/app/(app)/attendance/task-log-actions";
 import { AttendancePanel } from "@/components/attendance/attendance-panel";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +57,33 @@ export default async function AttendancePage() {
   const settings = settingsRows[0];
   const openPrior = openPriorRows[0] ?? null;
 
+  // Task-log gate (2026-06-22): completed days with zero task logs.
+  // Surfaces as a blocking banner — the next Check In is gated until
+  // the oldest one is logged.
+  const unlogged = await findUnloggedDays(me.id, today);
+
+  // If today's already checked out AND has no task log → offer the
+  // log screen inline (same screen they'd reach via the banner for
+  // prior days). Most natural UX: right after Check Out, the panel
+  // transitions to the log screen automatically.
+  let todayTaskLogs: Array<{
+    hourStart: string;
+    hourEnd: string;
+    description: string;
+  }> = [];
+  if (todayRow?.checkOutAt) {
+    const logs = await db
+      .select()
+      .from(attendanceTaskLogs)
+      .where(eq(attendanceTaskLogs.dayId, todayRow.id))
+      .orderBy(attendanceTaskLogs.hourStart);
+    todayTaskLogs = logs.map((l) => ({
+      hourStart: l.hourStart.toISOString(),
+      hourEnd: l.hourEnd.toISOString(),
+      description: l.description,
+    }));
+  }
+
   // The client component takes plain JSON so we serialise dates to
   // strings here (server-rendered) rather than relying on Next's
   // RSC serialiser to do it for Date objects (which it can, but
@@ -73,6 +105,9 @@ export default async function AttendancePage() {
               }
             : null
         }
+        unloggedDays={unlogged}
+        todayDayId={todayRow?.id ?? null}
+        todayTaskLogs={todayTaskLogs}
         today={
           todayRow
             ? {

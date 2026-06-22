@@ -25,6 +25,7 @@ import {
   punchAction,
   recordConsentAction,
 } from "@/app/(app)/attendance/actions";
+import { TaskLogForm } from "@/components/attendance/task-log-form";
 
 /**
  * The employee-side attendance dashboard. Single big Check In or Check
@@ -64,6 +65,19 @@ type TodayState = {
   dayCredit: number | null;
 };
 
+interface UnloggedDay {
+  dayId: string;
+  date: string;
+  checkInAt: string;
+  checkOutAt: string;
+}
+
+interface TaskLogEntry {
+  hourStart: string;
+  hourEnd: string;
+  description: string;
+}
+
 export function AttendancePanel({
   consented,
   officeConfigured,
@@ -71,6 +85,9 @@ export function AttendancePanel({
   officeRadiusM,
   today,
   openPriorShift,
+  unloggedDays,
+  todayDayId,
+  todayTaskLogs,
 }: {
   consented: boolean;
   officeConfigured: boolean;
@@ -78,11 +95,37 @@ export function AttendancePanel({
   officeRadiusM: number;
   today: TodayState | null;
   openPriorShift: { date: string; checkInAt: string } | null;
+  // Audit-fix 2026-06-22: completed prior days with no task logs.
+  // Renders a blocking banner; clicking opens the task log form.
+  unloggedDays: UnloggedDay[];
+  // Today's day-row id, for the post-checkout task log form.
+  todayDayId: string | null;
+  // Existing task log entries for today (so re-opening the page
+  // shows already-typed logs instead of an empty form).
+  todayTaskLogs: TaskLogEntry[];
 }) {
   const [pending, startTransition] = useTransition();
   const [phase, setPhase] = useState<
     "idle" | "locating" | "needs-note" | "denied"
   >("idle");
+  // Which day to show the task-log form for, if any. The form takes
+  // over the panel when set. Initialises based on:
+  //   • a prior unlogged day exists → show that day's form (highest
+  //     priority — blocks Check In until cleared)
+  //   • today is checked out + has no log → show today's form
+  // Both states are dismissable via "Skip"; persistence is via the
+  // server-side gating, so skipping just defers the irritation rather
+  // than letting the employee escape it permanently.
+  const today_isCheckedOutNoLog =
+    today?.checkOutAt && todayTaskLogs.length === 0 && todayDayId != null;
+  const [logTarget, setLogTarget] = useState<UnloggedDay | "today" | null>(
+    () =>
+      unloggedDays[0]
+        ? unloggedDays[0]
+        : today_isCheckedOutNoLog
+          ? "today"
+          : null,
+  );
   const [pendingPunch, setPendingPunch] = useState<{
     kind: "CHECK_IN" | "CHECK_OUT";
     lat: number;
@@ -224,6 +267,57 @@ export function AttendancePanel({
     });
   }
 
+  // If a task log is pending, show it INSTEAD of the punch UI. For
+  // prior unlogged days the form is non-dismissable (gating). For
+  // today's log it's skippable but encourages.
+  if (logTarget && logTarget !== "today") {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-medium">
+            One previous day still needs a task log.
+          </p>
+          <p className="mt-1">
+            You can&apos;t check in for today until this is filled.
+          </p>
+        </div>
+        <TaskLogForm
+          dayId={logTarget.dayId}
+          dateLabel={formatPriorDate(logTarget.date)}
+          checkInAt={logTarget.checkInAt}
+          checkOutAt={logTarget.checkOutAt}
+          showSkip={false}
+        />
+      </div>
+    );
+  }
+
+  if (logTarget === "today" && todayDayId && today?.checkInAt && today?.checkOutAt) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
+          <p className="font-medium">
+            ✓ Checked out · log what you did today
+          </p>
+          <p className="mt-1">
+            Takes under a minute. You can skip but you&apos;ll need to
+            fill it before tomorrow.
+          </p>
+        </div>
+        <TaskLogForm
+          dayId={todayDayId}
+          dateLabel="Today"
+          checkInAt={today.checkInAt}
+          checkOutAt={today.checkOutAt}
+          initial={todayTaskLogs}
+          showSkip={true}
+          onSaved={() => setLogTarget(null)}
+          onSkip={() => setLogTarget(null)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -233,6 +327,22 @@ export function AttendancePanel({
           location is captured at both moments.
         </p>
       </div>
+
+      {/* Re-open log button when today is checked out but logTarget was
+          dismissed via Skip — gives them an easy way back without
+          waiting for tomorrow's nag. */}
+      {today_isCheckedOutNoLog && logTarget !== "today" ? (
+        <button
+          type="button"
+          onClick={() => setLogTarget("today")}
+          className="w-full rounded-lg border border-amber-300 bg-amber-50 p-3 text-left text-xs text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          <span className="font-medium">
+            Today&apos;s task log isn&apos;t filled yet.
+          </span>{" "}
+          Tap to log it now — you&apos;ll need to before tomorrow.
+        </button>
+      ) : null}
 
       {!officeConfigured ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
