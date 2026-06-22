@@ -71,11 +71,19 @@ const OVERRIDE_KINDS: Array<{
   },
 ];
 
+export interface DayOverrideTaskLog {
+  hourStart: string; // ISO
+  hourEnd: string; // ISO
+  description: string;
+}
+
 export function DayOverrideEditor({
   trigger,
   userId,
   date,
   existing,
+  taskLogs,
+  punchSummary,
 }: {
   trigger?: React.ReactNode;
   userId: string;
@@ -85,6 +93,21 @@ export function DayOverrideEditor({
     overrideKind: string | null;
     overrideCredit: number | null;
     overrideNote: string | null;
+  };
+  // Task log entries for this day. OWNER-side view added 2026-06-22
+  // so clicking any day cell on /attendance/admin/grid surfaces the
+  // employee's hourly task entries in the same modal as the
+  // override editor. Empty array = no logs (either employee skipped
+  // or day pre-dates the task log feature).
+  taskLogs?: DayOverrideTaskLog[];
+  // Brief punch summary so OWNER can sanity-check timing alongside
+  // task log entries. Both fields optional — null when the day has
+  // no punches (pure-override day).
+  punchSummary?: {
+    checkInAt: string | null;
+    checkOutAt: string | null;
+    hoursWorked: number | null;
+    dayCredit: number | null;
   };
 }) {
   const [open, setOpen] = useState(false);
@@ -179,6 +202,67 @@ export function DayOverrideEditor({
               )}
             </DialogDescription>
           </DialogHeader>
+          {/* Punch summary + task logs (OWNER-side view added 2026-06-22).
+              Shown ABOVE the override editor — they're context for
+              whatever decision OWNER is about to make. Quiet/compact
+              when no data; expanded when there's a real shift to look at. */}
+          {(punchSummary?.checkInAt ||
+            (taskLogs && taskLogs.length > 0)) && (
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-xs">
+              {punchSummary?.checkInAt ? (
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium">Shift</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {punchSummary.checkInAt
+                      ? formatHourMin(punchSummary.checkInAt)
+                      : "—"}
+                    {" → "}
+                    {punchSummary.checkOutAt
+                      ? formatHourMin(punchSummary.checkOutAt)
+                      : "(no checkout)"}
+                    {punchSummary.hoursWorked != null
+                      ? ` · ${punchSummary.hoursWorked.toFixed(2)}h`
+                      : ""}
+                    {punchSummary.dayCredit != null
+                      ? ` · ${punchSummary.dayCredit} credit`
+                      : ""}
+                  </span>
+                </div>
+              ) : null}
+              {taskLogs && taskLogs.length > 0 ? (
+                <>
+                  <div className="border-t pt-2">
+                    <p className="font-medium">Task log</p>
+                  </div>
+                  <ul className="space-y-1">
+                    {taskLogs.map((t) => (
+                      <li
+                        key={t.hourStart}
+                        className="flex items-baseline gap-2"
+                      >
+                        <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {formatHourMin(t.hourStart)}–
+                          {formatHourMin(t.hourEnd)}
+                        </span>
+                        <span className="flex-1">
+                          {t.description || (
+                            <span className="italic text-muted-foreground">
+                              (blank)
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : punchSummary?.checkOutAt ? (
+                <p className="border-t pt-2 italic text-muted-foreground">
+                  No task log filled for this day yet.
+                </p>
+              ) : null}
+            </div>
+          )}
+
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Kind</Label>
@@ -275,4 +359,14 @@ function formatDay(iso: string): string {
     month: "short",
     timeZone: "Asia/Kolkata",
   }).format(new Date(`${iso}T00:00:00+05:30`));
+}
+
+// "10:23 AM" — used inline alongside other text, so compact 12-hour.
+function formatHourMin(iso: string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  }).format(new Date(iso));
 }

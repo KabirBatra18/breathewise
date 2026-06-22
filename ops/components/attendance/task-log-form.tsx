@@ -32,6 +32,7 @@ export function TaskLogForm({
   checkInAt,
   checkOutAt,
   initial,
+  recentDescriptions,
   onSaved,
   onSkip,
   showSkip = true,
@@ -42,6 +43,11 @@ export function TaskLogForm({
   checkInAt: string; // ISO
   checkOutAt: string; // ISO
   initial?: Array<{ hourStart: string; hourEnd: string; description: string }>;
+  // Phase 2 (2026-06-22) — last 14 days of this user's own descriptions.
+  // Wired into a <datalist> on each row's input. Typing 2-3 chars
+  // surfaces matches; tap a suggestion to refill. Empty array = no
+  // suggestions (new employee, first cycle).
+  recentDescriptions?: string[];
   onSaved?: () => void;
   onSkip?: () => void;
   showSkip?: boolean;
@@ -144,15 +150,30 @@ export function TaskLogForm({
     );
   }
 
+  const datalistId = `task-suggestions-${dayId}`;
+
   return (
     <div className="space-y-4">
+      {/* Autocomplete source — last 14 days of this user's own task
+          descriptions. Native <datalist> means: zero JS, mobile keyboards
+          surface suggestions as a dropdown, tap to refill. */}
+      {recentDescriptions && recentDescriptions.length > 0 ? (
+        <datalist id={datalistId}>
+          {recentDescriptions.map((d) => (
+            <option key={d} value={d} />
+          ))}
+        </datalist>
+      ) : null}
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
           Log your day · {dateLabel}
         </h2>
         <p className="text-xs text-muted-foreground">
           One line per hour. Tap the microphone on your keyboard to speak
-          instead of type.
+          instead of type
+          {recentDescriptions && recentDescriptions.length > 0
+            ? "; tap an input to see recent entries as suggestions."
+            : "."}
         </p>
       </div>
 
@@ -190,6 +211,11 @@ export function TaskLogForm({
               }
               inputMode="text"
               autoComplete="off"
+              list={
+                recentDescriptions && recentDescriptions.length > 0
+                  ? datalistId
+                  : undefined
+              }
               className="h-10"
             />
           </div>

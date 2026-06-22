@@ -7,7 +7,10 @@ import {
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import { istDateString } from "@/lib/attendance/ist-date";
-import { findUnloggedDays } from "@/app/(app)/attendance/task-log-actions";
+import {
+  findUnloggedDays,
+  loadRecentTaskDescriptions,
+} from "@/app/(app)/attendance/task-log-actions";
 import { AttendancePanel } from "@/components/attendance/attendance-panel";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +65,11 @@ export default async function AttendancePage() {
   // the oldest one is logged.
   const unlogged = await findUnloggedDays(me.id, today);
 
+  // Autocomplete suggestions for the task log form. Pulls this user's
+  // distinct recent task descriptions so common entries ("Sharma
+  // residence install") become 1-tap repeats.
+  const recentDescriptions = await loadRecentTaskDescriptions(me.id);
+
   // If today's already checked out AND has no task log → offer the
   // log screen inline (same screen they'd reach via the banner for
   // prior days). Most natural UX: right after Check Out, the panel
@@ -108,6 +116,7 @@ export default async function AttendancePage() {
         unloggedDays={unlogged}
         todayDayId={todayRow?.id ?? null}
         todayTaskLogs={todayTaskLogs}
+        recentTaskDescriptions={recentDescriptions}
         today={
           todayRow
             ? {

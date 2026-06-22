@@ -40,6 +40,17 @@ export function MonthlyGrid({
                 overrideCredit: cell.overrideCredit,
                 overrideNote: null,
               }}
+              taskLogs={cell.taskLogs}
+              punchSummary={
+                cell.checkInAt
+                  ? {
+                      checkInAt: cell.checkInAt,
+                      checkOutAt: cell.checkOutAt,
+                      hoursWorked: cell.hoursWorked,
+                      dayCredit: cell.dayCredit,
+                    }
+                  : undefined
+              }
               trigger={<CellTile cell={cell} clickable />}
             />
           ) : (

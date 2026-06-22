@@ -1,9 +1,10 @@
-import { and, asc, between, eq } from "drizzle-orm";
+import { and, asc, between, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   attendanceDays,
   attendancePublicHolidays,
   attendanceSettings,
+  attendanceTaskLogs,
   employeePayrollSettings,
   users,
 } from "@/db/schema";
@@ -47,6 +48,15 @@ export interface DayCell {
   // badge pending-overtime days. true when raw dayCredit > 1.0 AND
   // OWNER hasn't yet approved the overtime for this date.
   hasPendingOvertime: boolean;
+  // Phase 2 (2026-06-22): task log entries for this day. Populated
+  // only when caller passes includeTaskLogs=true to
+  // loadMonthlyAttendance. Empty array means "no logs filled" (could
+  // be employee-skipped, day pre-dates the feature, or in-progress).
+  taskLogs?: Array<{
+    hourStart: string;
+    hourEnd: string;
+    description: string;
+  }>;
 }
 
 export interface MonthlyAttendance {
@@ -63,6 +73,7 @@ export interface MonthlyAttendance {
 export async function loadMonthlyAttendance(
   userId: string,
   yearMonth: string,
+  opts?: { includeTaskLogs?: boolean },
 ): Promise<MonthlyAttendance> {
   const { first, last, daysInMonth } = istMonthRange(yearMonth);
   const [dayRows, holidayRows, settingsRows, payrollRows] = await Promise.all([
@@ -109,6 +120,37 @@ export async function loadMonthlyAttendance(
   const holidayByDate = new Map(
     holidayRows.map((h) => [h.date as unknown as string, h]),
   );
+
+  // Phase 2 (2026-06-22): when the caller asks for task logs, fetch
+  // them in a SINGLE batched query keyed by the day_ids we already
+  // have. Skip the query entirely if no caller asked (employee
+  // self-view + payroll don't need this; only OWNER admin grid does).
+  const logsByDayId = new Map<
+    string,
+    Array<{ hourStart: string; hourEnd: string; description: string }>
+  >();
+  if (opts?.includeTaskLogs && dayRows.length > 0) {
+    const dayIds = dayRows.map((d) => d.id);
+    const logs = await db
+      .select({
+        dayId: attendanceTaskLogs.dayId,
+        hourStart: attendanceTaskLogs.hourStart,
+        hourEnd: attendanceTaskLogs.hourEnd,
+        description: attendanceTaskLogs.description,
+      })
+      .from(attendanceTaskLogs)
+      .where(inArray(attendanceTaskLogs.dayId, dayIds))
+      .orderBy(asc(attendanceTaskLogs.hourStart));
+    for (const l of logs) {
+      const arr = logsByDayId.get(l.dayId) ?? [];
+      arr.push({
+        hourStart: l.hourStart.toISOString(),
+        hourEnd: l.hourEnd.toISOString(),
+        description: l.description,
+      });
+      logsByDayId.set(l.dayId, arr);
+    }
+  }
 
   // Build a full row of cells covering every date in the month.
   const cells: DayCell[] = [];
@@ -176,6 +218,8 @@ export async function loadMonthlyAttendance(
         row?.checkInStatus === "PENDING" || row?.checkOutStatus === "PENDING",
       hasPendingOvertime:
         dayCredit != null && dayCredit > 1.0 && !overtimeApprovedAt,
+      taskLogs:
+        opts?.includeTaskLogs && row ? logsByDayId.get(row.id) ?? [] : undefined,
     });
   }
 

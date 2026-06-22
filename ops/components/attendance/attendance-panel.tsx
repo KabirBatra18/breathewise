@@ -88,6 +88,7 @@ export function AttendancePanel({
   unloggedDays,
   todayDayId,
   todayTaskLogs,
+  recentTaskDescriptions,
 }: {
   consented: boolean;
   officeConfigured: boolean;
@@ -103,6 +104,10 @@ export function AttendancePanel({
   // Existing task log entries for today (so re-opening the page
   // shows already-typed logs instead of an empty form).
   todayTaskLogs: TaskLogEntry[];
+  // Autocomplete suggestions for the task log form (last 14 days
+  // of this user's own descriptions). 1-tap re-fill for common
+  // recurring tasks like "Sharma residence install".
+  recentTaskDescriptions: string[];
 }) {
   const [pending, startTransition] = useTransition();
   const [phase, setPhase] = useState<
@@ -286,6 +291,7 @@ export function AttendancePanel({
           dateLabel={formatPriorDate(logTarget.date)}
           checkInAt={logTarget.checkInAt}
           checkOutAt={logTarget.checkOutAt}
+          recentDescriptions={recentTaskDescriptions}
           showSkip={false}
         />
       </div>
@@ -310,6 +316,7 @@ export function AttendancePanel({
           checkInAt={today.checkInAt}
           checkOutAt={today.checkOutAt}
           initial={todayTaskLogs}
+          recentDescriptions={recentTaskDescriptions}
           showSkip={true}
           onSaved={() => setLogTarget(null)}
           onSkip={() => setLogTarget(null)}

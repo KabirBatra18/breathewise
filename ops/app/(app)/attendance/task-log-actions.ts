@@ -196,3 +196,44 @@ export async function findUnloggedDays(
 
 // Re-export isNull for the rare caller; we use it inside.
 export { isNull };
+
+/**
+ * Returns this user's distinct task-log descriptions from the trailing
+ * 14 days. Used to populate a <datalist> for autocomplete in the
+ * TaskLogForm — typing 3 chars suggests recent entries so common tasks
+ * ("Sharma residence install", "Office paperwork") are 1-tap to refill.
+ *
+ * Bounded to 50 suggestions; orders by recency. Empty strings excluded.
+ */
+export async function loadRecentTaskDescriptions(
+  userId: string,
+): Promise<string[]> {
+  const { sql, gte, ne } = await import("drizzle-orm");
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({
+      description: attendanceTaskLogs.description,
+      hourStart: attendanceTaskLogs.hourStart,
+    })
+    .from(attendanceTaskLogs)
+    .where(
+      and(
+        eq(attendanceTaskLogs.userId, userId),
+        gte(attendanceTaskLogs.hourStart, fourteenDaysAgo),
+        ne(attendanceTaskLogs.description, ""),
+      ),
+    )
+    .orderBy(sql`${attendanceTaskLogs.hourStart} DESC`)
+    .limit(200);
+  // De-dupe while preserving recency order (the first occurrence wins).
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const r of rows) {
+    const d = r.description.trim();
+    if (!d || seen.has(d.toLowerCase())) continue;
+    seen.add(d.toLowerCase());
+    out.push(d);
+    if (out.length >= 50) break;
+  }
+  return out;
+}

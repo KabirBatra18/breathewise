@@ -46,7 +46,12 @@ export default async function AttendanceGridPage({
   const perEmployee = await Promise.all(
     employees.map(async (e) => ({
       employee: e,
-      attendance: await loadMonthlyAttendance(e.userId, yearMonth),
+      // includeTaskLogs: true → admin grid surfaces the hourly task log
+      // inside the day-override modal when OWNER clicks a cell. The
+      // batched query stays O(1) per employee per month.
+      attendance: await loadMonthlyAttendance(e.userId, yearMonth, {
+        includeTaskLogs: true,
+      }),
     })),
   );
 
