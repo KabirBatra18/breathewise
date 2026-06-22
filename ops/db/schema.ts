@@ -661,6 +661,39 @@ export const attendancePunches = pgTable("attendance_punches", {
   clockSkewMs: integer("clock_skew_ms"),
 });
 
+// ─── Payroll payments (migration 0019) ─────────────────────────────────
+// One row per (employee, paid pay-cycle). Snapshots the credit + salary
+// values at the moment of payment so future retroactive overrides don't
+// shift historical pay totals.
+export const payrollPayments = pgTable(
+  "payroll_payments",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    payDate: date("pay_date").notNull(),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    expectedCredits: numeric("expected_credits", { precision: 5, scale: 2 }).notNull(),
+    actualCredits: numeric("actual_credits", { precision: 5, scale: 2 }).notNull(),
+    monthlySalaryAtPayment: numeric("monthly_salary_at_payment", { precision: 12, scale: 2 }).notNull(),
+    computedAmount: numeric("computed_amount", { precision: 12, scale: 2 }).notNull(),
+    paidAmount: numeric("paid_amount", { precision: 12, scale: 2 }).notNull(),
+    notes: text("notes"),
+    paidBy: uuid("paid_by")
+      .notNull()
+      .references(() => users.id),
+    paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userPayDate: unique("payroll_payments_user_id_pay_date_key").on(
+      t.userId,
+      t.payDate,
+    ),
+  }),
+);
+
 export const employeePayrollSettings = pgTable("employee_payroll_settings", {
   userId: uuid("user_id")
     .primaryKey()

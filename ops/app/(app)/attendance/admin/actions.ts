@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { attendanceDays } from "@/db/schema";
@@ -243,6 +243,120 @@ export async function revokeOvertimeAction(
     metadata: {},
   });
   revalidatePath("/attendance/admin/overtime");
+  revalidatePath("/attendance/admin/grid");
+  revalidatePath("/payroll");
+  return { ok: true };
+}
+
+// ─── setDayOverrideAction (2026-06-22) ─────────────────────────────────
+// Lets OWNER mark a specific day as PAID_LEAVE / UNPAID_LEAVE / WFH /
+// PUBLIC_HOLIDAY (this last one is also doable via /holidays for a
+// blanket all-employee declaration). Required for the backfill flow:
+// employees worked Jun 1-21 before the system tracked them; OWNER
+// marks those days PAID_LEAVE with credit 1.0 so the first cycle on
+// /payroll shows a full month.
+//
+// Acts as an upsert: if the day row doesn't yet exist for that user +
+// date, we create one and immediately set the override fields.
+const setOverrideSchema = z.object({
+  userId: z.string().uuid().optional(), // only used if creating
+  dayId: z.string().uuid().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  kind: z.enum(["PAID_LEAVE", "UNPAID_LEAVE", "PUBLIC_HOLIDAY", "WFH"]),
+  credit: z.coerce.number().min(0).max(3).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+
+export async function setDayOverrideAction(
+  input: z.input<typeof setOverrideSchema>,
+): Promise<ActionResult> {
+  const actor = await requireOwner();
+  const parsed = setOverrideSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
+  }
+  const data = parsed.data;
+  // Need either dayId OR (userId+date) to locate / create the row.
+  let dayId = data.dayId ?? null;
+  if (!dayId) {
+    if (!data.userId || !data.date) {
+      return {
+        ok: false,
+        error: "Provide either dayId or (userId + date).",
+      };
+    }
+    // Upsert. ON CONFLICT DO NOTHING returns the existing or new row id
+    // via a follow-up SELECT.
+    await db
+      .insert(attendanceDays)
+      .values({ userId: data.userId, date: data.date })
+      .onConflictDoNothing({
+        target: [attendanceDays.userId, attendanceDays.date],
+      });
+    const [row] = await db
+      .select({ id: attendanceDays.id })
+      .from(attendanceDays)
+      .where(
+        and(
+          eq(attendanceDays.userId, data.userId),
+          eq(attendanceDays.date, data.date),
+        ),
+      )
+      .limit(1);
+    if (!row) {
+      return { ok: false, error: "Couldn't locate or create day row." };
+    }
+    dayId = row.id;
+  }
+
+  await db
+    .update(attendanceDays)
+    .set({
+      overrideKind: data.kind,
+      overrideCredit:
+        data.credit != null ? data.credit.toFixed(1) : null,
+      overrideNote: data.note ?? null,
+      overrideBy: actor.id,
+      overrideAt: new Date(),
+    })
+    .where(eq(attendanceDays.id, dayId));
+
+  await audit({
+    actorId: actor.id,
+    action: "ATTENDANCE_OVERRIDE_SET",
+    entityType: "attendance_day",
+    entityId: dayId,
+    metadata: { kind: data.kind, credit: data.credit, note: data.note ?? null },
+  });
+  revalidatePath("/attendance/admin");
+  revalidatePath("/attendance/admin/grid");
+  revalidatePath("/payroll");
+  return { ok: true };
+}
+
+export async function clearDayOverrideAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const actor = await requireOwner();
+  const idParse = z.string().uuid().safeParse(formData.get("dayId"));
+  if (!idParse.success) return { ok: false, error: "Invalid id." };
+  await db
+    .update(attendanceDays)
+    .set({
+      overrideKind: null,
+      overrideCredit: null,
+      overrideNote: null,
+      overrideBy: null,
+      overrideAt: null,
+    })
+    .where(eq(attendanceDays.id, idParse.data));
+  await audit({
+    actorId: actor.id,
+    action: "ATTENDANCE_OVERRIDE_CLEAR",
+    entityType: "attendance_day",
+    entityId: idParse.data,
+    metadata: {},
+  });
   revalidatePath("/attendance/admin/grid");
   revalidatePath("/payroll");
   return { ok: true };

@@ -82,6 +82,16 @@ export default async function AttendanceGridPage({
         </div>
       </div>
 
+      <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100">
+        <p>
+          <strong>Click any day cell</strong> to mark it as paid leave,
+          unpaid leave, WFH, or a one-person public holiday. Used for
+          backfilling days the system didn&apos;t track (e.g. days
+          worked before the attendance feature shipped) and for
+          correcting missed punches.
+        </p>
+      </div>
+
       <div className="flex items-center justify-between rounded-lg border bg-card px-4 py-2">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -156,7 +166,11 @@ export default async function AttendanceGridPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <MonthlyGrid attendance={attendance} showLegend={false} />
+              <MonthlyGrid
+                attendance={attendance}
+                showLegend={false}
+                editForUserId={employee.userId}
+              />
             </CardContent>
           </Card>
         ))

@@ -1,35 +1,56 @@
 import { cn } from "@/lib/utils";
 import type { DayCell, MonthlyAttendance } from "@/lib/attendance/queries";
+import { DayOverrideEditor } from "@/components/attendance/day-override-editor";
 
 /**
- * Pure-presentational monthly grid. Server component (no interactivity).
- * Shared between OWNER admin view (with employee name) and employee self-
- * view. Each cell is colour-coded by status; the legend is rendered next
- * to the grid.
+ * Monthly grid. Defaults to pure-presentational (server component
+ * compatible); when `editForUserId` is provided, each cell becomes
+ * clickable and opens the DayOverrideEditor — used by OWNER for the
+ * backfill flow (mark previously-untracked days as PAID_LEAVE etc).
  *
  * The grid is laid out as a flexbox of square cells (one per date),
- * wrapping naturally — calendar-style placement (rows = weeks) was the
+ * wrapping naturally. Calendar-style placement (rows = weeks) was the
  * other option but adds complexity for the floating-weekly-off case
  * where Sunday isn't special.
  */
 export function MonthlyGrid({
   attendance,
   showLegend = true,
+  editForUserId,
 }: {
-  attendance: MonthlyAttendance;
+  attendance: MonthlyAttendance | { actualCredits: number; expectedCredits: number; cells: DayCell[] };
   showLegend?: boolean;
+  // When set, each cell is clickable and opens the override editor
+  // for the given user. OWNER-only surface; do NOT pass on employee
+  // self-view (/my-attendance).
+  editForUserId?: string;
 }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1">
-        {attendance.cells.map((cell) => (
-          <CellTile key={cell.date} cell={cell} />
-        ))}
+        {attendance.cells.map((cell) =>
+          editForUserId ? (
+            <DayOverrideEditor
+              key={cell.date}
+              userId={editForUserId}
+              date={cell.date}
+              existing={{
+                dayId: cell.dayId,
+                overrideKind: cell.overrideKind,
+                overrideCredit: cell.overrideCredit,
+                overrideNote: null,
+              }}
+              trigger={<CellTile cell={cell} clickable />}
+            />
+          ) : (
+            <CellTile key={cell.date} cell={cell} />
+          ),
+        )}
       </div>
       {showLegend ? <Legend /> : null}
       <div className="rounded-md bg-muted/30 p-3 text-xs">
         <p>
-          <span className="font-medium">Total credits this month:</span>{" "}
+          <span className="font-medium">Total credits:</span>{" "}
           <span className="tabular-nums">{attendance.actualCredits}</span>{" "}
           / {attendance.expectedCredits} expected
         </p>
@@ -38,7 +59,13 @@ export function MonthlyGrid({
   );
 }
 
-function CellTile({ cell }: { cell: DayCell }) {
+function CellTile({
+  cell,
+  clickable,
+}: {
+  cell: DayCell;
+  clickable?: boolean;
+}) {
   const day = Number(cell.date.slice(8));
   const tone = chooseTone(cell);
   return (
@@ -47,6 +74,7 @@ function CellTile({ cell }: { cell: DayCell }) {
       className={cn(
         "relative flex h-12 w-12 flex-col items-center justify-center rounded-md border text-xs font-medium tabular-nums transition-colors",
         tone,
+        clickable ? "cursor-pointer hover:ring-2 hover:ring-foreground/20" : "",
       )}
     >
       <span className="text-[10px] text-muted-foreground/80">{day}</span>
