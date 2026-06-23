@@ -19,6 +19,7 @@ import {
   KeyRound,
   LogOut,
   Loader2,
+  MapPin,
   Menu,
   Search,
   X,
@@ -65,6 +66,7 @@ const NAV: NavItem[] = [
   { href: "/terms", label: "Terms", icon: ScrollText, ownerOnly: true },
   { href: "/settings/users", label: "Users", icon: UserCog, ownerOnly: true },
   { href: "/settings/verticals", label: "Verticals", icon: Building2, ownerOnly: true },
+  { href: "/settings/attendance", label: "Office & geofence", icon: MapPin, ownerOnly: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
