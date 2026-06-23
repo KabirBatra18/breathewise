@@ -9,11 +9,6 @@ import { audit } from "@/lib/audit/log";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
-// Loose IPv4 / IPv6 / hostname pattern — we don't want to lock OWNER
-// out of typing a slightly unconventional value (CGN ranges, custom
-// public IPs etc). Trim to 64 chars to bound storage.
-const IP_PATTERN = /^[0-9a-fA-F.:]{3,64}$/;
-
 const saveSchema = z.object({
   officeLatitude: z.coerce.number().min(-90).max(90).nullable(),
   officeLongitude: z.coerce.number().min(-180).max(180).nullable(),
@@ -22,20 +17,6 @@ const saveSchema = z.object({
   expectedHoursPerDay: z.coerce.number().min(0.5).max(16),
   weeklyOffsPerWeek: z.coerce.number().int().min(0).max(7),
   paidLeavesPerMonth: z.coerce.number().min(0).max(31),
-  // Anti-fraud commit 1 (2026-06-22): comma-or-newline-separated list
-  // of trusted office public IPs. Empty = IP check disabled (geofence
-  // still works). Each entry validated against IP_PATTERN; bad entries
-  // are dropped silently so OWNER paste-from-anywhere doesn't error.
-  trustedOfficeIps: z
-    .string()
-    .optional()
-    .transform((s) => {
-      if (!s) return [];
-      return s
-        .split(/[\s,]+/)
-        .map((ip) => ip.trim())
-        .filter((ip) => ip.length > 0 && IP_PATTERN.test(ip));
-    }),
 });
 
 export async function saveAttendanceSettingsAction(
@@ -53,7 +34,6 @@ export async function saveAttendanceSettingsAction(
     expectedHoursPerDay: formData.get("expectedHoursPerDay"),
     weeklyOffsPerWeek: formData.get("weeklyOffsPerWeek"),
     paidLeavesPerMonth: formData.get("paidLeavesPerMonth"),
-    trustedOfficeIps: formData.get("trustedOfficeIps") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid" };
@@ -75,7 +55,6 @@ export async function saveAttendanceSettingsAction(
     expectedHoursPerDay: data.expectedHoursPerDay.toFixed(1),
     weeklyOffsPerWeek: data.weeklyOffsPerWeek,
     paidLeavesPerMonth: data.paidLeavesPerMonth.toFixed(1),
-    trustedOfficeIps: data.trustedOfficeIps,
   };
   await db
     .insert(attendanceSettings)
