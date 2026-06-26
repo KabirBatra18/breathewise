@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import {
   auditLog,
   clients,
   invoices,
+  loginAttempts,
   payments,
   productCostHistory,
   productCosts,
@@ -199,6 +200,69 @@ export async function emergencyTakeoverAction(
 
   revalidatePath("/settings/users");
   return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Unblock login — clears failed login attempts for a user so the
+// rate-limit lifts immediately. Replaces the old "shell into the DB
+// and run a DELETE" workaround. We only ever touch failed rows tied
+// to this user's username (succeeded=false). Successful login rows
+// are preserved for audit. Crucially, we do NOT delete by IP across
+// all usernames — that would clobber another user's failures on a
+// shared IP and erase an attacker's footprint. Because the IP-based
+// rate-limit just counts failures from an IP (regardless of username),
+// removing this user's failed rows correctly drops that IP's tally
+// too, with no collateral damage.
+// ─────────────────────────────────────────────────────────────────────
+export type UnblockLoginResult =
+  | { ok: true; deleted: number }
+  | { ok: false; error: string };
+
+const unblockLoginSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+export async function unblockLoginAttemptsAction(
+  _prev: UnblockLoginResult | null,
+  formData: FormData,
+): Promise<UnblockLoginResult> {
+  const actor = await requireOwner();
+  const parsed = unblockLoginSchema.safeParse({
+    userId: formData.get("userId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const target = await db.query.users.findFirst({
+    where: eq(users.id, parsed.data.userId),
+  });
+  if (!target) return { ok: false, error: "User not found." };
+  if (target.id === actor.id) {
+    return { ok: false, error: "You can't unblock yourself — the rate-limit on your own attempts is part of the security boundary." };
+  }
+
+  const deletedRows = await db
+    .delete(loginAttempts)
+    .where(
+      and(
+        eq(loginAttempts.username, target.username),
+        eq(loginAttempts.succeeded, false),
+      ),
+    )
+    .returning({ id: loginAttempts.id });
+  const deleted = deletedRows.length;
+
+  await audit({
+    actorId: actor.id,
+    action: "LOGIN_UNBLOCK",
+    entityType: "user",
+    entityId: parsed.data.userId,
+    metadata: { deleted },
+  });
+
+  revalidatePath("/settings/users");
+  return { ok: true, deleted };
 }
 
 // ─────────────────────────────────────────────────────────────────────

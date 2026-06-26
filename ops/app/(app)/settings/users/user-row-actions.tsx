@@ -30,6 +30,7 @@ import {
   emergencyTakeoverAction,
   resetPasswordAction,
   toggleActiveAction,
+  unblockLoginAttemptsAction,
   type ActionResult,
 } from "./actions";
 
@@ -54,6 +55,8 @@ export function UserRowActions({ user, isSelf }: { user: User; isSelf: boolean }
   const [resetOpen, setResetOpen] = useState(false);
   const [takeoverOpen, setTakeoverOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [unblockOpen, setUnblockOpen] = useState(false);
+  const [isUnblocking, startUnblock] = useTransition();
 
   const [resetState, resetForm] = useFormState<ActionResult | null, FormData>(
     resetPasswordAction,
@@ -104,6 +107,20 @@ export function UserRowActions({ user, isSelf }: { user: User; isSelf: boolean }
           <span className="hidden sm:inline">Reset password</span>
           <span className="sm:hidden">Reset</span>
         </Button>
+
+        {!isSelf && !ownerLock ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setUnblockOpen(true)}
+            disabled={isUnblocking}
+            title="Clear failed login attempts and lift the rate-limit immediately"
+          >
+            <Unlock className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Unblock login</span>
+            <span className="sm:hidden">Unblock</span>
+          </Button>
+        ) : null}
 
         <Button
           variant={user.isActive ? "outline" : "secondary"}
@@ -303,6 +320,48 @@ export function UserRowActions({ user, isSelf }: { user: User; isSelf: boolean }
               className="bg-rose-600 text-white hover:bg-rose-700"
             >
               {isDeleting ? "Deleting…" : "Delete user"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Unblock login confirm ────────────────────────────── */}
+      <AlertDialog open={unblockOpen} onOpenChange={setUnblockOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unblock login for {user.fullName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Clears every failed login attempt on {user.username}&apos;s
+              account so the 10-minute rate-limit lifts immediately.
+              Successful login history is preserved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isUnblocking}
+              onClick={(e) => {
+                e.preventDefault();
+                startUnblock(async () => {
+                  const fd = new FormData();
+                  fd.set("userId", user.id);
+                  const res = await unblockLoginAttemptsAction(null, fd);
+                  if (res.ok) {
+                    if (res.deleted === 0) {
+                      toast.info("No failed attempts to clear — user isn't rate-limited.");
+                    } else {
+                      toast.success(
+                        `Cleared ${res.deleted} failed attempt${res.deleted === 1 ? "" : "s"}.`,
+                      );
+                    }
+                    setUnblockOpen(false);
+                  } else {
+                    toast.error(res.error);
+                  }
+                });
+              }}
+            >
+              {isUnblocking ? "Clearing…" : "Clear attempts"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
