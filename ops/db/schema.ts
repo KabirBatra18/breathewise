@@ -375,6 +375,7 @@ export const invoices = pgTable("invoices", {
   isInterState: boolean("is_inter_state").notNull(),
   reverseCharge: boolean("reverse_charge").notNull().default(false),
   includeLabour: boolean("include_labour").notNull().default(false),
+  showSafetyClause: boolean("show_safety_clause").notNull().default(false),
   // Frozen supplier snapshot
   supplierLegalName: text("supplier_legal_name").notNull(),
   supplierAddress: text("supplier_address"),

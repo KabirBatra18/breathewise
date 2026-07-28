@@ -13,6 +13,7 @@ import {
   ToneBadge,
 } from "@/components/ui/status-badge";
 import { CancelInvoiceButton } from "@/components/invoices/cancel-invoice-button";
+import { PostIssueMetaCard } from "@/components/invoices/post-issue-meta-card";
 import { PdfPreviewButton } from "@/components/ui/pdf-preview-button";
 import {
   Card,
@@ -256,6 +257,15 @@ export default async function InvoiceDetailPage({
             </p>
           </CardContent>
         </Card>
+      ) : null}
+
+      {!isDraft && !isCanceled && inv.invoiceNumber ? (
+        <PostIssueMetaCard
+          invoiceId={inv.id}
+          invoiceNumber={inv.invoiceNumber}
+          initialShowSafetyClause={inv.showSafetyClause}
+          initialNotes={inv.notes}
+        />
       ) : null}
 
       <Card>

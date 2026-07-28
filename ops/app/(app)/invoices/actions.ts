@@ -703,6 +703,7 @@ const updateMetaSchema = z.object({
     .optional()
     .nullable(),
   reverseCharge: z.boolean().optional(),
+  showSafetyClause: z.boolean().optional(),
   notes: z.string().trim().max(2000).optional().nullable(),
   deliveryAddress: z.string().trim().max(500).optional().nullable(),
   deliveryState: z.string().trim().max(80).optional().nullable(),
@@ -773,6 +774,7 @@ export async function updateInvoiceMetaAction(
               ? null
               : data.dateOfRemoval,
         reverseCharge: data.reverseCharge ?? inv.reverseCharge,
+        showSafetyClause: data.showSafetyClause ?? inv.showSafetyClause,
         notes: data.notes === undefined ? inv.notes : data.notes,
         deliveryAddress: newDeliveryAddress,
         deliveryState: newDeliveryState,
@@ -838,6 +840,74 @@ export async function updateInvoiceMetaAction(
 
   revalidatePath(`/invoices/${data.invoiceId}/edit`);
   revalidatePath(`/invoices/${data.invoiceId}`);
+  return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Post-issue meta update — deliberately narrow.
+//
+// An ISSUED invoice is a legal document; the number, dates, lines,
+// tax breakdown, and totals are frozen. But two client-visible
+// annotations can safely be edited AFTER issue without changing the
+// invoice's legal substance:
+//   • showSafetyClause — toggles a boilerplate liability disclaimer
+//     block on the PDF. No numbers change.
+//   • notes            — free-text case context printed in the
+//     declarations box. No numbers change.
+//
+// Both re-render on the very next PDF download because the PDF
+// route reads the current row on every request (no caching). This
+// action is intentionally separate from updateInvoiceMetaAction so
+// the DRAFT gate on the main path stays strict.
+// ─────────────────────────────────────────────────────────────────
+const updatePostIssueMetaSchema = z.object({
+  invoiceId: z.string().uuid(),
+  showSafetyClause: z.boolean().optional(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+});
+
+export async function updateInvoicePostIssueMetaAction(
+  input: z.input<typeof updatePostIssueMetaSchema>,
+): Promise<LineResult> {
+  const actor = await requireEmployeeOrAbove();
+  const parsed = updatePostIssueMetaSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const data = parsed.data;
+
+  const rows = await db
+    .select()
+    .from(invoices)
+    .where(eq(invoices.id, data.invoiceId));
+  const inv = rows[0];
+  if (!inv) return { ok: false, error: "Invoice not found" };
+  if (inv.status === "CANCELED") {
+    return { ok: false, error: "Cannot edit a canceled invoice." };
+  }
+
+  await db
+    .update(invoices)
+    .set({
+      showSafetyClause: data.showSafetyClause ?? inv.showSafetyClause,
+      notes: data.notes === undefined ? inv.notes : data.notes,
+    })
+    .where(eq(invoices.id, data.invoiceId));
+
+  await audit({
+    actorId: actor.id,
+    action: "INVOICE_POST_ISSUE_META_UPDATE",
+    entityType: "invoice",
+    entityId: data.invoiceId,
+    metadata: {
+      showSafetyClauseChanged: data.showSafetyClause !== undefined,
+      notesChanged: data.notes !== undefined,
+      status: inv.status,
+    },
+  });
+
+  revalidatePath(`/invoices/${data.invoiceId}`);
+  revalidatePath(`/invoices/${data.invoiceId}/edit`);
   return { ok: true };
 }
 

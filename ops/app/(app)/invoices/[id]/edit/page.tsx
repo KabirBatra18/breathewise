@@ -80,6 +80,7 @@ export default async function EditInvoicePage({
     dateOfRemoval: (inv.dateOfRemoval as unknown as string | null) ?? null,
     reverseCharge: inv.reverseCharge,
     includeLabour: inv.includeLabour,
+    showSafetyClause: inv.showSafetyClause,
     notes: inv.notes,
     placeOfSupply: inv.placeOfSupply,
     placeOfSupplyCode: inv.placeOfSupplyCode,

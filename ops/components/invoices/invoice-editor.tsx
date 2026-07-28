@@ -87,6 +87,7 @@ export interface EditorInvoice {
   dateOfRemoval: string | null;
   reverseCharge: boolean;
   includeLabour: boolean;
+  showSafetyClause: boolean;
   notes: string | null;
   placeOfSupply: string;
   placeOfSupplyCode: string;
@@ -143,6 +144,9 @@ export function InvoiceEditor({
     invoice.dateOfRemoval ?? "",
   );
   const [reverseCharge, setReverseCharge] = useState(invoice.reverseCharge);
+  const [showSafetyClause, setShowSafetyClause] = useState(
+    invoice.showSafetyClause,
+  );
   const [notes, setNotes] = useState(invoice.notes ?? "");
   const [deliveryAddress, setDeliveryAddress] = useState(
     invoice.deliveryAddress ?? "",
@@ -296,6 +300,7 @@ export function InvoiceEditor({
         issueDate,
         dateOfRemoval: dateOfRemoval.trim() === "" ? null : dateOfRemoval,
         reverseCharge,
+        showSafetyClause,
         notes: notes.trim() === "" ? null : notes,
         deliveryAddress:
           deliveryAddress.trim() === "" ? null : deliveryAddress,
@@ -531,16 +536,61 @@ export function InvoiceEditor({
             </span>
           </label>
 
+          <label className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50/40 p-3 text-sm dark:bg-amber-950/20">
+            <input
+              type="checkbox"
+              checked={showSafetyClause}
+              onChange={(e) => {
+                setShowSafetyClause(e.target.checked);
+                startMetaTransition(async () => {
+                  await updateInvoiceMetaAction({
+                    invoiceId: invoice.id,
+                    showSafetyClause: e.target.checked,
+                  });
+                });
+              }}
+              className="mt-0.5 h-4 w-4 rounded border-input"
+            />
+            <span>
+              <span className="flex items-center gap-1 font-medium">
+                Include installation safety clause
+                <HelpHint>
+                  Prints a boilerplate liability disclaimer on the invoice
+                  PDF: BreatheWise prioritises safety (moisture, heat,
+                  other environmental factors), and if the client refuses
+                  the recommended install or switches vendor mid-project,
+                  we&apos;re not responsible for subsequent issues. Tick
+                  when this applies and use the notes field below to add
+                  case-specific context.
+                </HelpHint>
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Opt-in per invoice. Off by default.
+              </span>
+            </span>
+          </label>
+
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notes (optional)</Label>
+            <Label htmlFor="notes">Case notes (printed on invoice)</Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               onBlur={saveMeta}
-              rows={2}
-              placeholder="Anything you want printed at the bottom of the invoice"
+              rows={3}
+              placeholder={
+                showSafetyClause
+                  ? "What happened — e.g. Client insisted on own electrician despite our moisture warning; installation approach deviated from BreatheWise recommendation on 20 Jun."
+                  : "Anything you want printed at the bottom of the invoice"
+              }
             />
+            <p className="text-xs text-muted-foreground">
+              Prints under the declarations block as{" "}
+              <span className="font-mono">Note: {"{your text}"}</span>.
+              {showSafetyClause
+                ? " Recommended: describe why the safety clause applies here."
+                : ""}
+            </p>
           </div>
         </CardContent>
       </Card>

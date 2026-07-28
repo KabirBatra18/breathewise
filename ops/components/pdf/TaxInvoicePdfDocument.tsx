@@ -295,16 +295,51 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     fontSize: 7.5,
   },
+  safetyBox: {
+    borderWidth: 0.5,
+    borderColor: C.accent,
+    borderStyle: "solid",
+    backgroundColor: "#FFF8E1",
+    padding: 6,
+    marginBottom: 6,
+  },
+  safetyHeader: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9,
+    color: C.accent,
+    marginBottom: 3,
+  },
+  safetyBody: {
+    fontSize: 7.5,
+    lineHeight: 1.35,
+  },
   signRow: {
     flexDirection: "row",
     marginTop: 16,
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
   },
-  signCol: { width: "45%" },
+  signCol: { width: "55%" },
   signRule: {
     borderTopWidth: 0.5,
     borderTopColor: C.text,
     paddingTop: 3,
+  },
+  eSigLine: {
+    fontSize: 7.5,
+    color: C.muted,
+    marginTop: 2,
+  },
+  eSigName: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
+    marginBottom: 1,
+  },
+  eSigBadge: {
+    fontSize: 6.5,
+    color: C.muted,
+    letterSpacing: 0.3,
+    marginTop: 4,
+    textTransform: "uppercase",
   },
   bankBox: {
     flexDirection: "row",
@@ -456,6 +491,18 @@ export interface TaxInvoicePdfData {
     branch?: string | null;
   };
   notes?: string | null;
+  /** When true, print the "Installation & Safety Disclaimer" block
+   *  above the standard declarations. Used when the client refused
+   *  BreatheWise's recommended install approach or switched vendor
+   *  mid-project — cf. migration 0021. */
+  showSafetyClause?: boolean;
+  /** Person the invoice is digitally signed on behalf of the supplier.
+   *  When set, replaces the paper "Authorised Signatory" placeholder
+   *  with a text-based e-signature line ("e-Signed by <name>"). */
+  signedBy?: {
+    name: string;
+    title?: string | null;
+  } | null;
   /** Source quote number, printed as a reference for audit. */
   sourceQuoteNumber?: string | null;
   /** When true, every copy gets a diagonal CANCELED stamp + a small
@@ -803,6 +850,32 @@ function InvoicePage({
         </View>
       ) : null}
 
+      {/* ── Installation & Safety Disclaimer (opt-in per invoice) ───── */}
+      {data.showSafetyClause ? (
+        <View style={styles.safetyBox} wrap={false}>
+          <Text style={styles.safetyHeader}>
+            Installation &amp; Safety Disclaimer
+          </Text>
+          <Text style={styles.safetyBody}>
+            {data.supplier.brandName ?? data.supplier.legalName} prioritises
+            safety above all else — including moisture control, heat
+            management, and other environmental factors that impact system
+            integrity and long-term performance.{"\n\n"}
+            In the event that the client (i) refuses to permit us to complete
+            the installation as originally scoped, or (ii) chooses to change
+            or engage another vendor at any stage — before or during
+            installation — {data.supplier.brandName ?? data.supplier.legalName}{" "}
+            shall not be held responsible for any subsequent malfunction,
+            damage, hazard, or mishap arising from installation work carried
+            out by other parties or from deviations from our recommended
+            installation approach.{"\n\n"}
+            Our warranty and performance guarantees apply exclusively to
+            installations completed end-to-end by us. Any case-specific
+            context is recorded in the Note below.
+          </Text>
+        </View>
+      ) : null}
+
       {/* ── Declarations ────────────────────────────────────────────── */}
       <View style={styles.declarationBox}>
         <Text>
@@ -822,31 +895,45 @@ function InvoicePage({
         {data.notes ? <Text>{"\n"}Note: {data.notes}</Text> : null}
       </View>
 
-      {/* ── Signatures ──────────────────────────────────────────────── */}
+      {/* ── E-signature ─────────────────────────────────────────────
+          Text-based digital signature block. Replaces the old
+          "Customer signature & seal" + "Authorised Signatory"
+          double-signature layout — invoices are shared digitally,
+          so the customer paper-sign line was never signed anyway. */}
       <View style={styles.signRow} wrap={false}>
-        <View style={styles.signCol}>
-          <View style={styles.signRule}>
-            <Text style={{ fontSize: 7.5, color: C.muted }}>
-              Customer signature &amp; seal
-            </Text>
-          </View>
-        </View>
         <View style={styles.signCol}>
           <View style={{ alignItems: "flex-end" }}>
             <Text
               style={{
                 fontSize: 8.5,
                 fontFamily: "Helvetica-Bold",
-                marginBottom: 18,
+                marginBottom: 6,
               }}
             >
               For {data.supplier.legalName}
             </Text>
-            <View style={[styles.signRule, { width: "100%" }]}>
-              <Text style={{ fontSize: 7.5, color: C.muted, textAlign: "right" }}>
-                Authorised Signatory
-              </Text>
-            </View>
+            {data.signedBy ? (
+              <>
+                <Text style={styles.eSigName}>{data.signedBy.name}</Text>
+                {data.signedBy.title ? (
+                  <Text style={styles.eSigLine}>{data.signedBy.title}</Text>
+                ) : null}
+                <Text style={styles.eSigLine}>
+                  Digitally signed on {data.issueDate}
+                </Text>
+                <Text style={styles.eSigBadge}>
+                  e-Signature · Invoice {data.invoiceNumber}
+                </Text>
+              </>
+            ) : (
+              <View style={[styles.signRule, { width: "100%", marginTop: 14 }]}>
+                <Text
+                  style={{ fontSize: 7.5, color: C.muted, textAlign: "right" }}
+                >
+                  Authorised Signatory
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </View>

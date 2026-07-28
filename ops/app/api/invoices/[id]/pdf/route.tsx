@@ -3,7 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { invoiceLines, invoices, quotes, verticals } from "@/db/schema";
+import { invoiceLines, invoices, quotes, users, verticals } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/server";
 import {
   TaxInvoicePdfDocument,
@@ -75,6 +75,18 @@ export async function GET(
     .where(eq(verticals.id, inv.primaryVerticalId))
     .limit(1);
   const vertical = verticalRow[0];
+
+  // The e-signature line names the user who created the invoice.
+  // Falls back to the supplier's legal name if the createdBy row was
+  // hard-deleted (unlikely — user delete is guarded, but be safe).
+  const signerRow = inv.createdBy
+    ? await db
+        .select({ fullName: users.fullName, role: users.role })
+        .from(users)
+        .where(eq(users.id, inv.createdBy))
+        .limit(1)
+    : [];
+  const signer = signerRow[0];
 
   const issueDateFormatted = (() => {
     try {
@@ -185,6 +197,16 @@ export async function GET(
       branch: inv.bankBranch,
     },
     notes: inv.notes,
+    showSafetyClause: inv.showSafetyClause,
+    signedBy: signer
+      ? {
+          name: signer.fullName ?? "Authorised Signatory",
+          title:
+            signer.role === "OWNER"
+              ? "Founder & Authorised Signatory"
+              : "Authorised Signatory",
+        }
+      : null,
     sourceQuoteNumber,
     canceled: inv.status === "CANCELED",
     canceledOn:
